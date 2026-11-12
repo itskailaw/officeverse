@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Box, CalendarPlus, LayoutDashboard, Settings } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
@@ -10,13 +11,14 @@ import { StatusBadge } from "./EmployeePanel";
 
 /** Simplified layout for phones, where the full 3D office is too heavy. */
 export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
-  const employees = useOffice((s) => s.employees.filter((e) => e.active));
+  const all = useOffice((s) => s.employees);
+  const employees = useMemo(() => all.filter((e) => e.active), [all]);
   const demo = useOffice((s) => s.settings.demoMode);
   const pending = useOffice((s) => s.tasks.filter((t) => t.status === "queued").length);
   const unread = useOffice((s) => s.notifications.filter((n) => !n.read).length);
   const set = useUI((s) => s.set);
   return (
-    <div className="min-h-dvh bg-slate-50 pb-10">
+    <div className="h-dvh overflow-y-auto bg-slate-50 pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <div className="grid h-8 w-8 place-items-center rounded-lg bg-navy text-sm font-bold text-white">OV</div>
         <div className="flex-1 leading-tight">
