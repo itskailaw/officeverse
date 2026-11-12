@@ -1,0 +1,46 @@
+# OfficeVerse
+
+**Your Business. Your People. Your Universe.**
+
+OfficeVerse is a 3D virtual headquarters, inspired by life-simulation games, where you manage your companies through AI employees.
+This repository contains **Phase 1: the functional virtual office**. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the architecture, schema, layout, movement design, AI task pipeline, marketplace strategy and the phased plan.
+
+## Quick start
+
+```bash
+npm install
+npm run dev        # http://localhost:3000
+```
+
+Without any environment variables the app runs in **local mode**: all data lives in your browser, and business metrics appear only as clearly labelled **demo data**. You can turn demo mode off in Settings → Data & system.
+
+### Enable accounts & cloud sync (Supabase)
+
+1. Create a Supabase project and run `supabase/migrations/0001_init.sql`, either in the SQL editor or with `supabase db push`.
+2. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+3. Restart. `/office` now requires sign-in. On first sign-in your workspace is created and seeded, and every change after that syncs automatically under row-level security.
+
+Deploy to Vercel as a standard Next.js app with the same env vars.
+
+## What works in Phase 1
+
+- Isometric 3D office: 11 areas, automatic sliding doors, glass partitions, three wall modes, and day, evening, night and auto (MYT) lighting.
+- 22 AI employees plus your CEO avatar. They walk on an A*-pathfound navigation grid with collision against walls and furniture, sit at their own desks, take lounge breaks and recover if stuck.
+- Click the floor to walk. Click an employee to open their profile and use **Visit**, **Summon**, **Break** or **To desk**. Press and drag an employee to pick them up; drop them on a free desk to reassign it.
+- Click your desk for the **Executive Dashboard**: company and department filters, KPIs, revenue chart, tasks, meetings, notifications, activity and audit log.
+- Tasks are persisted and queued. AI execution arrives in Phase 2, and nothing pretends to run before then.
+- **Meetings**: pick attendees and they walk to the meeting table. Record notes, decisions and action items (which become tasks); ending the meeting saves a summary.
+- Create, rename, deactivate or delete companies and departments. Hire, edit or deactivate employees.
+- **Build mode**: drag and rotate furniture; employees re-route. Change wall, trim and floor colours, the CEO avatar and the photo frames. Everything persists and can be reset to default.
+- Phones and browsers without WebGL get a simplified dashboard.
+
+**Controls:** left-drag pans · right-drag rotates · scroll zooms · Q/E rotate 90° · WASD/arrows pan · R rotates furniture in build mode · Esc deselects.
+
+## Scripts
+
+| | |
+|---|---|
+| `npm run dev` | development server |
+| `npm run build` / `npm start` | production build / serve |
+| `npm run typecheck` | TypeScript |
+| `npm test` | navigation & simulation tests (Node test runner) |
