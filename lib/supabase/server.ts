@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 /** Server-side Supabase client bound to the request's auth cookies. */
 export async function getServerSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const anon = (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   if (!url || !anon) return null;
   const store = await cookies();
   return createServerClient(url, anon, {

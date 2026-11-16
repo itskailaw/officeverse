@@ -17,7 +17,7 @@ Without any environment variables the app runs in **local mode**: all data lives
 ### Enable accounts & cloud sync (Supabase)
 
 1. Create a Supabase project and run `supabase/migrations/0001_init.sql`, either in the SQL editor or with `supabase db push`.
-2. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+2. Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or the older `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
 3. Restart. `/office` now requires sign-in. On first sign-in your workspace is created and seeded, and every change after that syncs automatically under row-level security.
 
 Deploy to Vercel as a standard Next.js app with the same env vars.

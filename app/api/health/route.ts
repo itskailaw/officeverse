@@ -8,7 +8,7 @@ export function GET() {
     {
       ok: true,
       phase: 1,
-      supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+      supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)),
       ai: Boolean(process.env.AI_API_KEY),
       integrations: 0,
       timezone: "Asia/Kuala_Lumpur",

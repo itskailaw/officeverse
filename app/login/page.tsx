@@ -71,7 +71,7 @@ export default function LoginPage() {
               labelled demo data.
             </p>
             <p className="text-xs text-slate-500">
-              Set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to enable accounts, cloud sync and realtime.
+              Set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> to enable accounts, cloud sync and realtime.
             </p>
             <Button asChild className="w-full">
               <Link href="/office">Enter the office (local mode)</Link>
