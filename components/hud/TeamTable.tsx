@@ -47,7 +47,7 @@ export function TeamTable() {
           <UserPlus /> Hire AI employee
         </Button>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-panel">
         <table className="w-full min-w-[720px] text-xs">
           <thead className="bg-slate-50 text-left text-[10px] uppercase tracking-wide text-slate-500">
             <tr>

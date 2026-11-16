@@ -385,7 +385,23 @@ export const useOffice = create<OfficeState>()(
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<OfficeData>;
-        return { ...current, ...p, settings: { ...DEFAULT_SETTINGS, ...(p.settings ?? {}) } };
+        const merged = { ...current, ...p, settings: { ...DEFAULT_SETTINGS, ...(p.settings ?? {}) } };
+        // forward-migrate older saves: add newly introduced default furniture
+        if (p.furniture) {
+          const have = new Set(p.furniture.map((f) => f.id));
+          merged.furniture = [...p.furniture, ...DEFAULT_LAYOUT.furniture.filter((f) => !have.has(f.id))];
+        }
+        // ...and give seeded employees their default outfit if they have none yet
+        if (p.employees) {
+          merged.employees = p.employees.map((e) => {
+            const seed = SEED_EMPLOYEES.find((s) => s.id === e.id);
+            return !e.appearance.outfit && seed ? { ...e, appearance: { ...e.appearance, outfit: seed.appearance.outfit } } : e;
+          });
+        }
+        if (merged.settings.ceoAppearance && !merged.settings.ceoAppearance.outfit) {
+          merged.settings = { ...merged.settings, ceoAppearance: { ...merged.settings.ceoAppearance, outfit: "blazer" } };
+        }
+        return merged;
       },
     },
   ),

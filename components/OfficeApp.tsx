@@ -7,10 +7,12 @@ import { LogOut } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { useSimBridge } from "@/lib/office/useSimBridge";
+import { resolveLighting } from "@/lib/office/lighting";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { ensureWorkspace, startSync } from "@/lib/data/sync";
 import { Button } from "@/components/ui/button";
-import { BuildPanel, CameraControls, HelpHint, NotificationsPanel, Toasts, Toolbar, TopBar } from "./hud/Chrome";
+import { BuildPanel, CameraControls, NotificationsPanel, Toasts, Toolbar, TopBar } from "./hud/Chrome";
+import { Minimap, TourButton, WelcomeTour } from "./hud/Extras";
 import { EmployeePanel } from "./hud/EmployeePanel";
 import { ExecutiveDashboard } from "./hud/ExecutiveDashboard";
 import { EmployeeEditor } from "./hud/EmployeeEditor";
@@ -43,6 +45,21 @@ function webglAvailable() {
   }
 }
 
+/** Applies the `dark` class for the panels: explicit choice, or follow the office lighting. */
+function useThemeClass() {
+  const theme = useOffice((s) => s.settings.uiTheme);
+  const lighting = useOffice((s) => s.settings.lighting);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    const dark = theme === "dark" || (theme === "auto" && resolveLighting(lighting) !== "day");
+    document.documentElement.classList.toggle("dark", dark);
+  }, [theme, lighting, tick]);
+}
+
 type Phase = "booting" | "auth-required" | "ready" | "error";
 
 export default function OfficeApp() {
@@ -56,6 +73,7 @@ export default function OfficeApp() {
   const selected = useUI((s) => s.selectedEmployeeId);
 
   useSimBridge();
+  useThemeClass();
 
   useEffect(() => {
     setGl(webglAvailable());
@@ -101,7 +119,7 @@ export default function OfficeApp() {
   if (phase === "error")
     return (
       <div className="grid h-full place-items-center bg-slate-100 p-6">
-        <div className="max-w-md rounded-2xl bg-white p-6 text-center shadow">
+        <div className="max-w-md rounded-2xl bg-panel p-6 text-center shadow">
           <div className="text-base font-semibold text-slate-900">Couldn&apos;t connect to your workspace</div>
           <p className="mt-2 text-sm text-slate-600">{error}</p>
           <p className="mt-2 text-xs text-slate-500">Check that the Supabase migration has been applied, then retry.</p>
@@ -164,8 +182,10 @@ export default function OfficeApp() {
         <MeetingPanel />
         <BuildPanel />
         <CameraControls />
-        <HelpHint />
+        <Minimap />
+        <TourButton />
       </div>
+      <WelcomeTour />
       {dialogs}
     </main>
   );

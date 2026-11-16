@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Database, Download, ImagePlus, Lamp, Moon, RotateCcw, Sun, Sunset, Trash2, User } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
-import type { LightingMode, WallMode } from "@/lib/data/types";
+import type { LightingMode, UITheme, WallMode } from "@/lib/data/types";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ const MAX_UPLOAD = 5 * 1024 * 1024;
 const ALLOWED = ["image/png", "image/jpeg", "image/webp"];
 
 /** Validate + downscale an image to a compact JPEG data URL. */
-async function toFrameImage(file: File): Promise<string> {
+async function toFrameImage(file: File, type: "image/jpeg" | "image/png" = "image/jpeg"): Promise<string> {
   if (!ALLOWED.includes(file.type)) throw new Error("Use a PNG, JPEG or WebP image.");
   if (file.size > MAX_UPLOAD) throw new Error("Image must be under 5 MB.");
   const bmp = await createImageBitmap(file);
@@ -26,7 +26,7 @@ async function toFrameImage(file: File): Promise<string> {
   c.width = Math.round(bmp.width * scale);
   c.height = Math.round(bmp.height * scale);
   c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
-  return c.toDataURL("image/jpeg", 0.85);
+  return c.toDataURL(type, 0.85);
 }
 
 interface Health {
@@ -136,6 +136,58 @@ export function SettingsDialog() {
               <ColorSetting label="Accent / trim" value={st.accentColor} onChange={(v) => s.updateSettings({ accentColor: v })} />
               <ColorSetting label="Wood floors" value={st.floorWood} onChange={(v) => s.updateSettings({ floorWood: v })} />
             </div>
+            <div>
+              <Label>Interface theme</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["light", "Light"],
+                    ["dark", "Dark"],
+                    ["auto", "Match lighting"],
+                  ] as [UITheme, string][]
+                ).map(([v, label]) => (
+                  <Button key={v} variant={st.uiTheme === v ? "default" : "outline"} size="sm" onClick={() => s.updateSettings({ uiTheme: v })}>
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label>Company logo (reception screen & top bar)</Label>
+              <div className="flex items-center gap-3">
+                <label className="flex h-14 w-28 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 hover:border-navy/40">
+                  {st.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={st.logoUrl} alt="Logo" className="h-full w-full object-contain p-1" />
+                  ) : (
+                    <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                      <ImagePlus className="h-4 w-4" /> Upload
+                    </span>
+                  )}
+                  <input
+                    type="file"
+                    accept={ALLOWED.join(",")}
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      try {
+                        s.updateSettings({ logoUrl: await toFrameImage(f, "image/png") });
+                        toast("success", "Logo updated");
+                      } catch (err) {
+                        toast("error", err instanceof Error ? err.message : "Upload failed");
+                      }
+                    }}
+                  />
+                </label>
+                {st.logoUrl && (
+                  <Button variant="ghost" size="sm" onClick={() => s.updateSettings({ logoUrl: null })}>
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+            <Toggle label="Activity bubbles" hint="Show what each employee is doing above their head." checked={st.showBubbles} onChange={(v) => s.updateSettings({ showBubbles: v })} />
             <Toggle label="Always show name tags" checked={st.showNameTags} onChange={(v) => s.updateSettings({ showNameTags: v })} />
             <Toggle
               label="Ambient office life"

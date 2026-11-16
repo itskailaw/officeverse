@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, timeAgo } from "@/lib/utils";
+import { cn, klHour, klTime, timeAgo } from "@/lib/utils";
 import { CompaniesManager } from "./CompaniesManager";
 import { TeamTable } from "./TeamTable";
 import { StatusBadge, TaskRow } from "./EmployeePanel";
@@ -120,6 +120,7 @@ function Overview() {
 
   return (
     <div className="space-y-4">
+      <Hero />
       <div className="flex flex-wrap items-center gap-2">
         <Select className="w-auto" value={companyFilter} onChange={(e) => set({ companyFilter: e.target.value })} aria-label="Company filter">
           <option value="all">All companies</option>
@@ -153,7 +154,7 @@ function Overview() {
           </span>
         </div>
       ) : (
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-panel px-3 py-2 text-xs text-slate-600">
           <PlugZap className="h-4 w-4 shrink-0" />
           No marketplace or business integrations are connected. Metrics show <b>Data Unavailable</b> until Shopee / Lazada APIs or CSV imports are set up (Phase 3).
           <span className="ml-auto whitespace-nowrap text-slate-400">Last successful sync: never</span>
@@ -189,7 +190,7 @@ function Overview() {
           <CardContent className="scrollbar-thin max-h-72 space-y-2 overflow-y-auto">
             {meetings.length ? (
               meetings.slice(0, 6).map((m) => (
-                <div key={m.id} className="rounded-lg border border-slate-200 bg-white p-2.5">
+                <div key={m.id} className="rounded-lg border border-slate-200 bg-panel p-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-medium">{m.topic}</span>
                     <Badge variant={m.status === "in_progress" ? "success" : "secondary"}>{m.status === "in_progress" ? "In progress" : m.status === "ended" ? "Ended" : "Scheduled"}</Badge>
@@ -213,7 +214,7 @@ function Overview() {
           <CardContent className="scrollbar-thin max-h-72 space-y-2 overflow-y-auto">
             {notifications.length ? (
               notifications.slice(0, 10).map((n) => (
-                <div key={n.id} className={cn("rounded-lg border p-2.5", n.read ? "border-slate-100 bg-white" : "border-sky-200 bg-sky-50/60")}>
+                <div key={n.id} className={cn("rounded-lg border p-2.5", n.read ? "border-slate-100 bg-panel" : "border-sky-200 bg-sky-50/60")}>
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
                     <PriorityDot p={n.priority} />
                     {n.title}
@@ -273,6 +274,64 @@ function Overview() {
   );
 }
 
+function greeting() {
+  const h = klHour();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
+
+/** Top-of-dashboard summary: what actually needs the CEO today. */
+function Hero() {
+  const ceoName = useOffice((s) => s.settings.ceoName);
+  const demo = useOffice((s) => s.settings.demoMode);
+  const tasks = useOffice((s) => s.tasks);
+  const notifications = useOffice((s) => s.notifications);
+  const live = useOffice((s) => s.meetings.find((m) => m.status === "in_progress"));
+  const set = useUI((s) => s.set);
+  const d = useMemo(() => (demo ? demoEcommerce() : null), [demo]);
+
+  const items: { label: string; demo?: boolean; tone: "red" | "amber" | "sky"; onClick?: () => void }[] = [];
+  const urgent = notifications.filter((n) => !n.read && n.priority !== "info").length;
+  if (urgent) items.push({ label: `${urgent} unread important alert${urgent > 1 ? "s" : ""}`, tone: "red", onClick: () => set({ dialog: null, notificationsOpen: true }) });
+  if (live) items.push({ label: `Meeting in progress: ${live.topic}`, tone: "sky", onClick: () => set({ dialog: null }) });
+  const queued = tasks.filter((t) => t.status === "queued").length;
+  if (queued) items.push({ label: `${queued} task${queued > 1 ? "s" : ""} queued for the AI engine`, tone: "sky", onClick: () => set({ dashboardTab: "tasks" }) });
+  if (d) {
+    if (d.parcels.priority) items.push({ label: `${d.parcels.priority} priority parcels to ship`, tone: "amber", demo: true });
+    const low = d.ads.find((a) => a.daysLeft < 4);
+    if (low) items.push({ label: `${low.platform} Ads credit ~${low.daysLeft.toFixed(1)} days left`, tone: "amber", demo: true });
+    if (d.lowStock.length) items.push({ label: `${d.lowStock.length} products low on stock`, tone: "amber", demo: true });
+  }
+  const tone = { red: "bg-red-500/20 text-red-50 ring-red-300/40", amber: "bg-amber-400/20 text-amber-50 ring-amber-200/40", sky: "bg-sky-400/20 text-sky-50 ring-sky-200/40" };
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#13263f] via-[#1e3a5f] to-[#2b5a8f] p-5 text-white shadow-lg">
+      <div className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-sky-400/20 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-20 right-32 h-40 w-40 rounded-full bg-amber-300/10 blur-2xl" />
+      <div className="text-xs text-sky-200">{klTime(new Date(), { weekday: "long", day: "numeric", month: "long" })} · Malaysia time</div>
+      <div className="mt-1 text-xl font-semibold">
+        {greeting()}, {ceoName}
+      </div>
+      <div className="mt-0.5 text-sm text-sky-100/90">
+        {items.length ? `${items.length} thing${items.length > 1 ? "s" : ""} need${items.length > 1 ? "" : "s"} your attention today.` : "Nothing needs you right now — the office is running smoothly."}
+      </div>
+      {items.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {items.map((it, i) => (
+            <button
+              key={i}
+              onClick={it.onClick}
+              disabled={!it.onClick}
+              className={cn("flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 transition enabled:hover:brightness-125", tone[it.tone])}
+            >
+              {it.label}
+              {it.demo && <span className="rounded bg-amber-300 px-1 text-[9px] font-bold text-amber-950">DEMO</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DataSourceBadge({ demo }: { demo: boolean }) {
   return demo ? (
     <Badge variant="demo">
@@ -287,7 +346,7 @@ function DataSourceBadge({ demo }: { demo: boolean }) {
 
 function Kpi({ icon, label, value, sub, warn, demo }: { icon: React.ReactNode; label: string; value: string | null; sub?: string; warn?: boolean; demo: boolean }) {
   return (
-    <div className={cn("rounded-xl border bg-white p-3.5 shadow-sm", warn ? "border-amber-300" : "border-slate-200")}>
+    <div className={cn("rounded-xl border bg-panel p-3.5 shadow-sm", warn ? "border-amber-300" : "border-slate-200")}>
       <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-slate-500 [&_svg]:h-3.5 [&_svg]:w-3.5">
         <span className="flex items-center gap-1.5">
           {icon}
@@ -350,7 +409,7 @@ function EcommerceSection({ demo }: { demo: boolean }) {
           />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-3 lg:col-span-2">
+          <div className="rounded-xl border border-slate-200 bg-panel p-3 lg:col-span-2">
             <div className="mb-2 flex items-center justify-between">
               <div className="text-xs font-semibold text-slate-700">Revenue trend by platform (MYR)</div>
               <div className="flex gap-1">
@@ -401,7 +460,7 @@ function EcommerceSection({ demo }: { demo: boolean }) {
               </div>
             )}
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="rounded-xl border border-slate-200 bg-panel p-3">
             <div className="mb-2 text-xs font-semibold text-slate-700">Best-selling products</div>
             {d ? (
               <table className="w-full text-xs">

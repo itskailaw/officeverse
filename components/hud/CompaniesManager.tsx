@@ -74,7 +74,7 @@ function DeptRow({ d }: { d: Department }) {
     return r.ok;
   };
   return (
-    <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-white px-3 py-2">
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-panel px-3 py-2">
       <div className="min-w-0">
         <InlineEdit value={d.name} className="text-sm font-medium text-slate-800" onSave={(v) => run(s.updateDepartment(d.id, { name: v }))} />
         <div className="text-[11px] text-slate-500">

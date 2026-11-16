@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, timeAgo } from "@/lib/utils";
+import { departmentColor } from "@/lib/data/brand";
 import { Avatar } from "./Avatar";
 
 const TASK_STATUS: Record<Task["status"], { label: string; cls: string }> = {
@@ -56,7 +57,7 @@ export function TaskRow({ t, showEmployee }: { t: Task; showEmployee?: boolean }
   const emp = useOffice((s) => s.employees.find((e) => e.id === t.employeeId));
   const st = TASK_STATUS[t.status];
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
+    <div className="rounded-lg border border-slate-200 bg-panel p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-slate-800">{t.title}</div>
@@ -87,7 +88,8 @@ export function EmployeePanel() {
   const toast = useUI((s) => s.toast);
   const emp = useOffice((s) => s.employees.find((e) => e.id === id));
   const dept = useOffice((s) => s.departments.find((d) => d.id === emp?.departmentId));
-  const company = useOffice((s) => s.companies.find((c) => c.id === emp?.companyId));
+  const companies = useOffice((s) => s.companies);
+  const company = companies.find((c) => c.id === emp?.companyId);
   const allTasks = useOffice((s) => s.tasks);
   const allActivity = useOffice((s) => s.activity);
   const assignTask = useOffice((s) => s.assignTask);
@@ -100,6 +102,7 @@ export function EmployeePanel() {
 
   if (!emp) return null;
   const sim = getSim();
+  const accent = departmentColor(dept, companies);
   const inMeeting = emp.status === "in_meeting";
   const queued = tasks.filter((t) => t.status === "queued").length;
   const completed = tasks.filter((t) => t.status === "completed").length;
@@ -115,13 +118,17 @@ export function EmployeePanel() {
   };
 
   return (
-    <aside className="anim-panel pointer-events-auto absolute bottom-3 right-3 top-[68px] z-30 flex w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur">
-      <div className="relative border-b border-slate-100 p-4">
+    <aside className="anim-panel pointer-events-auto absolute bottom-3 right-3 top-[68px] z-30 flex w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-panel/95 shadow-2xl backdrop-blur">
+      <div
+        className="relative border-b border-slate-100 p-4"
+        style={{ backgroundImage: `linear-gradient(135deg, ${accent}33 0%, ${accent}10 45%, transparent 75%)` }}
+      >
+        <div className="absolute inset-x-0 top-0 h-1" style={{ background: accent }} />
         <button className="absolute right-3 top-3 rounded-md p-1 text-slate-400 hover:bg-slate-100" onClick={() => set({ selectedEmployeeId: null })} aria-label="Close">
           <X className="h-4 w-4" />
         </button>
         <div className="flex items-center gap-3">
-          <Avatar appearance={emp.appearance} size={52} />
+          <Avatar appearance={emp.appearance} size={56} ring={accent} />
           <div className="min-w-0">
             <div className="truncate text-base font-semibold text-slate-900">{emp.name}</div>
             <div className="truncate text-xs text-slate-500">{emp.title}</div>
@@ -307,7 +314,7 @@ function QuickAction({ icon, label, onClick, disabled }: { icon: React.ReactNode
     <button
       disabled={disabled}
       onClick={onClick}
-      className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-white py-2 text-[11px] font-medium text-slate-700 transition hover:border-navy/30 hover:bg-slate-50 disabled:opacity-40 [&_svg]:h-4 [&_svg]:w-4"
+      className="flex flex-col items-center gap-1 rounded-lg border border-slate-200 bg-panel py-2 text-[11px] font-medium text-slate-700 transition hover:border-navy/30 hover:bg-slate-50 disabled:opacity-40 [&_svg]:h-4 [&_svg]:w-4"
     >
       {icon}
       {label}

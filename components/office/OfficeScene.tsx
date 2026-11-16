@@ -12,8 +12,9 @@ import type { FurnitureItem, LightingMode, Room } from "@/lib/data/types";
 import { CATALOG, sizeOf } from "@/lib/office/catalog";
 import { CEO_DESK_ID, MEETING_TABLE_ID, ROOMS } from "@/lib/office/layout";
 import { getSim } from "@/lib/office/runtime";
-import { klHour } from "@/lib/utils";
-import { Building, RoomLabels } from "./Building";
+import { resolveLighting } from "@/lib/office/lighting";
+import { departmentColor } from "@/lib/data/brand";
+import { Building, RoomLabels, type Brand } from "./Building";
 import { FurnitureVisual } from "./Furniture";
 import { Character } from "./Character";
 import { meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
@@ -23,25 +24,48 @@ const pressedKeys = new Set<string>();
 const ISO_OFFSET = new THREE.Vector3(26, 30, 30);
 
 // ------------------------------------------------------------------ lighting
-function resolveLighting(mode: LightingMode): Exclude<LightingMode, "auto"> {
-  if (mode !== "auto") return mode;
-  const h = klHour();
-  if (h >= 7 && h < 17.5) return "day";
-  if (h >= 17.5 && h < 19.75) return "evening";
-  return "night";
-}
-
-function Lighting({ mode }: { mode: LightingMode }) {
+/** Current lighting mode, re-evaluated every minute when set to "auto". */
+function useLightMode(mode: LightingMode) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (mode !== "auto") return;
     const t = setInterval(() => setTick((n) => n + 1), 60000);
     return () => clearInterval(t);
   }, [mode]);
-  const lm = useMemo(() => resolveLighting(mode), [mode, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => resolveLighting(mode), [mode, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+const SKY: Record<Exclude<LightingMode, "auto">, [string, string]> = {
+  day: ["#9cc7ee", "#e8f1f8"],
+  evening: ["#5b6fb0", "#f6b48a"],
+  night: ["#050a18", "#1a2a4a"],
+};
+
+function skyTexture(top: string, bottom: string) {
+  const c = document.createElement("canvas");
+  c.width = 4;
+  c.height = 512;
+  const g = c.getContext("2d")!;
+  const grad = g.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, top);
+  grad.addColorStop(1, bottom);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 512);
+  if (top === SKY.night[0]) {
+    g.fillStyle = "rgba(255,255,255,0.8)";
+    for (let i = 0; i < 40; i++) g.fillRect(Math.random() * 4, Math.random() * 300, 1, 1);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function Lighting({ lm }: { lm: Exclude<LightingMode, "auto"> }) {
   const { scene } = useThree();
   useEffect(() => {
-    scene.background = new THREE.Color(lm === "day" ? "#dbe7f3" : lm === "evening" ? "#f3d2b3" : "#0b1424");
+    const tex = skyTexture(...SKY[lm]);
+    scene.background = tex;
+    return () => tex.dispose();
   }, [lm, scene]);
   const sunRef = useRef<THREE.DirectionalLight>(null);
   useEffect(() => {
@@ -229,7 +253,36 @@ function useTextureFromUrl(url: string | null) {
   return tex;
 }
 
-function FurnitureLayer() {
+/** Room → brand (department name + company colour, or a fixed colour for shared departments). */
+function useBrands(): Record<string, Brand | undefined> {
+  const departments = useOffice((s) => s.departments);
+  const companies = useOffice((s) => s.companies);
+  return useMemo(() => {
+    const out: Record<string, Brand | undefined> = {};
+    for (const r of ROOMS) {
+      const dept = departments.find((d) => d.id === r.departmentId);
+      if (!dept || !dept.active) continue;
+      const color = departmentColor(dept, companies);
+      out[r.id] = { name: r.id === "ceo" ? "CEO Office" : dept.name, color };
+    }
+    return out;
+  }, [departments, companies]);
+}
+
+/** Loads an image element (for drawing into canvas textures). */
+function useTextureImage(url: string | null) {
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!url) return setImg(null);
+    const i = new Image();
+    i.onload = () => setImg(i);
+    i.src = url;
+  }, [url]);
+  return img;
+}
+
+function FurnitureLayer({ night, brands }: { night: boolean; brands: Record<string, Brand | undefined> }) {
+  const [hoverId, setHoverId] = useState<string | null>(null);
   const furniture = useOffice((s) => s.furniture);
   const settings = useOffice((s) => s.settings);
   const companies = useOffice((s) => s.companies);
@@ -244,7 +297,8 @@ function FurnitureLayer() {
   const frames = useMemo(() => [f0, f1, f2], [f0, f1, f2]);
 
   const perfTex = useMemo(() => perfScreenTexture(settings.demoMode), [settings.demoMode]);
-  const recTex = useMemo(() => receptionTexture(companies), [companies]);
+  const logo = useTextureImage(settings.logoUrl);
+  const recTex = useMemo(() => receptionTexture(companies, logo), [companies, logo]);
   const meetTex = useMemo(() => meetingTexture(liveMeeting), [liveMeeting]);
   useEffect(() => () => perfTex.dispose(), [perfTex]);
   useEffect(() => () => recTex.dispose(), [recTex]);
@@ -293,10 +347,31 @@ function FurnitureLayer() {
             rotation={[0, item.rot, 0]}
             onPointerDown={interactive ? onDown(item) : undefined}
             onClick={interactive ? onClick(item) : undefined}
-            onPointerOver={interactive ? () => (document.body.style.cursor = "pointer") : undefined}
-            onPointerOut={interactive ? () => (document.body.style.cursor = "") : undefined}
+            onPointerOver={
+              interactive
+                ? (e) => {
+                    e.stopPropagation();
+                    document.body.style.cursor = "pointer";
+                    setHoverId(item.id);
+                  }
+                : undefined
+            }
+            onPointerOut={
+              interactive
+                ? () => {
+                    document.body.style.cursor = "";
+                    setHoverId((h) => (h === item.id ? null : h));
+                  }
+                : undefined
+            }
           >
-            <FurnitureVisual item={item} frames={frames} screenTex={tex} />
+            <FurnitureVisual item={item} frames={frames} screenTex={tex} night={night} brand={item.type === "standee" ? brands[item.roomId] : undefined} />
+            {mode === "live" && hoverId === item.id && (
+              <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[w + 0.5, dd + 0.5]} />
+                <meshBasicMaterial color="#fbbf24" transparent opacity={0.35} depthWrite={false} toneMapped={false} />
+              </mesh>
+            )}
             {mode === "build" && (
               <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[w + 0.08, dd + 0.08]} />
@@ -318,6 +393,7 @@ function Agents() {
   const ceoName = useOffice((s) => s.settings.ceoName);
   const ceoLook = useOffice((s) => s.settings.ceoAppearance);
   const showTags = useOffice((s) => s.settings.showNameTags);
+  const showBubbles = useOffice((s) => s.settings.showBubbles);
   const selected = useUI((s) => s.selectedEmployeeId);
   const hovered = useUI((s) => s.hoveredId);
   const held = useUI((s) => s.heldId);
@@ -369,6 +445,7 @@ function Agents() {
           selected={selected === e.id}
           hovered={hovered === e.id}
           showTag={showTags}
+          showBubble={showBubbles}
           dimmed={held === e.id}
           onHover={(on) => {
             useUI.getState().set({ hoveredId: on ? e.id : null });
@@ -385,6 +462,7 @@ function Agents() {
             ev.stopPropagation();
             if (ev.delta > 6 || useUI.getState().heldId) return;
             useUI.getState().set({ selectedEmployeeId: e.id, selectedFurnitureId: null });
+            getSim().wave(e.id);
           }}
         />
       ))}
@@ -480,6 +558,9 @@ export default function OfficeScene() {
   const held = useUI((s) => s.heldId);
   const dragging = useUI((s) => s.draggingFurniture);
   const rotateSelected = useOffice((s) => s.moveFurniture);
+  const lm = useLightMode(settings.lighting);
+  const night = lm !== "day";
+  const brands = useBrands();
 
   // R rotates the selected furniture in build mode; Esc clears selection
   useEffect(() => {
@@ -515,10 +596,10 @@ export default function OfficeScene() {
         touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }}
       />
       <CameraRig />
-      <Lighting mode={settings.lighting} />
+      <Lighting lm={lm} />
       <Suspense fallback={null}>
-        <Building walls={settings.walls} wallColor={settings.wallColor} accent={settings.accentColor} wood={settings.floorWood} />
-        <FurnitureLayer />
+        <Building walls={settings.walls} wallColor={settings.wallColor} accent={settings.accentColor} wood={settings.floorWood} night={night} brands={brands} />
+        <FurnitureLayer night={night} brands={brands} />
         <Agents />
         <InteractionPlane />
         <Labels />

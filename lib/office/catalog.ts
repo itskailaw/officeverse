@@ -115,6 +115,17 @@ export const CATALOG: Record<FurnitureType, CatalogEntry> = {
   rug: { label: "Rug", size: [3.0, 2.0], blocks: false, seats: [], movable: true },
   tv_screen: { label: "Display screen", size: [2.0, 0.3], blocks: true, seats: [], movable: true },
   photo_frames: { label: "Photo frames", size: [1.2, 0.35], blocks: true, seats: [], movable: true },
+  floor_lamp: { label: "Floor lamp", size: [0.4, 0.4], blocks: true, seats: [], movable: true },
+  pendant_light: { label: "Pendant light", size: [0.5, 0.5], blocks: false, seats: [], movable: true },
+  fridge: { label: "Fridge", size: [0.7, 0.7], blocks: true, seats: [], movable: true },
+  vending_machine: {
+    label: "Vending machine",
+    size: [1.0, 0.8],
+    blocks: true,
+    seats: [{ lx: 0, lz: 0.85, f: Math.PI, alx: 0, alz: 0.85, kind: "lounge", sit: false }],
+    movable: true,
+  },
+  standee: { label: "Company standee", size: [0.7, 0.3], blocks: true, seats: [], movable: true },
 };
 
 export function sizeOf(item: FurnitureItem): [number, number] {

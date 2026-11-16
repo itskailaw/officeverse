@@ -142,7 +142,7 @@ export function MeetingPanel() {
   };
 
   return (
-    <div className="anim-up pointer-events-auto absolute bottom-3 left-1/2 z-30 w-[min(640px,calc(100vw-1.5rem))] -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur">
+    <div className="anim-up pointer-events-auto absolute bottom-3 left-1/2 z-30 w-[min(640px,calc(100vw-1.5rem))] -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-panel/95 shadow-2xl backdrop-blur">
       <div className="flex items-center justify-between gap-3 bg-navy px-4 py-2.5 text-white">
         <button className="min-w-0 text-left" onClick={() => setCollapsed((c) => !c)}>
           <div className="text-[10px] uppercase tracking-widest text-sky-200">Meeting in progress</div>

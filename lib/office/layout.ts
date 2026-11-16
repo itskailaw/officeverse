@@ -194,6 +194,24 @@ export const FURNITURE: FurnitureItem[] = [
   f("it-rack-5", "server_rack", "it", 47.4, 18.7, -HALF),
   f("it-cabinet", "filing_cabinet", "it", 44.5, 22.6, PI, { color: "#334155" }),
   f("it-plant", "plant", "it", 42.5, 13.5),
+
+  // ── lighting & branding details ──
+  f("ceo-lamp", "floor_lamp", "ceo", 0.45, 8.1),
+  f("rec-lamp", "floor_lamp", "reception", 0.5, 21.7),
+  f("lounge-lamp", "floor_lamp", "lounge", 26.55, 19.5),
+  f("meet-pendant-1", "pendant_light", "meeting", 13.6, 18),
+  f("meet-pendant-2", "pendant_light", "meeting", 15, 18),
+  f("meet-pendant-3", "pendant_light", "meeting", 16.4, 18),
+  f("lounge-pendant", "pendant_light", "lounge", 22.3, 16.6),
+  f("rec-pendant-1", "pendant_light", "reception", 4.2, 17.6),
+  f("rec-pendant-2", "pendant_light", "reception", 5.8, 17.6),
+  f("lounge-fridge", "fridge", "lounge", 26.55, 14.6, -HALF),
+  f("lounge-vending", "vending_machine", "lounge", 20.5, 18.5, HALF),
+  f("wgs-standee", "standee", "wgs", 18.9, 9.5),
+  f("fin-standee", "standee", "finance", 31.4, 9.5),
+  f("mkt-standee", "standee", "marketing", 43.4, 9.5),
+  f("art-standee", "standee", "artides", 33.4, 13.5),
+  f("ama-standee", "standee", "amare", 41.3, 13.5),
 ];
 
 export const DEFAULT_LAYOUT: OfficeLayout = {

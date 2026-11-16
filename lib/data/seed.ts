@@ -76,21 +76,21 @@ const DEFS: Def[] = [
     personality: "Calm, precise and deadline-driven. Always leads with the numbers that need action today.",
     responsibilities: ["Monitor Shopee and Lazada orders", "Count parcels awaiting packing", "Identify orders approaching shipping deadlines", "Monitor cancelled orders", "Identify overdue shipments", "Generate daily packing summaries", "Notify the CEO about urgent fulfilment tasks"],
     permissions: ["orders:read", "inventory:read", "reports:write"], schedule: "Daily 08:30 packing summary",
-    look: look(1, "#1f2937", "hijab", "#1e3a5f", "#334155", { hair: "#0f766e" }),
+    look: look(1, "#1f2937", "hijab", "#1e3a5f", "#334155", { hair: "#0f766e", outfit: "kurung" }),
   },
   {
     id: "emp-ads", name: "Daniel Tan", gender: "male", title: "Advertising Manager", dept: "dept-wgs", company: "co-wgs", ws: "ws-wgs-2",
     personality: "Analytical and ROI-obsessed. Never spends without approval.",
     responsibilities: ["Monitor Shopee and Lazada advertising balances", "Track daily advertising spending", "Monitor ROAS", "Estimate remaining advertising credit", "Recommend advertising top-ups", "Identify underperforming campaigns", "Compare advertising performance across platforms"],
     permissions: ["ads:read", "finance:read", "reports:write"], schedule: "Daily 09:00 ads balance check",
-    look: look(0, "#111827", "short", "#f97316"),
+    look: look(0, "#111827", "spiky", "#f97316", "#1e293b", { outfit: "polo" }),
   },
   {
     id: "emp-inv", name: "Priya Nair", gender: "female", title: "Inventory Manager", dept: "dept-wgs", company: "co-wgs", ws: "ws-wgs-3",
     personality: "Organised and forward-looking; thinks in weeks of cover.",
     responsibilities: ["Monitor product stock quantities", "Track stock movements", "Identify low-stock products", "Estimate stock depletion dates", "Suggest replenishment quantities", "Identify fast-selling and slow-selling products"],
     permissions: ["inventory:read", "orders:read", "reports:write"], schedule: "Daily 09:00 stock report",
-    look: look(3, "#111827", "long", "#14b8a6"),
+    look: look(3, "#111827", "long", "#14b8a6", "#1e293b", { outfit: "dress" }),
   },
   {
     id: "emp-cs", name: "Mei Ling Wong", gender: "female", title: "Customer Service Executive", dept: "dept-wgs", company: "co-wgs", ws: "ws-wgs-4",
@@ -104,7 +104,7 @@ const DEFS: Def[] = [
     personality: "Detail-oriented listing perfectionist with a sharp eye for pricing gaps.",
     responsibilities: ["Monitor product listing quality", "Review pricing consistency", "Track platform campaigns", "Identify missing product information", "Suggest listing improvements", "Compare product performance"],
     permissions: ["listings:read", "orders:read", "reports:write"], schedule: "Weekly Monday listing audit",
-    look: look(2, "#111827", "buzz", "#22c55e"),
+    look: look(2, "#111827", "buzz", "#22c55e", "#1e293b", { outfit: "hoodie" }),
   },
   {
     id: "emp-proc", name: "Kevin Lim", gender: "male", title: "Procurement Officer", dept: "dept-wgs", company: "co-wgs", ws: "ws-wgs-6",
@@ -119,7 +119,7 @@ const DEFS: Def[] = [
     personality: "Rigorous and transparent; always separates gross sales, net sales, payouts and estimated profit.",
     responsibilities: ["Calculate daily revenue", "Monitor monthly revenue", "Compare Shopee and Lazada sales", "Estimate gross and net profit", "Track product costs", "Track advertising expenses", "Monitor marketplace fees", "Prepare financial summaries"],
     permissions: ["finance:read", "orders:read", "ads:read", "files:read", "reports:write"], schedule: "Daily 08:00 revenue summary",
-    look: look(1, "#111827", "hijab", "#f8fafc", "#1e3a5f", { hair: "#7c3aed" }),
+    look: look(1, "#111827", "hijab", "#f8fafc", "#1e3a5f", { hair: "#7c3aed", outfit: "blazer" }),
   },
   {
     id: "emp-ba", name: "Jason Ong", gender: "male", title: "Business Analyst", dept: "dept-finance", company: null, ws: "ws-fin-2",
@@ -133,14 +133,14 @@ const DEFS: Def[] = [
     personality: "Big-picture thinker, challenges assumptions constructively.",
     responsibilities: ["Analyze growth opportunities", "Recommend business improvements", "Review competitor positioning", "Suggest new product opportunities", "Prepare strategic reports"],
     permissions: ["finance:read", "reports:write"], schedule: "Monthly strategy memo",
-    look: look(2, "#111827", "hijab", "#1e3a5f", "#475569", { hair: "#be123c" }),
+    look: look(2, "#111827", "hijab", "#1e3a5f", "#475569", { hair: "#be123c", outfit: "kurung" }),
   },
   {
     id: "emp-risk", name: "Raj Kumar", gender: "male", title: "Risk & Compliance Officer", dept: "dept-finance", company: null, ws: "ws-fin-4",
     personality: "Methodical and sceptical — trusts audit logs, not assumptions.",
     responsibilities: ["Monitor unusual system activities", "Review access permissions", "Flag suspicious business data changes", "Identify operational risks", "Maintain audit reports"],
     permissions: ["audit:read", "integrations:read", "reports:write"], schedule: "Weekly Friday audit report",
-    look: look(4, "#111827", "short", "#475569"),
+    look: look(4, "#111827", "curly", "#475569", "#1e293b", { outfit: "blazer" }),
   },
   // ── Marketing & Creative ──
   {
@@ -155,21 +155,21 @@ const DEFS: Def[] = [
     personality: "Trend-savvy, upbeat, writes captions in English, Malay and Chinese.",
     responsibilities: ["Plan content calendars", "Suggest social media topics", "Draft captions", "Track content performance", "Prepare campaign schedules"],
     permissions: ["drafts:write", "reports:write"], schedule: "Weekly content calendar",
-    look: look(2, "#111827", "short", "#facc15"),
+    look: look(2, "#111827", "spiky", "#facc15", "#1e293b", { outfit: "hoodie" }),
   },
   {
     id: "emp-gd", name: "Farah Zulkifli", gender: "female", title: "Graphic Designer", dept: "dept-marketing", company: null, ws: "ws-mkt-3",
     personality: "Visual storyteller; obsessed with consistency and whitespace.",
     responsibilities: ["Prepare design briefs", "Generate product poster concepts", "Create marketing assets when image-generation tools are connected", "Maintain brand consistency"],
     permissions: ["drafts:write", "files:read"], schedule: "On request",
-    look: look(1, "#111827", "hijab", "#a855f7", "#1e293b", { hair: "#f59e0b" }),
+    look: look(1, "#111827", "hijab", "#a855f7", "#1e293b", { hair: "#f59e0b", outfit: "kurung" }),
   },
   {
     id: "emp-video", name: "Marcus Lee", gender: "male", title: "Video Producer", dept: "dept-marketing", company: null, ws: "ws-mkt-4",
     personality: "Energetic short-form specialist who thinks in hooks and shot lists.",
     responsibilities: ["Suggest short-video concepts", "Prepare scripts", "Recommend filming angles", "Generate shot lists", "Prepare editing instructions", "Suggest TikTok, Instagram, and Facebook Reel ideas"],
     permissions: ["drafts:write"], schedule: "Weekly video ideas",
-    look: look(0, "#0a0a0a", "short", "#111827", "#3f3f46"),
+    look: look(0, "#0a0a0a", "curly", "#111827", "#3f3f46", { outfit: "hoodie" }),
   },
   // ── Artides Home ──
   {
@@ -177,14 +177,14 @@ const DEFS: Def[] = [
     personality: "Unflappable organiser who keeps installers and clients in sync.",
     responsibilities: ["Track project progress", "Monitor installation schedules", "Prepare project updates", "Identify overdue milestones", "Coordinate team assignments"],
     permissions: ["projects:read", "reports:write"], schedule: "Daily 09:30 project update",
-    look: look(0, "#1f2937", "short", "#b07d4f"),
+    look: look(0, "#1f2937", "short", "#b07d4f", "#1e293b", { outfit: "polo" }),
   },
   {
     id: "emp-quote", name: "Hannah Goh", gender: "female", title: "Quotation Specialist", dept: "dept-artides", company: "co-artides", ws: "ws-art-2",
     personality: "Numerate and careful; only uses approved pricing data.",
     responsibilities: ["Review cabinetry measurements", "Calculate material quantities", "Estimate costs using approved pricing data", "Prepare quotation drafts", "Compare material options"],
     permissions: ["projects:read", "files:read", "drafts:write"], schedule: "On request",
-    look: look(0, "#451a03", "long", "#0d9488"),
+    look: look(0, "#451a03", "long", "#0d9488", "#1e293b", { outfit: "blazer" }),
   },
   {
     id: "emp-material", name: "Arjun Pillai", gender: "male", title: "Material Consultant", dept: "dept-artides", company: "co-artides", ws: "ws-art-3",
@@ -198,7 +198,7 @@ const DEFS: Def[] = [
     personality: "Persuasive and persistent — no follow-up left behind.",
     responsibilities: ["Track client follow-ups", "Monitor quotation progress", "Prepare meeting summaries", "Manage sales opportunities", "Integrate with OnTime where authorized"],
     permissions: ["projects:read", "customers:read", "drafts:write"], schedule: "Daily 17:00 follow-up list",
-    look: look(2, "#1c1917", "bun", "#2563eb"),
+    look: look(2, "#1c1917", "bun", "#2563eb", "#1e293b", { outfit: "dress" }),
   },
   // ── Executive ──
   {
@@ -206,7 +206,7 @@ const DEFS: Def[] = [
     personality: "Polished, proactive and concise. Briefs the CEO with what matters first.",
     responsibilities: ["Prepare daily CEO briefings", "Consolidate departmental reports", "Identify urgent matters", "Coordinate meetings", "Manage reminders", "Summarize pending approvals"],
     permissions: ["orders:read", "ads:read", "inventory:read", "finance:read", "reports:write"], schedule: "Daily 08:00 CEO briefing",
-    look: look(0, "#18181b", "bun", "#1e3a5f", "#0f172a"),
+    look: look(0, "#18181b", "bun", "#1e3a5f", "#0f172a", { outfit: "blazer" }),
   },
   // ── IT ──
   {
@@ -214,7 +214,7 @@ const DEFS: Def[] = [
     personality: "Quietly vigilant; reports root causes, not just symptoms.",
     responsibilities: ["Monitor integration status", "Detect failed API synchronization", "Report automation errors", "Monitor background jobs", "Track system health", "Alert the CEO about technical problems"],
     permissions: ["integrations:read", "audit:read", "reports:write"], schedule: "Hourly health check",
-    look: look(0, "#111827", "short", "#16a34a", "#1e293b", { glasses: true }),
+    look: look(0, "#111827", "short", "#16a34a", "#1e293b", { glasses: true, outfit: "hoodie" }),
   },
   // ── Amare Localization (additional roles covering Company C responsibilities) ──
   {
@@ -222,14 +222,14 @@ const DEFS: Def[] = [
     personality: "Trilingual (EN/中文/BM) wordsmith who adapts tone to every audience.",
     responsibilities: ["English, Chinese, and Malay translations", "Document localization", "Marketing copywriting", "Content adaptation"],
     permissions: ["files:read", "drafts:write"], schedule: "On request",
-    look: look(0, "#292524", "long", "#9333ea"),
+    look: look(0, "#292524", "long", "#9333ea", "#1e293b", { outfit: "dress" }),
   },
   {
     id: "emp-lqa", name: "Adam Faris", gender: "male", title: "Localization QA Specialist", dept: "dept-amare", company: "co-amare", ws: "ws-ama-2",
     personality: "Meticulous reviewer — terminology, consistency and cultural fit.",
     responsibilities: ["Translation quality checking", "Terminology consistency", "Cultural adaptation review"],
     permissions: ["files:read", "reports:write"], schedule: "On request",
-    look: look(2, "#111827", "buzz", "#0891b2"),
+    look: look(2, "#111827", "buzz", "#0891b2", "#1e293b", { outfit: "polo" }),
   },
 ];
 
@@ -263,10 +263,13 @@ export const DEFAULT_SETTINGS: OfficeSettings = {
   floorWood: "#b07d4f",
   photoFrames: [null, null, null],
   ceoName: "CEO",
-  ceoAppearance: { skin: "#e8b896", hair: "#111827", hairStyle: "short", shirt: "#0f172a", pants: "#1e293b", shoes: "#111827" },
+  ceoAppearance: { skin: "#e8b896", hair: "#111827", hairStyle: "short", shirt: "#0f172a", pants: "#1e293b", shoes: "#111827", outfit: "blazer" },
   demoMode: true,
   quietHours: { enabled: false, start: "22:00", end: "07:00" },
   briefingTime: "08:00",
   showNameTags: false,
   ambientLife: true,
+  uiTheme: "auto",
+  showBubbles: true,
+  logoUrl: null,
 };

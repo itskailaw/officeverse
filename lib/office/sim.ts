@@ -39,6 +39,8 @@ export interface Agent {
   lookAt: Vec2 | null;
   working: boolean;
   visitTarget: string | null;
+  /** seconds of waving left */
+  waveT: number;
 }
 
 export interface SimEvent {
@@ -158,6 +160,7 @@ export class OfficeSim {
       lookAt: null,
       working: false,
       visitTarget: null,
+      waveT: 0,
     };
     this.agents.set(id, a);
     if (home && !this.occupancy.has(home.id)) {
@@ -483,8 +486,15 @@ export class OfficeSim {
     return false;
   }
 
+  /** Friendly wave (e.g. when the CEO clicks an employee). */
+  wave(id: string) {
+    const a = this.agents.get(id);
+    if (a && a.pose !== "held") a.waveT = 1.8;
+  }
+
   private updateAgent(a: Agent, dt: number) {
     a.walkPhase += dt;
+    if (a.waveT > 0) a.waveT = Math.max(0, a.waveT - dt);
     a.y += ((a.pose === "held" ? 1.1 : 0) - a.y) * Math.min(1, dt * 10);
 
     if (a.glide) {

@@ -30,7 +30,7 @@ export default function LoginPage() {
 
   return (
     <div className="grid h-dvh place-items-center overflow-auto bg-gradient-to-br from-navy-dark via-navy to-slate-800 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-sm rounded-2xl bg-panel p-6 shadow-2xl">
         <div className="mb-5 flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-navy font-bold text-white">OV</div>
           <div>

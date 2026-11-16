@@ -33,6 +33,9 @@ Deploy to Vercel as a standard Next.js app with the same env vars.
 - Create, rename, deactivate or delete companies and departments. Hire, edit or deactivate employees.
 - **Build mode**: drag and rotate furniture; employees re-route. Change wall, trim and floor colours, the CEO avatar and the photo frames. Everything persists and can be reset to default.
 - Phones and browsers without WebGL get a simplified dashboard.
+- **Visual upgrade:** ribbon windows that glow at night, department colour branding (floor bands, entrance mats, standees), lamps and pendants, a street with cars, a parking lot, lamp posts and hedges, and a sky gradient.
+- **Livelier staff:** outfits (shirt, polo, blazer, hoodie, baju kurung, dress), new hairstyles, hands and faces, waves when clicked, nods in meetings, stretches and coffee on breaks, laptops in meetings, and honest activity bubbles. Avatars also grow slightly when you zoom out.
+- **Interface:** dark mode (or match office lighting), company switcher with colours, a live floor-plan minimap, a "what needs you today" dashboard greeting, department-coloured employee cards, company logo upload, and a first-visit tour (the ? button replays it).
 
 **Controls:** left-drag pans · right-drag rotates · scroll zooms · Q/E rotate 90° · WASD/arrows pan · R rotates furniture in build mode · Esc deselects.
 

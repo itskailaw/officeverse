@@ -7,6 +7,7 @@ import { useUI } from "@/lib/store/ui-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "./Avatar";
+import { Logo } from "./Extras";
 import { StatusBadge } from "./EmployeePanel";
 
 /** Simplified layout for phones, where the full 3D office is too heavy. */
@@ -19,8 +20,8 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
   const set = useUI((s) => s.set);
   return (
     <div className="h-dvh overflow-y-auto bg-slate-50 pb-10">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3">
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-navy text-sm font-bold text-white">OV</div>
+      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-panel px-4 py-3">
+        <Logo size={32} />
         <div className="flex-1 leading-tight">
           <div className="text-sm font-semibold">OfficeVerse</div>
           <div className="text-[10px] text-slate-500">Mobile dashboard</div>
@@ -44,7 +45,7 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
             <CalendarPlus /> Meeting
           </Button>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white">
+        <div className="rounded-xl border border-slate-200 bg-panel">
           {employees.map((e) => (
             <button key={e.id} onClick={() => set({ selectedEmployeeId: e.id })} className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0">
               <Avatar appearance={e.appearance} size={34} />
@@ -66,7 +67,7 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
 
 function Tile({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+    <div className="rounded-xl border border-slate-200 bg-panel p-3 text-center">
       <div className="text-xl font-semibold">{value}</div>
       <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
     </div>

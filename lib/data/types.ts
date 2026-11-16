@@ -43,7 +43,8 @@ export interface Department {
 }
 
 export type Gender = "female" | "male" | "unspecified";
-export type HairStyle = "short" | "long" | "bun" | "bob" | "buzz" | "hijab" | "ponytail";
+export type HairStyle = "short" | "long" | "bun" | "bob" | "buzz" | "hijab" | "ponytail" | "curly" | "spiky";
+export type Outfit = "shirt" | "blazer" | "polo" | "kurung" | "hoodie" | "dress";
 
 export interface Appearance {
   skin: string;
@@ -53,6 +54,7 @@ export interface Appearance {
   pants: string;
   shoes: string;
   glasses?: boolean;
+  outfit?: Outfit;
 }
 
 export interface AIConfig {
@@ -178,6 +180,7 @@ export interface AuditEntry {
 
 export type LightingMode = "day" | "evening" | "night" | "auto";
 export type WallMode = "full" | "cutaway" | "hidden";
+export type UITheme = "light" | "dark" | "auto";
 
 export interface OfficeSettings {
   lighting: LightingMode;
@@ -193,6 +196,12 @@ export interface OfficeSettings {
   briefingTime: string;
   showNameTags: boolean;
   ambientLife: boolean;
+  /** UI panels theme; "auto" follows the office lighting */
+  uiTheme: UITheme;
+  /** floating activity bubbles above employees */
+  showBubbles: boolean;
+  /** optional company logo (data URL) shown at reception */
+  logoUrl: string | null;
 }
 
 // ---------- Office layout ----------
@@ -221,7 +230,12 @@ export type FurnitureType =
   | "visitor_chair"
   | "rug"
   | "tv_screen"
-  | "photo_frames";
+  | "photo_frames"
+  | "floor_lamp"
+  | "pendant_light"
+  | "fridge"
+  | "vending_machine"
+  | "standee";
 
 export interface FurnitureItem {
   id: ID;

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
-import type { Appearance, Employee, HairStyle, Permission } from "@/lib/data/types";
+import type { Appearance, Employee, HairStyle, Outfit, Permission } from "@/lib/data/types";
 import { seatsFor } from "@/lib/office/catalog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -26,13 +26,21 @@ const ALL_PERMS: Permission[] = [
   "drafts:write",
 ];
 const SKINS = ["#f5d0b5", "#f1c9a5", "#e8b896", "#d29b6c", "#a8714a", "#7a4e2d"];
-const HAIRS: HairStyle[] = ["short", "buzz", "long", "bob", "bun", "ponytail", "hijab"];
+const HAIRS: HairStyle[] = ["short", "buzz", "spiky", "curly", "long", "bob", "bun", "ponytail", "hijab"];
+const OUTFITS: { v: Outfit; label: string }[] = [
+  { v: "shirt", label: "Shirt" },
+  { v: "polo", label: "Polo" },
+  { v: "blazer", label: "Blazer" },
+  { v: "hoodie", label: "Hoodie" },
+  { v: "kurung", label: "Baju kurung" },
+  { v: "dress", label: "Dress" },
+];
 
 export function blankEmployee(): Omit<Employee, "id" | "createdAt" | "status" | "active"> {
   return {
     name: "",
     gender: "unspecified",
-    appearance: { skin: SKINS[2], hair: "#111827", hairStyle: "short", shirt: "#1e3a5f", pants: "#1e293b", shoes: "#111827" },
+    appearance: { skin: SKINS[2], hair: "#111827", hairStyle: "short", shirt: "#1e3a5f", pants: "#1e293b", shoes: "#111827", outfit: "shirt" },
     departmentId: "dept-amare",
     companyId: "co-amare",
     title: "",
@@ -72,6 +80,16 @@ export function AppearanceEditor({ value, onChange }: { value: Appearance; onCha
             {HAIRS.map((h) => (
               <option key={h} value={h}>
                 {h === "hijab" ? "Hijab / headscarf" : h[0].toUpperCase() + h.slice(1)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label>Outfit</Label>
+          <Select value={value.outfit ?? "shirt"} onChange={(e) => set({ outfit: e.target.value as Outfit })}>
+            {OUTFITS.map((o) => (
+              <option key={o.v} value={o.v}>
+                {o.label}
               </option>
             ))}
           </Select>
@@ -267,7 +285,7 @@ export function EmployeeEditor() {
             <p className="mt-1 text-[11px] text-slate-500">Read-only by default. Write access is limited to drafts and reports — external actions always require your approval.</p>
           </div>
         </div>
-        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-slate-100 bg-white px-5 py-3">
+        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-slate-100 bg-panel px-5 py-3">
           <Button variant="ghost" onClick={() => setUI({ dialog: null, editEmployeeId: null })}>
             Cancel
           </Button>

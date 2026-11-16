@@ -93,13 +93,17 @@ export function perfScreenTexture(demoMode: boolean) {
   });
 }
 
-export function receptionTexture(companies: Company[]) {
+export function receptionTexture(companies: Company[], logo?: HTMLImageElement | null) {
   return makeScreenTexture((g, w, h) => {
     const grad = g.createLinearGradient(0, 0, w, h);
     grad.addColorStop(0, "#0f1f36");
     grad.addColorStop(1, "#1e3a5f");
     g.fillStyle = grad;
     g.fillRect(0, 0, w, h);
+    if (logo) {
+      const s = Math.min(150 / logo.width, 110 / logo.height);
+      g.drawImage(logo, w - 64 - logo.width * s, 50, logo.width * s, logo.height * s);
+    }
     g.fillStyle = "#f8fafc";
     g.font = "700 64px system-ui, sans-serif";
     g.fillText("OfficeVerse", 64, 120);

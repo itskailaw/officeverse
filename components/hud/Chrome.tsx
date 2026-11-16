@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { cn, klTime, timeAgo } from "@/lib/utils";
 import type { LightingMode, WallMode } from "@/lib/data/types";
 import { PriorityDot } from "./ExecutiveDashboard";
+import { CompanySwitcher, Logo } from "./Extras";
 
 function Clock24() {
   const [now, setNow] = useState<Date | null>(null);
@@ -62,29 +63,15 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
   const companies = useOffice((s) => s.companies);
   const ui = useUI();
   return (
-    <header className="pointer-events-auto absolute inset-x-3 top-3 z-40 flex h-12 items-center gap-2 rounded-2xl border border-white/70 bg-white/90 px-3 shadow-lg backdrop-blur">
+    <header className="pointer-events-auto absolute inset-x-3 top-3 z-40 flex h-12 items-center gap-2 rounded-2xl border border-panel/70 bg-panel/90 px-3 shadow-lg backdrop-blur">
       <div className="flex items-center gap-2 pr-2">
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-navy text-sm font-bold text-white">OV</div>
+        <Logo size={32} />
         <div className="hidden leading-tight sm:block">
           <div className="text-sm font-semibold text-slate-900">OfficeVerse</div>
           <div className="text-[10px] text-slate-500">Your Business. Your People. Your Universe.</div>
         </div>
       </div>
-      <select
-        value={ui.companyFilter}
-        onChange={(e) => ui.set({ companyFilter: e.target.value })}
-        className="hidden h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 md:block"
-        aria-label="Company"
-      >
-        <option value="all">All companies</option>
-        {companies
-          .filter((c) => c.active)
-          .map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-      </select>
+      <CompanySwitcher />
       {settings.demoMode ? (
         <Badge variant="demo" title="Business metrics shown are labelled sample data">
           DEMO MODE
@@ -150,7 +137,7 @@ export function NotificationsPanel() {
   const employees = useOffice((s) => s.employees);
   if (!open) return null;
   return (
-    <div className="anim-up pointer-events-auto absolute right-3 top-[68px] z-50 w-[min(380px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+    <div className="anim-up pointer-events-auto absolute right-3 top-[68px] z-50 w-[min(380px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-panel shadow-2xl">
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
         <span className="text-sm font-semibold">Notifications</span>
         <div className="flex gap-2 text-[11px]">
@@ -207,7 +194,7 @@ export function Toolbar() {
     { icon: <Users />, label: "Team directory", onClick: () => ui.set({ dialog: "dashboard", dashboardTab: "team" }) },
   ];
   return (
-    <nav className="pointer-events-auto absolute left-3 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1 rounded-2xl border border-white/70 bg-white/90 p-1.5 shadow-lg backdrop-blur">
+    <nav className="pointer-events-auto absolute left-3 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-1 rounded-2xl border border-panel/70 bg-panel/90 p-1.5 shadow-lg backdrop-blur">
       {items.map((it, i) => (
         <button
           key={i}
@@ -221,7 +208,7 @@ export function Toolbar() {
           )}
         >
           {it.icon}
-          <span className="pointer-events-none absolute left-12 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] text-white opacity-0 shadow transition group-hover:opacity-100">
+          <span className="pointer-events-none absolute left-12 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] text-white opacity-0 shadow transition group-hover:opacity-100">
             {it.label}
           </span>
         </button>
@@ -234,7 +221,7 @@ export function CameraControls() {
   const camera = useUI((s) => s.camera);
   const btn = "grid h-9 w-9 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 [&_svg]:h-4 [&_svg]:w-4";
   return (
-    <div className="pointer-events-auto absolute bottom-3 right-3 z-20 flex items-center gap-0.5 rounded-2xl border border-white/70 bg-white/90 p-1 shadow-lg backdrop-blur">
+    <div className="pointer-events-auto absolute bottom-3 right-3 z-20 flex items-center gap-0.5 rounded-2xl border border-panel/70 bg-panel/90 p-1 shadow-lg backdrop-blur">
       <button className={btn} title="Rotate left (Q)" onClick={() => camera({ kind: "rotate", dir: -1 })}>
         <RotateCcw />
       </button>
@@ -254,36 +241,6 @@ export function CameraControls() {
   );
 }
 
-export function HelpHint() {
-  const [show, setShow] = useState(true);
-  useEffect(() => {
-    try {
-      if (localStorage.getItem("ov:hint-dismissed")) setShow(false);
-    } catch {}
-  }, []);
-  if (!show) return null;
-  return (
-    <div className="pointer-events-auto absolute bottom-3 left-3 z-20 hidden max-w-xs rounded-2xl border border-white/70 bg-white/90 p-3 text-[11px] leading-relaxed text-slate-600 shadow-lg backdrop-blur md:block">
-      <div className="mb-1 flex items-center gap-1.5 font-semibold text-slate-800">
-        <Info className="h-3.5 w-3.5" /> Getting around
-      </div>
-      <b>Click</b> the floor to walk · <b>click</b> an employee to open their profile · <b>drag</b> an employee to pick them up · <b>click your desk</b> for the
-      dashboard · <b>left-drag</b> pans · <b>right-drag</b> rotates · <b>scroll</b> zooms · <b>Q/E</b> rotate · <b>WASD</b> pan
-      <button
-        className="mt-1.5 block text-sky-700 hover:underline"
-        onClick={() => {
-          setShow(false);
-          try {
-            localStorage.setItem("ov:hint-dismissed", "1");
-          } catch {}
-        }}
-      >
-        Got it
-      </button>
-    </div>
-  );
-}
-
 export function BuildPanel() {
   const mode = useUI((s) => s.mode);
   const selected = useUI((s) => s.selectedFurnitureId);
@@ -294,7 +251,7 @@ export function BuildPanel() {
   const toast = useUI((s) => s.toast);
   if (mode !== "build") return null;
   return (
-    <div className="anim-up pointer-events-auto absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-amber-200 bg-white/95 px-3 py-2 shadow-xl backdrop-blur">
+    <div className="anim-up pointer-events-auto absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-amber-200 bg-panel/95 px-3 py-2 shadow-xl backdrop-blur">
       <Hammer className="h-4 w-4 text-amber-600" />
       <span className="text-xs text-slate-700">
         {item ? (
@@ -331,7 +288,7 @@ export function Toasts() {
           onClick={() => dismiss(t.id)}
           className={cn(
             "anim-up pointer-events-auto flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-medium shadow-lg",
-            t.kind === "error" ? "border-red-200 bg-red-50 text-red-800" : t.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-700",
+            t.kind === "error" ? "border-red-200 bg-red-50 text-red-800" : t.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-panel text-slate-700",
           )}
         >
           {t.kind === "error" ? <XCircle className="h-4 w-4 shrink-0" /> : t.kind === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <Info className="h-4 w-4 shrink-0" />}

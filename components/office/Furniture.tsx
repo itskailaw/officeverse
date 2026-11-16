@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import type { FurnitureItem } from "@/lib/data/types";
@@ -29,7 +29,7 @@ function Screen({ p, s, tex, r }: { p: V3; s: [number, number]; tex?: THREE.Text
     () =>
       tex
         ? new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })
-        : new THREE.MeshStandardMaterial({ color: "#0f1b2d", emissive: new THREE.Color("#3b82f6"), emissiveIntensity: 0.35, roughness: 0.3 }),
+        : new THREE.MeshStandardMaterial({ color: "#0f1b2d", emissive: new THREE.Color("#4f8ff7"), emissiveIntensity: 0.6, roughness: 0.3 }),
     [tex],
   );
   return <mesh geometry={PLANE} position={p} scale={[s[0], s[1], 1]} rotation={r} material={m} />;
@@ -467,14 +467,123 @@ function Rug({ w, d }: { w: number; d: number }) {
   );
 }
 
+function FloorLamp({ night }: { night?: boolean }) {
+  return (
+    <group>
+      <C p={[0, 0.03, 0]} s={[0.32, 0.06, 0.32]} c={P.darkGrey} />
+      <C p={[0, 0.8, 0]} s={[0.035, 1.55, 0.035]} c={P.darkGrey} />
+      <mesh position={[0, 1.6, 0]} scale={[0.38, 0.32, 0.38]} castShadow>
+        <cylinderGeometry args={[0.35, 0.5, 1, 20, 1, true]} />
+        <meshStandardMaterial color="#fef3c7" emissive="#fde68a" emissiveIntensity={night ? 1.6 : 0.15} side={THREE.DoubleSide} toneMapped={!night} />
+      </mesh>
+      {night && <pointLight position={[0, 1.4, 0]} intensity={2.2} distance={4} decay={1.5} color="#ffd59a" />}
+    </group>
+  );
+}
+
+function PendantLight({ night }: { night?: boolean }) {
+  return (
+    <group>
+      <C p={[0, 2.35, 0]} s={[0.01, 0.7, 0.01]} c="#111827" shadow={false} />
+      <mesh position={[0, 1.95, 0]} scale={[0.36, 0.22, 0.36]}>
+        <cylinderGeometry args={[0.25, 0.5, 1, 20, 1, true]} />
+        <meshStandardMaterial color="#111827" metalness={0.5} roughness={0.4} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, 1.86, 0]} scale={0.1}>
+        <sphereGeometry args={[1, 12, 10]} />
+        <meshStandardMaterial color="#fff7d6" emissive="#ffe8a8" emissiveIntensity={night ? 3 : 0.6} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function Fridge() {
+  return (
+    <group>
+      <B p={[0, 0.9, 0]} s={[0.68, 1.8, 0.66]} c="#e5e7eb" m={mat("#e5e7eb", { metal: 0.5, rough: 0.25 })} />
+      <B p={[0, 1.22, 0.335]} s={[0.66, 0.01, 0.01]} c={P.darkGrey} shadow={false} />
+      <B p={[0.26, 1.45, 0.345]} s={[0.03, 0.3, 0.03]} c={P.darkGrey} />
+      <B p={[0.26, 0.85, 0.345]} s={[0.03, 0.4, 0.03]} c={P.darkGrey} />
+      <B p={[-0.15, 1.5, 0.336]} s={[0.12, 0.12, 0.005]} c="#facc15" shadow={false} />
+    </group>
+  );
+}
+
+function VendingMachine({ night }: { night?: boolean }) {
+  const colors = ["#ef4444", "#22c55e", "#3b82f6", "#f59e0b", "#a855f7"];
+  return (
+    <group>
+      <B p={[0, 0.95, 0]} s={[0.98, 1.9, 0.78]} c="#b91c1c" />
+      <mesh position={[-0.12, 1.15, 0.392]} scale={[0.62, 1.2, 1]}>
+        <planeGeometry />
+        <meshStandardMaterial color="#e0f2fe" emissive="#bae6fd" emissiveIntensity={night ? 1.1 : 0.25} />
+      </mesh>
+      {[0.75, 1.05, 1.35, 1.6].flatMap((y, r) =>
+        [-0.32, -0.17, -0.02, 0.1].map((x, i) => <B key={`${r}${i}`} p={[x, y, 0.36]} s={[0.09, 0.14, 0.04]} c={colors[(r + i) % colors.length]} shadow={false} />),
+      )}
+      <B p={[0.34, 1.25, 0.395]} s={[0.18, 0.5, 0.01]} c="#111827" shadow={false} />
+      <B p={[0, 0.25, 0.395]} s={[0.6, 0.18, 0.01]} c="#111827" shadow={false} />
+    </group>
+  );
+}
+
+function Standee({ brand }: { brand?: { name: string; color: string } }) {
+  const tex = useMemo(() => {
+    if (!brand) return null;
+    return makeScreenTexture(
+      (g, w, h) => {
+        const grad = g.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, brand.color);
+        grad.addColorStop(1, "#0f1f36");
+        g.fillStyle = grad;
+        g.fillRect(0, 0, w, h);
+        g.fillStyle = "rgba(255,255,255,0.15)";
+        g.beginPath();
+        g.arc(w / 2, h * 0.32, w * 0.3, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = "#fff";
+        g.font = "700 120px system-ui, sans-serif";
+        g.textAlign = "center";
+        const initials = brand.name.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]).join("").toUpperCase();
+        g.fillText(initials, w / 2, h * 0.32 + 42);
+        g.font = "600 44px system-ui, sans-serif";
+        const words = brand.name.split(" ");
+        let line = "";
+        let y = h * 0.62;
+        for (const word of words) {
+          const test = line ? `${line} ${word}` : word;
+          if (g.measureText(test).width > w - 50) {
+            g.fillText(line, w / 2, y);
+            line = word;
+            y += 54;
+          } else line = test;
+        }
+        g.fillText(line, w / 2, y);
+      },
+      400,
+      1000,
+    );
+  }, [brand]);
+  useEffect(() => () => tex?.dispose(), [tex]);
+  return (
+    <group>
+      <B p={[0, 0.03, 0]} s={[0.62, 0.06, 0.28]} c={P.darkGrey} />
+      <B p={[0, 0.9, -0.02]} s={[0.6, 1.6, 0.03]} c="#0f172a" />
+      <Screen p={[0, 0.9, 0.0]} s={[0.56, 1.52]} tex={tex} />
+    </group>
+  );
+}
+
 // ---------- dispatcher ----------
 export interface FurnitureVisualProps {
   item: FurnitureItem;
   frames: (THREE.Texture | null)[];
   screenTex?: THREE.Texture | null;
+  night?: boolean;
+  brand?: { name: string; color: string };
 }
 
-export const FurnitureVisual = memo(function FurnitureVisual({ item, frames, screenTex }: FurnitureVisualProps) {
+export const FurnitureVisual = memo(function FurnitureVisual({ item, frames, screenTex, night, brand }: FurnitureVisualProps) {
   const [w, d] = sizeOf(item);
   switch (item.type) {
     case "workstation":
@@ -525,6 +634,16 @@ export const FurnitureVisual = memo(function FurnitureVisual({ item, frames, scr
       return <TvScreen tex={screenTex ?? null} />;
     case "photo_frames":
       return <PhotoFrames frames={frames} />;
+    case "floor_lamp":
+      return <FloorLamp night={night} />;
+    case "pendant_light":
+      return <PendantLight night={night} />;
+    case "fridge":
+      return <Fridge />;
+    case "vending_machine":
+      return <VendingMachine night={night} />;
+    case "standee":
+      return <Standee brand={brand} />;
     default:
       return <B p={[0, 0.4, 0]} s={[w, 0.8, d]} c="#f0f" />;
   }
