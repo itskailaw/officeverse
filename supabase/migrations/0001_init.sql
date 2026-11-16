@@ -273,7 +273,8 @@ create table public.marketplace_orders (
 alter table public.workspaces enable row level security;
 alter table public.workspace_members enable row level security;
 
-create policy ws_select on public.workspaces for select using (public.is_member(id));
+-- owner_id check lets the creator read the row back in the same INSERT ... RETURNING
+create policy ws_select on public.workspaces for select using (owner_id = auth.uid() or public.is_member(id));
 create policy ws_insert on public.workspaces for insert with check (owner_id = auth.uid());
 create policy ws_update on public.workspaces for update using (public.has_role(id, array['owner','admin']::public.member_role[]));
 create policy ws_delete on public.workspaces for delete using (owner_id = auth.uid());
