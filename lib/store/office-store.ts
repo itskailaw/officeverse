@@ -8,7 +8,9 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   ActivityEntry,
   AppNotification,
+  Approval,
   AuditEntry,
+  ChatMessage,
   Company,
   Department,
   Employee,
@@ -38,6 +40,8 @@ export interface OfficeData {
   audit: AuditEntry[];
   settings: OfficeSettings;
   furniture: FurnitureItem[];
+  approvals: Approval[];
+  chatMessages: ChatMessage[];
 }
 
 export type Result = { ok: true; id?: string } | { ok: false; error: string };
@@ -57,8 +61,14 @@ interface Actions {
   setEmployeeStatus(ids: string[], status: EmployeeStatus): void;
   assignWorkstation(id: string, workstationId: string | null): Result;
   // tasks
-  assignTask(t: Pick<Task, "employeeId" | "title" | "instructions" | "priority"> & Partial<Pick<Task, "source" | "meetingId">>): Result;
+  assignTask(t: Pick<Task, "employeeId" | "title" | "instructions" | "priority"> & Partial<Pick<Task, "source" | "meetingId" | "fileNames">>): Result;
   cancelTask(id: string): Result;
+  updateTask(id: string, patch: Partial<Task>): void;
+  // approvals & chat
+  addApprovals(list: Omit<Approval, "id" | "createdAt" | "status">[]): void;
+  decideApproval(id: string, decision: "approved" | "rejected"): Result;
+  addChatMessage(m: Omit<ChatMessage, "id" | "createdAt">): string;
+  clearChat(employeeId: string): void;
   // meetings
   startMeeting(topic: string, attendeeIds: string[]): Result;
   addMeetingItem(meetingId: string, item: Pick<MeetingItem, "kind" | "text" | "assigneeId">): Result;
@@ -102,6 +112,8 @@ export const initialData = (): OfficeData => ({
   audit: [],
   settings: DEFAULT_SETTINGS,
   furniture: DEFAULT_LAYOUT.furniture,
+  approvals: [],
+  chatMessages: [],
 });
 
 export const useOffice = create<OfficeState>()(
@@ -223,6 +235,7 @@ export const useOffice = create<OfficeState>()(
             status: "queued",
             source: t.source ?? "ceo",
             meetingId: t.meetingId ?? null,
+            fileNames: t.fileNames ?? [],
             result: null,
             createdAt: now(),
             updatedAt: now(),
@@ -236,6 +249,43 @@ export const useOffice = create<OfficeState>()(
           set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, status: "cancelled", updatedAt: now() } : t)) }));
           audit("cancel", "task", id);
           return { ok: true };
+        },
+        updateTask(id, patch) {
+          set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch, updatedAt: now() } : t)) }));
+        },
+
+        // ── approvals & chat ──
+        addApprovals(list) {
+          if (!list.length) return;
+          set((s) => ({
+            approvals: [...list.map((a) => ({ ...a, id: uid("appr"), status: "pending" as const, createdAt: now(), decidedAt: null })), ...s.approvals].slice(0, 300),
+          }));
+        },
+        decideApproval(id, decision) {
+          const a = get().approvals.find((x) => x.id === id);
+          if (!a) return { ok: false, error: "Approval not found." };
+          if (a.status !== "pending") return { ok: false, error: "This approval was already decided." };
+          set((s) => ({ approvals: s.approvals.map((x) => (x.id === id ? { ...x, status: decision, decidedAt: now() } : x)) }));
+          audit(decision === "approved" ? "approve" : "reject", "approval", id, a.summary);
+          // once nothing else is pending for the task, close it out
+          const stillPending = get().approvals.some((x) => x.taskId === a.taskId && x.status === "pending");
+          if (a.taskId && !stillPending) {
+            const t = get().tasks.find((x) => x.id === a.taskId);
+            if (t && t.status === "waiting_approval") get().updateTask(t.id, { status: "completed" });
+          }
+          const empPending = get().approvals.some((x) => x.employeeId === a.employeeId && x.status === "pending");
+          const emp = get().employees.find((e) => e.id === a.employeeId);
+          if (emp && !empPending && emp.status === "waiting_approval") get().setEmployeeStatus([emp.id], "available");
+          if (emp) get().logActivity(emp.id, `CEO ${decision} “${a.summary}” from ${emp.name}`);
+          return { ok: true };
+        },
+        addChatMessage(m) {
+          const id = uid("msg");
+          set((s) => ({ chatMessages: [...s.chatMessages, { ...m, id, createdAt: now() }].slice(-2000) }));
+          return id;
+        },
+        clearChat(employeeId) {
+          set((s) => ({ chatMessages: s.chatMessages.filter((m) => m.employeeId !== employeeId) }));
         },
 
         // ── meetings ──
@@ -382,6 +432,8 @@ export const useOffice = create<OfficeState>()(
         audit: s.audit,
         settings: s.settings,
         furniture: s.furniture,
+        approvals: s.approvals,
+        chatMessages: s.chatMessages,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<OfficeData>;
@@ -395,7 +447,9 @@ export const useOffice = create<OfficeState>()(
         if (p.employees) {
           merged.employees = p.employees.map((e) => {
             const seed = SEED_EMPLOYEES.find((s) => s.id === e.id);
-            return !e.appearance.outfit && seed ? { ...e, appearance: { ...e.appearance, outfit: seed.appearance.outfit } } : e;
+            let next = !e.appearance.outfit && seed ? { ...e, appearance: { ...e.appearance, outfit: seed.appearance.outfit } } : e;
+            if (next.ai.maxTokensPerTask < 8000) next = { ...next, ai: { ...next.ai, maxTokensPerTask: 16000 } };
+            return next;
           });
         }
         if (merged.settings.ceoAppearance && !merged.settings.ceoAppearance.outfit) {

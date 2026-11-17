@@ -39,6 +39,17 @@ Deploy to Vercel as a standard Next.js app with the same env vars.
 
 **Controls:** left-drag pans · right-drag rotates · scroll zooms · Q/E rotate 90° · WASD/arrows pan · R rotates furniture in build mode · Esc deselects.
 
+## Phase 2 — AI employees
+
+- **Chat** with any employee (Profile panel → Chat). Each answers in role, with their personality and data permissions.
+- **Tasks run for real:** assign a task (optionally attach PDF, Word, Excel, CSV, text or image files). The employee goes to their desk, types while working, and saves a Markdown report. Statuses: Working → Task Completed / Waiting for Approval / Waiting for Data / Error.
+- **Approval inbox:** customer messages, payments, ad or listing changes and deletions are only ever *drafted*, then wait in Dashboard → Approvals (the employee walks to your office to tell you, outside quiet hours).
+- **Meetings:** "Ask someone" puts a question to an attendee and records the answer; action items start automatically.
+- **Honest data:** business tools return live data only from integrations (Phase 3); otherwise clearly labelled DEMO data, or "unavailable". Uploaded files are treated as data, never as instructions.
+- **Safety & cost:** AI calls are server-side only (`/api/ai/task`, `/api/ai/chat`), require sign-in when Supabase is configured, are rate-limited and validated, and capped by each employee's token budget. Model per employee: Claude Opus 5.5 (default), Sonnet 5.5 or Haiku 5.5. Settings → Data shows a usage/cost estimate.
+
+Setup: add `AI_API_KEY` (your Anthropic key) as a **Secret** environment variable in Vercel, and run `supabase/migrations/0002_ai_employees.sql` in the Supabase SQL Editor.
+
 ## Scripts
 
 | | |

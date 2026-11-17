@@ -120,8 +120,44 @@ export interface Task {
   source: "ceo" | "meeting" | "schedule";
   meetingId?: ID | null;
   result?: string | null;
+  /** names of files the CEO attached when assigning the task */
+  fileNames?: string[];
+  /** AI token usage for the run */
+  usage?: AIUsage | null;
+  /** model that executed the task */
+  model?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AIUsage {
+  input: number;
+  output: number;
+}
+
+export type ApprovalKind = "payment" | "ad_campaign" | "product_update" | "customer_message" | "record_deletion" | "other";
+
+/** A sensitive action an AI employee prepared; nothing happens until the CEO decides. */
+export interface Approval {
+  id: ID;
+  taskId: ID | null;
+  employeeId: ID;
+  kind: ApprovalKind;
+  summary: string;
+  draft: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  decidedAt?: string | null;
+}
+
+export interface ChatMessage {
+  id: ID;
+  employeeId: ID;
+  role: "ceo" | "employee";
+  content: string;
+  usage?: AIUsage | null;
+  model?: string | null;
+  createdAt: string;
 }
 
 export interface MeetingItem {

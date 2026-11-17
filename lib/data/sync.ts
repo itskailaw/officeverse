@@ -18,6 +18,8 @@ const COLLECTIONS = {
   notifications: "notifications",
   audit: "audit_logs",
   activity: "activity_log",
+  approvals: "approvals",
+  chatMessages: "chat_messages",
 } as const;
 type Coll = keyof typeof COLLECTIONS;
 
@@ -54,7 +56,13 @@ export async function startSync(sb: SupabaseClient, workspaceId: string) {
   const loaded: Partial<OfficeData> = {};
   for (const [coll, table] of Object.entries(COLLECTIONS) as [Coll, string][]) {
     const { data, error } = await sb.from(table).select("*").eq("workspace_id", workspaceId);
-    if (error) throw error;
+    if (error) {
+      if (table === "approvals" || table === "chat_messages") {
+        console.warn(`[sync] ${table}:`, error.message);
+        continue;
+      }
+      throw new Error(`Couldn't load ${table}: ${error.message}`);
+    }
     (loaded as Record<string, unknown>)[coll] = (data ?? []).map((r) => fromRow(r));
   }
   const { data: layout } = await sb.from("office_layouts").select("*").eq("workspace_id", workspaceId).maybeSingle();
@@ -65,9 +73,14 @@ export async function startSync(sb: SupabaseClient, workspaceId: string) {
     const s = store.getState();
     for (const [coll, table] of Object.entries(COLLECTIONS) as [Coll, string][]) {
       const rows = (s[coll] as unknown as Record<string, unknown>[]).map((r) => toRow(r, workspaceId));
-      if (rows.length) await sb.from(table).upsert(rows, { onConflict: "workspace_id,id" });
+      if (!rows.length) continue;
+      const { error } = await sb.from(table).upsert(rows, { onConflict: "workspace_id,id" });
+      // core tables must save; newer optional tables just warn (see migration 0002)
+      if (error && !["approvals", "chat_messages"].includes(table)) throw new Error(`Couldn't save ${table}: ${error.message}`);
+      if (error) console.warn(`[sync] ${table}:`, error.message);
     }
-    await sb.from("office_layouts").upsert({ workspace_id: workspaceId, furniture: s.furniture, settings: s.settings });
+    const { error: layoutError } = await sb.from("office_layouts").upsert({ workspace_id: workspaceId, furniture: s.furniture, settings: s.settings });
+    if (layoutError) throw new Error(`Couldn't save the office layout: ${layoutError.message}`);
   } else {
     store.getState().hydrate({
       ...loaded,
@@ -75,36 +88,67 @@ export async function startSync(sb: SupabaseClient, workspaceId: string) {
     });
   }
 
-  // ---- outgoing changes (debounced diff)
-  let prevSnap = store.getState();
+  // ---- outgoing changes (debounced diff, tracked per collection)
+  // `synced` remembers what each table last saved successfully; a failed table
+  // keeps its old snapshot and is retried on the next change.
+  const synced: Record<string, unknown> = {};
+  const snap = store.getState();
+  for (const coll of Object.keys(COLLECTIONS)) synced[coll] = snap[coll as Coll];
+  synced.layout = [snap.furniture, snap.settings];
+  const warned = new Set<string>();
   let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const fail = (table: string, message: string) => {
+    console.error(`[sync] ${table}:`, message);
+    if (warned.has(table)) return;
+    warned.add(table);
+    const hint =
+      table === "approvals" || table === "chat_messages"
+        ? " Run the 0002 database update in Supabase (SQL Editor)."
+        : " Changes are kept in this browser and will retry.";
+    useUI.getState().toast("error", `Cloud save failed for ${table.replace("_", " ")}.${hint}`);
+  };
+
   const flush = async () => {
     const cur = store.getState();
-    const prev = prevSnap;
-    prevSnap = cur;
-    try {
-      for (const [coll, table] of Object.entries(COLLECTIONS) as [Coll, string][]) {
-        const a = prev[coll] as unknown as { id: string }[];
-        const b = cur[coll] as unknown as { id: string }[];
-        if (a === b) continue;
-        const before = new Map(a.map((x) => [x.id, x]));
-        const changed = b.filter((x) => before.get(x.id) !== x);
-        const ids = new Set(b.map((x) => x.id));
-        const removed = a.filter((x) => !ids.has(x.id)).map((x) => x.id);
-        if (changed.length)
-          await sb.from(table).upsert(
-            changed.map((r) => toRow(r as unknown as Record<string, unknown>, workspaceId)),
-            { onConflict: "workspace_id,id" },
-          );
-        if (removed.length) await sb.from(table).delete().eq("workspace_id", workspaceId).in("id", removed);
+    for (const [coll, table] of Object.entries(COLLECTIONS) as [Coll, string][]) {
+      const a = synced[coll] as { id: string }[];
+      const b = cur[coll] as unknown as { id: string }[];
+      if (a === b) continue;
+      const before = new Map(a.map((x) => [x.id, x]));
+      const changed = b.filter((x) => before.get(x.id) !== x);
+      const ids = new Set(b.map((x) => x.id));
+      const removed = a.filter((x) => !ids.has(x.id)).map((x) => x.id);
+      let ok = true;
+      if (changed.length) {
+        const { error } = await sb.from(table).upsert(
+          changed.map((r) => toRow(r as unknown as Record<string, unknown>, workspaceId)),
+          { onConflict: "workspace_id,id" },
+        );
+        if (error) {
+          ok = false;
+          fail(table, error.message);
+        }
       }
-      if (prev.furniture !== cur.furniture || prev.settings !== cur.settings) {
-        await sb.from("office_layouts").upsert({ workspace_id: workspaceId, furniture: cur.furniture, settings: cur.settings, updated_at: new Date().toISOString() });
+      if (ok && removed.length) {
+        const { error } = await sb.from(table).delete().eq("workspace_id", workspaceId).in("id", removed);
+        if (error) {
+          ok = false;
+          fail(table, error.message);
+        }
       }
-    } catch (e) {
-      console.error("[sync]", e);
-      useUI.getState().toast("error", "Cloud sync failed — changes are kept locally and will retry.");
-      prevSnap = prev; // retry the same diff next time
+      if (ok) {
+        synced[coll] = b;
+        warned.delete(table);
+      }
+    }
+    const [f, st] = synced.layout as [unknown, unknown];
+    if (f !== cur.furniture || st !== cur.settings) {
+      const { error } = await sb
+        .from("office_layouts")
+        .upsert({ workspace_id: workspaceId, furniture: cur.furniture, settings: cur.settings, updated_at: new Date().toISOString() });
+      if (error) fail("office layout", error.message);
+      else synced.layout = [cur.furniture, cur.settings];
     }
   };
   const unsub = store.subscribe(() => {
@@ -132,7 +176,8 @@ export async function startSync(sb: SupabaseClient, workspaceId: string) {
     if (existing && JSON.stringify(existing) === JSON.stringify(rec)) return;
     const next = existing ? list.map((x) => (x.id === rec.id ? rec : x)) : [rec, ...list];
     store.getState().hydrate({ [coll]: next } as Partial<OfficeData>);
-    prevSnap = store.getState(); // remote change: don't echo back
+    // remote change: mark as already synced so it isn't echoed back
+    synced[coll] = store.getState()[coll];
   }
 
   return () => {

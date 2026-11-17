@@ -8,6 +8,7 @@ import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { useSimBridge } from "@/lib/office/useSimBridge";
 import { resolveLighting } from "@/lib/office/lighting";
+import { recoverInterruptedTasks } from "@/lib/ai/runner";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { ensureWorkspace, startSync } from "@/lib/data/sync";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,7 @@ export default function OfficeApp() {
     (async () => {
       if (!useOffice.persist.hasHydrated()) await new Promise<void>((r) => useOffice.persist.onFinishHydration(() => r()));
       const sb = getSupabase();
+      recoverInterruptedTasks();
       if (!sb) return setPhase("ready");
       const { data } = await sb.auth.getSession();
       if (!data.session) {

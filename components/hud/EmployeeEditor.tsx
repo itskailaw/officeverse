@@ -48,7 +48,7 @@ export function blankEmployee(): Omit<Employee, "id" | "createdAt" | "status" | 
     responsibilities: [],
     workstationId: null,
     workingHours: { start: "09:00", end: "18:00", days: [1, 2, 3, 4, 5] },
-    ai: { provider: "anthropic", model: "default", temperature: 0.3, maxTokensPerTask: 4000 },
+    ai: { provider: "anthropic", model: "default", temperature: 0.3, maxTokensPerTask: 16000 },
     permissions: ["reports:write"],
     reportingSchedule: "On request",
   };
@@ -253,13 +253,18 @@ export function EmployeeEditor() {
               <Label>AI provider</Label>
               <Select value={form.ai.provider} onChange={(e) => patch({ ai: { ...form.ai, provider: e.target.value as Employee["ai"]["provider"] } })}>
                 <option value="anthropic">Anthropic</option>
-                <option value="openai">OpenAI</option>
+                <option value="openai" disabled>OpenAI (not supported yet)</option>
                 <option value="none">None</option>
               </Select>
             </div>
             <div>
               <Label>Model</Label>
-              <Input value={form.ai.model} onChange={(e) => patch({ ai: { ...form.ai, model: e.target.value } })} placeholder="default" maxLength={80} />
+              <Select value={form.ai.model} onChange={(e) => patch({ ai: { ...form.ai, model: e.target.value } })}>
+                <option value="default">Default (Claude Opus 5.5)</option>
+                <option value="claude-opus-5-5">Claude Opus 5.5 — most capable</option>
+                <option value="claude-sonnet-5-5">Claude Sonnet 5.5 — balanced, ~half the cost</option>
+                <option value="claude-haiku-5-5">Claude Haiku 5.5 — fastest, cheapest</option>
+              </Select>
             </div>
             <div>
               <Label>Reporting schedule</Label>

@@ -30,17 +30,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, timeAgo } from "@/lib/utils";
 import { departmentColor } from "@/lib/data/brand";
 import { Avatar } from "./Avatar";
-
-const TASK_STATUS: Record<Task["status"], { label: string; cls: string }> = {
-  queued: { label: "Queued", cls: "bg-slate-100 text-slate-700" },
-  validating: { label: "Validating access", cls: "bg-sky-100 text-sky-800" },
-  running: { label: "Running", cls: "bg-blue-100 text-blue-800" },
-  waiting_data: { label: "Waiting for data", cls: "bg-amber-100 text-amber-800" },
-  waiting_approval: { label: "Needs approval", cls: "bg-purple-100 text-purple-800" },
-  completed: { label: "Completed", cls: "bg-emerald-100 text-emerald-800" },
-  failed: { label: "Failed", cls: "bg-red-100 text-red-700" },
-  cancelled: { label: "Cancelled", cls: "bg-slate-100 text-slate-500 line-through" },
-};
+import { AINotConfigured, ApprovalCard, ChatPanel, TaskComposer, TaskRow, useAIEnabled } from "./AIWork";
+import { acknowledge } from "@/lib/ai/runner";
 
 export function StatusBadge({ status }: { status: keyof typeof STATUS_META }) {
   const m = STATUS_META[status];
@@ -52,35 +43,7 @@ export function StatusBadge({ status }: { status: keyof typeof STATUS_META }) {
   );
 }
 
-export function TaskRow({ t, showEmployee }: { t: Task; showEmployee?: boolean }) {
-  const cancel = useOffice((s) => s.cancelTask);
-  const emp = useOffice((s) => s.employees.find((e) => e.id === t.employeeId));
-  const st = TASK_STATUS[t.status];
-  return (
-    <div className="rounded-lg border border-slate-200 bg-panel p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-slate-800">{t.title}</div>
-          <div className="mt-0.5 text-[11px] text-slate-500">
-            {showEmployee && emp ? `${emp.name} · ` : ""}
-            {t.source === "meeting" ? "From meeting · " : ""}
-            {timeAgo(t.createdAt)}
-            {t.priority === "high" && <span className="ml-1 font-semibold text-red-600">· High priority</span>}
-          </div>
-        </div>
-        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", st.cls)}>{st.label}</span>
-      </div>
-      {t.instructions && <p className="mt-1.5 line-clamp-2 text-xs text-slate-600">{t.instructions}</p>}
-      {t.status === "queued" && (
-        <div className="mt-2 flex justify-end">
-          <button className="text-[11px] font-medium text-slate-500 hover:text-red-600" onClick={() => cancel(t.id)}>
-            Cancel task
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+export { TaskRow } from "./AIWork";
 
 export function EmployeePanel() {
   const id = useUI((s) => s.selectedEmployeeId);
@@ -92,13 +55,13 @@ export function EmployeePanel() {
   const company = companies.find((c) => c.id === emp?.companyId);
   const allTasks = useOffice((s) => s.tasks);
   const allActivity = useOffice((s) => s.activity);
-  const assignTask = useOffice((s) => s.assignTask);
+  const allApprovals = useOffice((s) => s.approvals);
+  const approvals = useMemo(() => allApprovals.filter((a) => a.employeeId === id), [allApprovals, id]);
   const tasks = useMemo(() => allTasks.filter((t) => t.employeeId === id), [allTasks, id]);
   const activity = useMemo(() => allActivity.filter((a) => a.employeeId === id).slice(0, 40), [allActivity, id]);
 
-  const [title, setTitle] = useState("");
-  const [instructions, setInstructions] = useState("");
-  const [priority, setPriority] = useState<Task["priority"]>("normal");
+  const [tab, setTab] = useState("overview");
+  const ai = useAIEnabled();
 
   if (!emp) return null;
   const sim = getSim();
@@ -108,14 +71,8 @@ export function EmployeePanel() {
   const completed = tasks.filter((t) => t.status === "completed").length;
   const current = tasks.find((t) => ["running", "validating", "waiting_data", "waiting_approval"].includes(t.status));
 
-  const submit = () => {
-    const r = assignTask({ employeeId: emp.id, title, instructions, priority });
-    if (!r.ok) return toast("error", r.error);
-    toast("success", `Task queued for ${emp.name}`);
-    setTitle("");
-    setInstructions("");
-    setPriority("normal");
-  };
+  const pendingApprovals = approvals.filter((a) => a.status === "pending");
+  const needsAck = emp.status === "error" || emp.status === "waiting_data" || emp.status === "task_completed";
 
   return (
     <aside className="anim-panel pointer-events-auto absolute bottom-3 right-3 top-[68px] z-30 flex w-[min(400px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-panel/95 shadow-2xl backdrop-blur">
@@ -170,14 +127,24 @@ export function EmployeePanel() {
         </p>
       </div>
 
-      <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
+      {needsAck && (
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] text-slate-600">
+          <span>
+            {emp.status === "error" ? "The last task failed." : emp.status === "waiting_data" ? "Waiting for data you can provide." : "Finished a task."} See the Tasks tab.
+          </span>
+          <button className="font-semibold text-sky-700 hover:underline" onClick={() => acknowledge(emp.id)}>
+            Mark as seen
+          </button>
+        </div>
+      )}
+      <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
         <div className="px-4 pt-3">
           <TabsList className="w-full">
             <TabsTrigger value="overview" className="flex-1">
               <BriefcaseBusiness /> Profile
             </TabsTrigger>
             <TabsTrigger value="tasks" className="flex-1">
-              <ListTodo /> Tasks{queued ? ` (${queued})` : ""}
+              <ListTodo /> Tasks{pendingApprovals.length ? ` (${pendingApprovals.length}!)` : queued ? ` (${queued})` : ""}
             </TabsTrigger>
             <TabsTrigger value="chat" className="flex-1">
               <MessageSquare /> Chat
@@ -193,13 +160,23 @@ export function EmployeePanel() {
               {current ? (
                 <TaskRow t={current} />
               ) : (
-                <p className="text-xs text-slate-500">No task is executing. {queued ? `${queued} task(s) queued for the AI engine.` : "Assign one from the Tasks tab."}</p>
+                <p className="text-xs text-slate-500">
+                  No task is running.{" "}
+                  <button className="font-medium text-sky-700 hover:underline" onClick={() => setTab("tasks")}>
+                    Assign one
+                  </button>{" "}
+                  or{" "}
+                  <button className="font-medium text-sky-700 hover:underline" onClick={() => setTab("chat")}>
+                    start a chat
+                  </button>
+                  .
+                </p>
               )}
             </Section>
             <div className="grid grid-cols-3 gap-2">
               <Stat label="Queued" value={queued} />
               <Stat label="Completed" value={completed} />
-              <Stat label="Approvals" value={0} />
+              <Stat label="Approvals" value={pendingApprovals.length} />
             </div>
             <Section title="Responsibilities">
               <ul className="space-y-1">
@@ -236,35 +213,18 @@ export function EmployeePanel() {
           </TabsContent>
 
           <TabsContent value="tasks" className="space-y-3">
-            <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-[11px] leading-relaxed text-sky-900">
-              <b>Phase 1:</b> tasks are saved and queued for {emp.name.split(" ")[0]}. The AI execution engine (Phase 2) will validate data access, run the
-              workflow, save results and ask for approval before sensitive actions. Nothing is executed yet.
-            </div>
-            <div className="space-y-2 rounded-xl border border-slate-200 p-3">
-              <div>
-                <Label htmlFor="task-title">Task</Label>
-                <Input id="task-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Analyze yesterday's Shopee sales" maxLength={200} />
-              </div>
-              <div>
-                <Label htmlFor="task-instr">Instructions (optional)</Label>
-                <Textarea id="task-instr" value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Context, scope, output format…" maxLength={4000} />
-              </div>
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Label htmlFor="task-pri">Priority</Label>
-                  <Select id="task-pri" value={priority} onChange={(e) => setPriority(e.target.value as Task["priority"])}>
-                    <option value="low">Low</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                  </Select>
-                </div>
-                <Button onClick={submit} disabled={!title.trim()}>
-                  <Send /> Assign
-                </Button>
-              </div>
-            </div>
+            {ai === false && <AINotConfigured />}
+            <TaskComposer emp={emp} />
             <Section title="Pending approvals">
-              <p className="text-xs text-slate-500">No actions awaiting your approval.</p>
+              {pendingApprovals.length ? (
+                <div className="space-y-2">
+                  {pendingApprovals.map((a) => (
+                    <ApprovalCard key={a.id} a={a} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">No actions awaiting your approval.</p>
+              )}
             </Section>
             <Section title={`Task history (${tasks.length})`}>
               <div className="space-y-2">
@@ -273,22 +233,8 @@ export function EmployeePanel() {
             </Section>
           </TabsContent>
 
-          <TabsContent value="chat">
-            <div className="flex h-full flex-col gap-3">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
-                <div className="mb-1 flex items-center gap-1.5 font-semibold text-slate-800">
-                  <Bot className="h-4 w-4" /> AI conversation — Phase 2
-                </div>
-                Conversations with {emp.name.split(" ")[0]} go through the server-side AI engine, which isn&apos;t connected yet. OfficeVerse won&apos;t
-                show scripted replies pretending to be AI. Use <b>Visit</b> to walk over in the office, or queue work from the Tasks tab.
-              </div>
-              <div className="flex gap-2">
-                <Input disabled placeholder={`Message ${emp.name.split(" ")[0]}… (available in Phase 2)`} />
-                <Button disabled size="icon" aria-label="Send">
-                  <Send />
-                </Button>
-              </div>
-            </div>
+          <TabsContent value="chat" className="h-full">
+            <ChatPanel emp={emp} />
           </TabsContent>
 
           <TabsContent value="activity" className="space-y-2">

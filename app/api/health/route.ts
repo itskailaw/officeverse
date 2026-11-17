@@ -7,9 +7,10 @@ export function GET() {
   return NextResponse.json(
     {
       ok: true,
-      phase: 1,
+      phase: 2,
       supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)),
-      ai: Boolean(process.env.AI_API_KEY),
+      ai: Boolean(process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY),
+      phase2: true,
       integrations: 0,
       timezone: "Asia/Kuala_Lumpur",
       currency: "MYR",

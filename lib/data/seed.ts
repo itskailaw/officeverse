@@ -41,7 +41,7 @@ export const SEED_DEPARTMENTS: Department[] = [
   { id: "dept-it", companyId: null, name: "IT & Automation", description: "Integrations, background jobs and system health.", active: true, createdAt: T0 },
 ];
 
-const AI_DEFAULT: AIConfig = { provider: "anthropic", model: "default", temperature: 0.3, maxTokensPerTask: 4000 };
+const AI_DEFAULT: AIConfig = { provider: "anthropic", model: "default", temperature: 0.3, maxTokensPerTask: 16000 };
 const HOURS = { start: "09:00", end: "18:00", days: [1, 2, 3, 4, 5] };
 
 const SKIN = ["#f5d0b5", "#e8b896", "#d29b6c", "#a8714a", "#7a4e2d", "#f1c9a5"];

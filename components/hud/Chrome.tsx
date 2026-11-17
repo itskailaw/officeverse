@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   Bell,
   CalendarPlus,
+  CheckSquare,
   CheckCircle2,
   Hammer,
   Info,
@@ -104,6 +105,7 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         >
           <Tag />
         </Button>
+        <ApprovalsButton />
         <div className="relative">
           <Button variant="ghost" size="icon" title="Notifications" onClick={() => ui.set({ notificationsOpen: !ui.notificationsOpen })}>
             <Bell />
@@ -124,6 +126,24 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         {authLabel}
       </div>
     </header>
+  );
+}
+
+function ApprovalsButton() {
+  const n = useOffice((s) => s.approvals.filter((a) => a.status === "pending").length);
+  const set = useUI((s) => s.set);
+  if (!n) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      title="Approvals waiting"
+      className="bg-purple-100 text-purple-800 hover:bg-purple-200"
+      onClick={() => set({ dialog: "dashboard", dashboardTab: "approvals" })}
+    >
+      <CheckSquare />
+      {n} to approve
+    </Button>
   );
 }
 

@@ -7,6 +7,7 @@ import { useUI } from "@/lib/store/ui-store";
 import { CEO_ID } from "@/lib/data/seed";
 import type { MeetingItem } from "@/lib/data/types";
 import { getSim } from "@/lib/office/runtime";
+import { enqueueTask, sendChat } from "@/lib/ai/runner";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -115,7 +116,8 @@ export function MeetingPanel() {
   const removeItem = useOffice((s) => s.removeMeetingItem);
   const end = useOffice((s) => s.endMeeting);
   const toast = useUI((s) => s.toast);
-  const [kind, setKind] = useState<MeetingItem["kind"]>("note");
+  const [kind, setKind] = useState<MeetingItem["kind"] | "question">("note");
+  const [asking, setAsking] = useState(false);
   const [text, setText] = useState("");
   const [assignee, setAssignee] = useState("");
   const [seated, setSeated] = useState(0);
@@ -134,10 +136,36 @@ export function MeetingPanel() {
   const attendees = employees.filter((e) => meeting.attendeeIds.includes(e.id));
   const allSeated = seated >= attendees.length;
 
+  const ask = async () => {
+    const who = employees.find((e) => e.id === assignee);
+    if (!who) return toast("error", "Choose who you're asking.");
+    const q = text.trim();
+    setAsking(true);
+    setText("");
+    try {
+      const notes = meeting.items.map((i) => `- ${i.kind}: ${i.text}`).join("\n") || "(none yet)";
+      const situation = `You are in a meeting in the OfficeVerse meeting room. Topic: "${meeting.topic}". Attendees: ${attendees
+        .map((e) => `${e.name} (${e.title})`)
+        .join(", ")}. Notes so far:\n${notes}\nThe CEO is asking you a question in front of the team. Answer briefly (under 120 words), from your role's perspective.`;
+      const reply = await sendChat(who.id, q, situation);
+      addItem(meeting.id, { kind: "note", text: `Q to ${who.name}: ${q}\n${who.name.split(" ")[0]}: ${reply}`, assigneeId: null });
+    } catch (e) {
+      setText(q);
+      toast("error", e instanceof Error ? e.message : "Couldn't get an answer");
+    } finally {
+      setAsking(false);
+    }
+  };
+
   const submit = () => {
+    if (kind === "question") return void ask();
     const r = addItem(meeting.id, { kind, text, assigneeId: kind === "action" ? assignee || null : null });
     if (!r.ok) return toast("error", r.error);
-    if (kind === "action") toast("success", "Action item assigned and saved as a task");
+    if (kind === "action") {
+      const task = useOffice.getState().tasks.find((t) => t.meetingId === meeting.id && t.title === text.trim());
+      if (task) enqueueTask(task.id);
+      toast("success", "Action item assigned — they've started on it");
+    }
     setText("");
   };
 
@@ -176,12 +204,12 @@ export function MeetingPanel() {
               </span>
             ))}
           </div>
-          <div className="scrollbar-thin max-h-40 space-y-1 overflow-y-auto">
+          <div className="scrollbar-thin max-h-56 space-y-1 overflow-y-auto">
             {meeting.items.length ? (
               meeting.items.map((i) => (
                 <div key={i.id} className="group flex items-start gap-2 text-xs">
                   <span className={`mt-0.5 flex items-center gap-1 font-semibold ${KIND_META[i.kind].cls}`}>{KIND_META[i.kind].icon}</span>
-                  <span className="flex-1 text-slate-700">
+                  <span className="flex-1 whitespace-pre-wrap text-slate-700">
                     {i.text}
                     {i.assigneeId && <span className="text-slate-400"> → {employees.find((e) => e.id === i.assigneeId)?.name}</span>}
                   </span>
@@ -201,10 +229,11 @@ export function MeetingPanel() {
               <option value="note">Note</option>
               <option value="decision">Decision</option>
               <option value="action">Action item</option>
+              <option value="question">Ask someone</option>
             </Select>
-            {kind === "action" && (
+            {(kind === "action" || kind === "question") && (
               <Select className="w-40" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-                <option value="">Assign to…</option>
+                <option value="">{kind === "question" ? "Ask…" : "Assign to…"}</option>
                 {attendees.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.name}
@@ -217,14 +246,20 @@ export function MeetingPanel() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submit()}
-              placeholder={kind === "action" ? "What needs to be done?" : kind === "decision" ? "What was decided?" : "Add a note"}
+              placeholder={
+                kind === "question" ? "Ask a question…" : kind === "action" ? "What needs to be done?" : kind === "decision" ? "What was decided?" : "Add a note"
+              }
               maxLength={300}
             />
-            <Button onClick={submit} disabled={!text.trim()}>
+            <Button onClick={submit} disabled={!text.trim() || asking}>
+              {asking && <Loader2 className="animate-spin" />}
               Add
             </Button>
           </div>
-          <p className="text-[11px] text-slate-400">Asking employees questions and receiving AI department reports arrives with the AI engine in Phase 2.</p>
+          <p className="text-[11px] text-slate-400">
+            Tip: choose <b>Ask someone</b> to put a question to an attendee; their answer is added to the meeting notes. Action items are assigned and start
+            automatically.
+          </p>
         </div>
       )}
     </div>

@@ -163,7 +163,7 @@ CEO assigns task ──► tasks(status=queued) ──► POST /api/tasks/run (s
 13. Persistence: localStorage plus Supabase schema, RLS, auth, sync and realtime ✅
 14. Mobile/WebGL-less dashboard fallback ✅
 
-**Phase 2** — `/api/tasks/run` and `/api/ai/chat` with a provider abstraction, approvals UI, status derivation from task state, chat persistence.
+**Phase 2 ✅** — `/api/ai/task` and `/api/ai/chat` (Anthropic SDK, manual bounded tool loop, permission-scoped tools, server-side refusal fallback), approvals inbox, status derivation from task state, chat persistence, file analysis, meeting Q&A (migration `0002_ai_employees.sql`).
 **Phase 3** — Integration center, Shopee/Lazada adapters, CSV/Excel importer with dedupe, ads monitor with thresholds, inventory tracking, sync history.
 **Phase 4** — Vercel Cron briefings by the Executive Assistant, proactive alerts (employee walks to the CEO office for critical alerts, respecting quiet hours), stock forecasting, file workflows.
 **Phase 5** — Artides/OnTime and Amare workflows, more employees, deeper customisation.

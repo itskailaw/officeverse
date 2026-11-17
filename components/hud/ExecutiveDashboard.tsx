@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   AlertTriangle,
+  CheckSquare,
   Bell,
   Building2,
   CalendarClock,
@@ -31,6 +32,7 @@ import { cn, klHour, klTime, timeAgo } from "@/lib/utils";
 import { CompaniesManager } from "./CompaniesManager";
 import { TeamTable } from "./TeamTable";
 import { StatusBadge, TaskRow } from "./EmployeePanel";
+import { ApprovalCard } from "./AIWork";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
 
@@ -57,6 +59,10 @@ export function ExecutiveDashboard() {
               <TabsTrigger value="team">
                 <Users /> Team
               </TabsTrigger>
+              <TabsTrigger value="approvals">
+                <CheckSquare /> Approvals
+                <PendingCount />
+              </TabsTrigger>
               <TabsTrigger value="tasks">
                 <ClipboardList /> Tasks
               </TabsTrigger>
@@ -77,6 +83,9 @@ export function ExecutiveDashboard() {
             </TabsContent>
             <TabsContent value="team">
               <TeamTable />
+            </TabsContent>
+            <TabsContent value="approvals">
+              <ApprovalsInbox />
             </TabsContent>
             <TabsContent value="tasks">
               <AllTasks />
@@ -290,6 +299,9 @@ function Hero() {
   const d = useMemo(() => (demo ? demoEcommerce() : null), [demo]);
 
   const items: { label: string; demo?: boolean; tone: "red" | "amber" | "sky"; onClick?: () => void }[] = [];
+  const approvalsWaiting = useOffice((s) => s.approvals.filter((a) => a.status === "pending").length);
+  if (approvalsWaiting)
+    items.push({ label: `${approvalsWaiting} approval${approvalsWaiting > 1 ? "s" : ""} waiting for you`, tone: "red", onClick: () => set({ dashboardTab: "approvals" }) });
   const urgent = notifications.filter((n) => !n.read && n.priority !== "info").length;
   if (urgent) items.push({ label: `${urgent} unread important alert${urgent > 1 ? "s" : ""}`, tone: "red", onClick: () => set({ dialog: null, notificationsOpen: true }) });
   if (live) items.push({ label: `Meeting in progress: ${live.topic}`, tone: "sky", onClick: () => set({ dialog: null }) });
@@ -540,6 +552,41 @@ export function PriorityDot({ p }: { p: "critical" | "important" | "info" }) {
 
 function Empty({ text }: { text: string }) {
   return <p className="py-4 text-center text-xs text-slate-400">{text}</p>;
+}
+
+function PendingCount() {
+  const n = useOffice((s) => s.approvals.filter((a) => a.status === "pending").length);
+  return n ? <span className="ml-0.5 rounded-full bg-purple-600 px-1.5 text-[10px] font-bold text-white">{n}</span> : null;
+}
+
+function ApprovalsInbox() {
+  const approvals = useOffice((s) => s.approvals);
+  const pending = approvals.filter((a) => a.status === "pending");
+  const decided = approvals.filter((a) => a.status !== "pending").slice(0, 30);
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-900">
+        Employees never pay, change campaigns, edit listings, message customers or delete records on their own. They prepare a draft and wait here for
+        you. External integrations arrive in Phase 3, so an approved draft is for you to copy and use.
+      </div>
+      <div>
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Waiting for you ({pending.length})</div>
+        <div className="grid gap-2 md:grid-cols-2">
+          {pending.length ? pending.map((a) => <ApprovalCard key={a.id} a={a} showEmployee />) : <Empty text="Nothing needs your approval." />}
+        </div>
+      </div>
+      {decided.length > 0 && (
+        <div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Decided</div>
+          <div className="grid gap-2 md:grid-cols-2">
+            {decided.map((a) => (
+              <ApprovalCard key={a.id} a={a} showEmployee />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------- other tabs
