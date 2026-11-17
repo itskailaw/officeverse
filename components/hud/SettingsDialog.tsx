@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Database, Download, ImagePlus, Lamp, Moon, RotateCcw, Sun, Sunset, Trash2, User } from "lucide-react";
+import { PlugZap, Database, Download, ImagePlus, Lamp, Moon, RotateCcw, Sun, Sunset, Trash2, User } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import type { LightingMode, UITheme, WallMode } from "@/lib/data/types";
@@ -12,6 +12,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { AppearanceEditor } from "./EmployeeEditor";
+import { IntegrationsPanel } from "./Integrations";
 
 const MAX_UPLOAD = 5 * 1024 * 1024;
 const ALLOWED = ["image/png", "image/jpeg", "image/webp"];
@@ -38,6 +39,7 @@ interface Health {
 export function SettingsDialog() {
   const open = useUI((s) => s.dialog === "settings");
   const setUI = useUI((s) => s.set);
+  const tab = useUI((s) => s.settingsTab);
   const toast = useUI((s) => s.toast);
   const s = useOffice();
   const st = s.settings;
@@ -80,7 +82,7 @@ export function SettingsDialog() {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && setUI({ dialog: null })}>
       <DialogContent title="Settings" description="Office customisation, CEO profile, notifications and data." className="max-w-2xl">
-        <Tabs defaultValue="office" className="flex flex-col">
+        <Tabs value={tab} onValueChange={(v) => setUI({ settingsTab: v })} className="flex flex-col">
           <div className="border-b border-slate-100 px-5 py-2">
             <TabsList>
               <TabsTrigger value="office">
@@ -90,6 +92,9 @@ export function SettingsDialog() {
                 <User /> CEO
               </TabsTrigger>
               <TabsTrigger value="notifications">Notifications</TabsTrigger>
+              <TabsTrigger value="integrations">
+                <PlugZap /> Integrations
+              </TabsTrigger>
               <TabsTrigger value="data">
                 <Database /> Data & system
               </TabsTrigger>
@@ -271,6 +276,10 @@ export function SettingsDialog() {
               <Input type="time" className="w-40" value={st.briefingTime} onChange={(e) => s.updateSettings({ briefingTime: e.target.value })} />
               <p className="mt-1 text-[11px] text-slate-500">Saved now; the Executive Assistant&apos;s scheduled briefing runs from Phase 4.</p>
             </div>
+          </TabsContent>
+
+          <TabsContent value="integrations" className="p-5">
+            <IntegrationsPanel />
           </TabsContent>
 
           <TabsContent value="data" className="space-y-5 p-5">

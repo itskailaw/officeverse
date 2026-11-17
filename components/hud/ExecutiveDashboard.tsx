@@ -5,6 +5,8 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import {
   AlertTriangle,
   CheckSquare,
+  Loader2,
+  RefreshCw,
   Bell,
   Building2,
   CalendarClock,
@@ -33,6 +35,7 @@ import { CompaniesManager } from "./CompaniesManager";
 import { TeamTable } from "./TeamTable";
 import { StatusBadge, TaskRow } from "./EmployeePanel";
 import { ApprovalCard } from "./AIWork";
+import { useLive, type LiveSummary } from "@/lib/integrations/client";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
 
@@ -113,6 +116,7 @@ function Overview() {
   const notifications = useOffice((s) => s.notifications);
   const activity = useOffice((s) => s.activity);
   const demo = useOffice((s) => s.settings.demoMode);
+  const liveData = useLive((s) => s.summary);
   const companyFilter = useUI((s) => s.companyFilter);
   const set = useUI((s) => s.set);
   const [deptFilter, setDeptFilter] = useState("all");
@@ -155,7 +159,18 @@ function Overview() {
         </div>
       </div>
 
-      {demo ? (
+      {liveData ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          </span>
+          <b>Live data</b> from Shopee{liveData.platforms.shopee.shopName ? ` (${liveData.platforms.shopee.shopName})` : ""}. Lazada isn&apos;t connected yet.
+          <span className="ml-auto whitespace-nowrap text-emerald-700">
+            Last successful sync: {liveData.platforms.shopee.lastSync ? timeAgo(liveData.platforms.shopee.lastSync) : "never"}
+          </span>
+        </div>
+      ) : demo ? (
         <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>
@@ -170,7 +185,7 @@ function Overview() {
         </div>
       )}
 
-      {showWgs && <EcommerceSection demo={demo} />}
+      {showWgs && (liveData ? <LiveEcommerceSection s={liveData} /> : <EcommerceSection demo={demo} />)}
 
       {(showArtides || showAmare) && (
         <div className="grid gap-4 md:grid-cols-2">
@@ -297,6 +312,7 @@ function Hero() {
   const live = useOffice((s) => s.meetings.find((m) => m.status === "in_progress"));
   const set = useUI((s) => s.set);
   const d = useMemo(() => (demo ? demoEcommerce() : null), [demo]);
+  const shopeeLive = useLive((s) => s.summary);
 
   const items: { label: string; demo?: boolean; tone: "red" | "amber" | "sky"; onClick?: () => void }[] = [];
   const approvalsWaiting = useOffice((s) => s.approvals.filter((a) => a.status === "pending").length);
@@ -307,7 +323,10 @@ function Hero() {
   if (live) items.push({ label: `Meeting in progress: ${live.topic}`, tone: "sky", onClick: () => set({ dialog: null }) });
   const queued = tasks.filter((t) => t.status === "queued").length;
   if (queued) items.push({ label: `${queued} task${queued > 1 ? "s" : ""} queued for the AI engine`, tone: "sky", onClick: () => set({ dashboardTab: "tasks" }) });
-  if (d) {
+  if (shopeeLive) {
+    if (shopeeLive.toPack.urgent) items.push({ label: `${shopeeLive.toPack.urgent} Shopee parcel${shopeeLive.toPack.urgent > 1 ? "s" : ""} due to ship within 24h`, tone: "red" });
+    if (shopeeLive.toPack.readyToShip) items.push({ label: `${shopeeLive.toPack.readyToShip} Shopee orders to pack`, tone: "amber" });
+  } else if (d) {
     if (d.parcels.priority) items.push({ label: `${d.parcels.priority} priority parcels to ship`, tone: "amber", demo: true });
     const low = d.ads.find((a) => a.daysLeft < 4);
     if (low) items.push({ label: `${low.platform} Ads credit ~${low.daysLeft.toFixed(1)} days left`, tone: "amber", demo: true });
@@ -372,6 +391,130 @@ function Kpi({ icon, label, value, sub, warn, demo }: { icon: React.ReactNode; l
         <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{value}</div>
       )}
       <div className={cn("mt-0.5 text-[11px]", warn ? "font-medium text-amber-700" : "text-slate-500")}>{value === null ? "No integration connected" : sub}</div>
+    </div>
+  );
+}
+
+function LiveEcommerceSection({ s }: { s: LiveSummary }) {
+  const [range, setRange] = useState<7 | 14 | 30>(14);
+  const syncing = useLive((x) => x.syncing);
+  const sync = useLive((x) => x.syncShopee);
+  const toast = useUI((x) => x.toast);
+  const chart = s.days.slice(-range).map((x) => ({ date: x.date.slice(5), Shopee: x.revenue }));
+  const aov = s.yesterday.orders ? s.yesterday.revenue / s.yesterday.orders : 0;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div>
+          <CardTitle>Water Guardian Solution — E-commerce</CardTitle>
+          <p className="text-[11px] text-slate-500" title={s.definition}>
+            Live from Shopee · gross order value in MYR (before fees, refunds and payouts) · Malaysia time
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={syncing}
+          onClick={async () => {
+            const r = await sync();
+            toast(r.ok ? "success" : "error", r.message);
+          }}
+        >
+          {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync now
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <LiveKpi icon={<Wallet />} label="Today" value={formatMYR(s.today.revenue)} sub={`${s.today.orders} orders`} />
+          <LiveKpi icon={<Wallet />} label="Yesterday" value={formatMYR(s.yesterday.revenue)} sub={`AOV ${formatMYR(aov, 2)}`} />
+          <LiveKpi icon={<Wallet />} label="Month to date" value={formatMYR(s.monthToDate.revenue)} sub={`${s.monthToDate.orders} orders`} />
+          <LiveKpi
+            icon={<Package />}
+            label="To pack"
+            value={String(s.toPack.readyToShip)}
+            sub={`${s.toPack.urgent} due within 24h · ${s.toPack.processed} awaiting pickup`}
+            warn={s.toPack.urgent > 0}
+          />
+          <LiveKpi
+            icon={<Megaphone />}
+            label="Shopee Ads balance"
+            value={s.ads.shopee ? formatMYR(s.ads.shopee.balance, 2) : null}
+            sub={s.ads.shopee ? `as of ${timeAgo(s.ads.shopee.at)} · daily spend not yet tracked` : "Ads permission not granted"}
+          />
+          <LiveKpi icon={<AlertTriangle />} label="Cancelled today" value={String(s.cancelledToday)} sub="Shopee" warn={s.cancelledToday > 0} />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-panel p-3 lg:col-span-2">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs font-semibold text-slate-700">Shopee revenue by day (MYR)</div>
+              <div className="flex gap-1">
+                {[7, 14, 30].map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRange(r as 7 | 14 | 30)}
+                    className={cn("rounded-md px-2 py-0.5 text-[11px] font-medium", range === r ? "bg-navy text-white" : "text-slate-500 hover:bg-slate-100")}
+                  >
+                    {r}d
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chart} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="#e2e8f0" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
+                  <Tooltip formatter={(v) => formatMYR(Number(v))} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} cursor={{ stroke: "#94a3b8", strokeDasharray: "3 3" }} />
+                  <Area type="monotone" dataKey="Shopee" stroke={SERIES.shopee} strokeWidth={2} fill={SERIES.shopee} fillOpacity={0.18} isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-panel p-3">
+            <div className="mb-2 text-xs font-semibold text-slate-700">Best sellers — last 30 days</div>
+            {s.bestSellers30d.length ? (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-[10px] uppercase tracking-wide text-slate-400">
+                    <th className="pb-1 font-medium">Product</th>
+                    <th className="pb-1 text-right font-medium">Units</th>
+                    <th className="pb-1 text-right font-medium">Sales</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.bestSellers30d.map((p) => (
+                    <tr key={p.name} className="border-t border-slate-100">
+                      <td className="py-1.5 pr-2 text-slate-700">{p.name}</td>
+                      <td className="py-1.5 text-right tabular-nums">{p.units}</td>
+                      <td className="py-1.5 text-right tabular-nums">{formatMYR(p.revenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <Empty text="No sales in the last 30 days yet." />
+            )}
+            <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500">Profit estimates need product costs and fees — coming with the finance module.</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LiveKpi({ icon, label, value, sub, warn }: { icon: React.ReactNode; label: string; value: string | null; sub?: string; warn?: boolean }) {
+  return (
+    <div className={cn("rounded-xl border bg-panel p-3.5 shadow-sm", warn ? "border-amber-300" : "border-slate-200")}>
+      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-slate-500 [&_svg]:h-3.5 [&_svg]:w-3.5">
+        <span className="flex items-center gap-1.5">
+          {icon}
+          {label}
+        </span>
+        <span className="rounded bg-emerald-100 px-1 text-[9px] font-bold text-emerald-800">LIVE</span>
+      </div>
+      {value === null ? <div className="mt-1.5 text-sm font-semibold text-slate-400">Data Unavailable</div> : <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{value}</div>}
+      <div className={cn("mt-0.5 text-[11px]", warn ? "font-medium text-amber-700" : "text-slate-500")}>{sub}</div>
     </div>
   );
 }

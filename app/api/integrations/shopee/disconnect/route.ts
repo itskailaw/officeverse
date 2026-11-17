@@ -1,0 +1,18 @@
+import { NextResponse } from "next/server";
+import { errorResponse } from "@/lib/ai/server/guard";
+import { deleteIntegration, getMembership, listIntegrations, requireRole } from "@/lib/integrations/store";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/** Remove stored Shopee credentials. Synced orders are kept for reporting history. */
+export async function POST() {
+  try {
+    const m = await getMembership();
+    requireRole(m, ["owner", "admin"]);
+    for (const row of await listIntegrations(m.workspaceId, "shopee")) await deleteIntegration(m.workspaceId, row.id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}

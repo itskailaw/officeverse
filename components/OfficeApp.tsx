@@ -9,6 +9,7 @@ import { useUI } from "@/lib/store/ui-store";
 import { useSimBridge } from "@/lib/office/useSimBridge";
 import { resolveLighting } from "@/lib/office/lighting";
 import { recoverInterruptedTasks } from "@/lib/ai/runner";
+import { bootLiveData } from "@/lib/integrations/client";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { ensureWorkspace, startSync } from "@/lib/data/sync";
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,17 @@ export default function OfficeApp() {
         if (cancelled) return;
         stop = await startSync(sb, ws);
         setPhase("ready");
+        // returning from Shopee's authorisation page?
+        const params = new URLSearchParams(window.location.search);
+        const shopee = params.get("shopee");
+        if (shopee) {
+          const ui = useUI.getState();
+          if (shopee === "connected") ui.toast("success", "Shopee connected — syncing your orders…");
+          else ui.toast("error", params.get("message") ?? "Couldn't connect Shopee.");
+          ui.set({ dialog: "settings", settingsTab: "integrations" });
+          window.history.replaceState(null, "", "/office");
+        }
+        void bootLiveData().then((err) => err && useUI.getState().toast("error", err));
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
         setPhase("error");

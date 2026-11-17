@@ -103,7 +103,51 @@ export function buildTools(e: EmployeeBrief, mode: "task" | "chat"): Tool[] {
   return tools;
 }
 
+type Live = {
+  platforms: { shopee: { shopName: string | null; lastSync: string | null } };
+  definition: string;
+  today: unknown;
+  yesterday: unknown;
+  monthToDate: unknown;
+  days: unknown;
+  toPack: unknown;
+  cancelledToday: number;
+  bestSellers30d: unknown;
+  ads: { shopee: unknown };
+};
+
+function liveData(metric: string, live: Live) {
+  const meta = {
+    source: "LIVE",
+    platform: "Shopee Malaysia" + (live.platforms.shopee.shopName ? ` (${live.platforms.shopee.shopName})` : ""),
+    lastSuccessfulSync: live.platforms.shopee.lastSync,
+    lazada: "Not connected — no Lazada data available.",
+  };
+  switch (metric) {
+    case "revenue":
+      return { ...meta, currency: "MYR", definition: live.definition, today: live.today, yesterday: live.yesterday, monthToDate: live.monthToDate, last30Days: live.days };
+    case "orders_and_parcels":
+      return {
+        ...meta,
+        toPack: live.toPack,
+        note: "readyToShip = orders the seller still needs to arrange shipment for; processed = shipment arranged, awaiting pickup; urgent = ship-by deadline within 24h.",
+        cancelledToday: live.cancelledToday,
+      };
+    case "advertising":
+      return { ...meta, currency: "MYR", shopeeAdsBalance: live.ads.shopee ?? "Unavailable (Ads permission not granted on the Shopee app)", dailySpend: "Not tracked yet" };
+    case "best_sellers":
+      return { ...meta, currency: "MYR", last30Days: live.bestSellers30d };
+    default:
+      return null;
+  }
+}
+
 function metricData(metric: string, ctx: OfficeContext) {
+  if (ctx.live) {
+    const d = liveData(metric, ctx.live as unknown as Live);
+    if (d) return d;
+    return { source: "unavailable", message: `No live data for ${metric} yet (only Shopee orders, revenue and ads balance are connected). Do not estimate.` };
+  }
   if (!ctx.demoMode) {
     return {
       source: "unavailable",

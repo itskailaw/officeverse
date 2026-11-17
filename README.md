@@ -50,6 +50,14 @@ Deploy to Vercel as a standard Next.js app with the same env vars.
 
 Setup: add `AI_API_KEY` (your Anthropic key) as a **Secret** environment variable in Vercel, and run `supabase/migrations/0002_ai_employees.sql` in the Supabase SQL Editor.
 
+## Phase 3 — Shopee Malaysia (live)
+
+Connect your Shopee shop through the official Shopee Open Platform (v2). OfficeVerse then syncs orders (incremental, in 15-day windows, de-duplicated by order number), parcels to pack and ship-by deadlines, revenue in MYR (Malaysia time) and the Shopee Ads credit balance. No buyer personal data is stored. Tokens are encrypted (AES-256-GCM) and only ever handled on the server.
+
+Vercel environment variables (all **Secret**): `SHOPEE_PARTNER_ID`, `SHOPEE_PARTNER_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `INTEGRATION_ENCRYPTION_KEY`, `CRON_SECRET`. Optional `SHOPEE_ENV=sandbox` for a test shop. Run `supabase/migrations/0003_shopee.sql`, then Settings → Integrations → **Connect Shopee shop**. In the Shopee Open Platform console set the app's Live Redirect URL Domain to your site's domain.
+
+`npm run check:shopee` verifies request signing against a local mock.
+
 ## Scripts
 
 | | |

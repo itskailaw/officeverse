@@ -23,6 +23,8 @@ export interface OfficeContext {
   companies: { name: string; description: string; active: boolean }[];
   team: { name: string; title: string; department: string; status: EmployeeStatus }[];
   recentTasks: { employee: string; title: string; status: TaskStatus; result: string | null; createdAt: string }[];
+  /** Server-only: live marketplace summary looked up for the signed-in workspace (never accepted from the browser). */
+  live?: Record<string, unknown> | null;
 }
 
 export interface UploadedFile {

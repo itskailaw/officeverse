@@ -22,6 +22,7 @@ interface UIState {
   dialog: Dialog;
   editEmployeeId: string | null;
   dashboardTab: string;
+  settingsTab: string;
   notificationsOpen: boolean;
   companyFilter: string | "all";
   cameraCommand: { kind: "rotate"; dir: 1 | -1; n: number } | { kind: "zoom"; dir: 1 | -1; n: number } | { kind: "reset"; n: number } | { kind: "focus"; x: number; z: number; n: number } | null;
@@ -46,6 +47,7 @@ export const useUI = create<UIState>()((set) => ({
   dialog: null,
   editEmployeeId: null,
   dashboardTab: "overview",
+  settingsTab: "office",
   notificationsOpen: false,
   companyFilter: "all",
   cameraCommand: null,
