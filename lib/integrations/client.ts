@@ -74,7 +74,7 @@ export const useLive = create<LiveState>()((set, get) => ({
   },
   async loadStatus() {
     try {
-      set({ status: await getJSON<IntegrationStatus>("/api/integrations/status") });
+      set({ status: await getJSON<IntegrationStatus>("/api/integrations/status"), error: null });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : String(e) });
     }

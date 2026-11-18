@@ -22,7 +22,7 @@ function Check({ ok, label, hint }: { ok: boolean; label: string; hint: string }
 }
 
 export function IntegrationsPanel() {
-  const { status, loadStatus, syncShopee, syncing } = useLive();
+  const { status, loadStatus, syncShopee, syncing, error } = useLive();
   const toast = useUI((s) => s.toast);
 
   useEffect(() => {
@@ -31,6 +31,17 @@ export function IntegrationsPanel() {
 
   if (!supabaseConfigured)
     return <p className="text-xs text-slate-500">Integrations need accounts and cloud storage. Connect Supabase first (see the README).</p>;
+  if (!status && error)
+    return (
+      <div className="space-y-2">
+        <div className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+          <XCircle className="h-4 w-4 shrink-0" /> Couldn&apos;t load integration status: {error}
+        </div>
+        <Button size="sm" variant="outline" onClick={() => void loadStatus()}>
+          <RefreshCw /> Try again
+        </Button>
+      </div>
+    );
   if (!status) return <Loader2 className="h-5 w-5 animate-spin text-slate-400" />;
 
   const s = status.setup;

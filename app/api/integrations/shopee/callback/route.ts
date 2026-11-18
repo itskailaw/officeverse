@@ -61,7 +61,9 @@ export async function GET(req: NextRequest) {
     });
     return back(req, "connected");
   } catch (e) {
-    const msg = e instanceof HttpError || e instanceof ShopeeError ? e.message : "Something went wrong while connecting Shopee.";
+    let msg = e instanceof HttpError || e instanceof ShopeeError ? e.message : "Something went wrong while connecting Shopee.";
+    if (e instanceof ShopeeError && /sign/i.test(e.code + e.message))
+      msg = "Shopee rejected the signature (Wrong sign). Check SHOPEE_PARTNER_KEY in Vercel is the LIVE API Partner Key for Live Partner ID " + (process.env.SHOPEE_PARTNER_ID ?? "") + ", then redeploy and connect again.";
     if (!(e instanceof HttpError)) console.error("[shopee callback]", e);
     return back(req, "error", msg);
   }
