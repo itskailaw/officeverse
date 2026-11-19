@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { Door, Room, WallMode } from "@/lib/data/types";
-import { DOORS, ROOMS, WALLS, wallSegments } from "@/lib/office/layout";
+import { DOORS, OFFICE_D, OFFICE_W, ROOMS, WALLS, wallSegments } from "@/lib/office/layout";
 import { getSim } from "@/lib/office/runtime";
 import { carpetTexture, makeScreenTexture, mat, plankTexture, tileTexture, PALETTE as P } from "./materials";
 
@@ -21,6 +21,7 @@ const HEAD = 2.35;
 export type Brand = { name: string; color: string };
 
 const CARPET: Record<string, string> = {
+  ea: "#d9d2e9",
   wgs: "#cfd8e3",
   finance: "#d6d3d1",
   marketing: "#e5dcd3",
@@ -39,15 +40,18 @@ function RoomFloor({ room, wood, brand }: { room: Room; wood: string; brand?: Br
   const material = useMemo(() => {
     let tex: THREE.Texture;
     let repeat: [number, number];
-    if (room.floor === "wood") {
-      tex = plankTexture(room.id === "ceo" ? "#8b5a36" : wood).clone();
+    if (room.floor === "grass") {
+      tex = carpetTexture("#8fbf6f").clone();
+      repeat = [w / 1.5, d / 1.5];
+    } else if (room.floor === "wood") {
+      tex = plankTexture(room.id === "ceo" ? "#5a3a24" : room.id === "kopitiam" ? "#a0703f" : wood).clone();
       repeat = [w / 4, d / 4];
     } else if (room.floor === "carpet") {
       const base = CARPET[room.id] ?? "#d4d4d8";
       tex = carpetTexture(brand ? mix(base, brand.color, 0.14) : base).clone();
       repeat = [w / 2, d / 2];
     } else if (room.floor === "dark") {
-      tex = tileTexture("#475569", "rgba(15,23,42,0.5)").clone();
+      tex = room.id === "game" ? tileTexture("#3b3355", "rgba(15,10,30,0.55)").clone() : tileTexture("#475569", "rgba(15,23,42,0.5)").clone();
       repeat = [w / 0.6, d / 0.6];
     } else {
       tex = tileTexture("#f1f5f9").clone();
@@ -161,6 +165,20 @@ const Walls = memo(function Walls({ mode, wallColor, accent, night }: { mode: Wa
                   <mesh geometry={BOX} material={frame} position={[cx, h, cz]} scale={[sx, 0.06, sz]} />
                 </>
               )}
+            </group>
+          );
+        }
+        if (s.kind === "fence") {
+          const posts = Math.max(1, Math.round(len / 1.5));
+          const fh = mode === "hidden" ? 0.1 : 0.95;
+          return (
+            <group key={i}>
+              <mesh geometry={BOX} material={mat("#7c5a3a", { rough: 0.8 })} position={[cx, fh, cz]} scale={[horizontal ? sx : 0.08, 0.07, horizontal ? 0.08 : sz]} castShadow />
+              <mesh geometry={BOX} material={mat("#7c5a3a", { rough: 0.8 })} position={[cx, fh * 0.5, cz]} scale={[horizontal ? sx : 0.06, 0.05, horizontal ? 0.06 : sz]} />
+              {Array.from({ length: posts + 1 }).map((_, k) => {
+                const t = -len / 2 + (k * len) / posts;
+                return <mesh key={k} geometry={BOX} material={mat("#6b4a2e")} position={[horizontal ? cx + t : cx, fh / 2, horizontal ? cz : cz + t]} scale={[0.1, fh, 0.1]} castShadow />;
+              })}
             </group>
           );
         }
@@ -324,84 +342,194 @@ function Tree({ x, z, s = 1, tone = 0 }: { x: number; z: number; s?: number; ton
   );
 }
 
+/** Low, wide sports car in purple & gold (the CEO's). */
+function SportsCar({ body = "#552583", trim = "#fdb927", night = false }: { body?: string; trim?: string; night?: boolean }) {
+  const paint = mat(body, { rough: 0.18, metal: 0.65 });
+  const gold = mat(trim, { rough: 0.3, metal: 0.7 });
+  const tyre = mat("#0b0f19", { rough: 0.9 });
+  const glass = mat("#0f172a", { rough: 0.05, metal: 0.6 });
+  return (
+    <group>
+      <mesh geometry={BOX} material={paint} position={[0, 0.36, 0.1]} scale={[1.95, 0.38, 4.4]} castShadow receiveShadow />
+      {/* sloped nose */}
+      <mesh geometry={BOX} material={paint} position={[0, 0.5, 1.55]} rotation={[0.22, 0, 0]} scale={[1.9, 0.12, 1.5]} castShadow />
+      {/* low cabin */}
+      <mesh geometry={BOX} material={glass} position={[0, 0.7, -0.35]} scale={[1.45, 0.34, 1.7]} castShadow />
+      <mesh geometry={BOX} material={paint} position={[0, 0.88, -0.45]} scale={[1.35, 0.05, 1.2]} />
+      {/* racing stripes */}
+      <mesh geometry={BOX} material={gold} position={[-0.22, 0.56, 0.6]} scale={[0.16, 0.012, 3.0]} />
+      <mesh geometry={BOX} material={gold} position={[0.22, 0.56, 0.6]} scale={[0.16, 0.012, 3.0]} />
+      {/* rear wing */}
+      <mesh geometry={BOX} material={gold} position={[0, 0.92, -2.0]} scale={[1.8, 0.05, 0.38]} castShadow />
+      <mesh geometry={BOX} material={paint} position={[-0.7, 0.72, -2.0]} scale={[0.06, 0.36, 0.2]} />
+      <mesh geometry={BOX} material={paint} position={[0.7, 0.72, -2.0]} scale={[0.06, 0.36, 0.2]} />
+      {[
+        [-0.95, -1.4],
+        [0.95, -1.4],
+        [-0.95, 1.45],
+        [0.95, 1.45],
+      ].map(([wx, wz], i) => (
+        <group key={i} position={[wx, 0.34, wz]}>
+          <mesh geometry={CYL} material={tyre} rotation={[0, 0, Math.PI / 2]} scale={[0.68, 0.3, 0.68]} castShadow />
+          <mesh geometry={CYL} material={gold} rotation={[0, 0, Math.PI / 2]} scale={[0.4, 0.31, 0.4]} />
+        </group>
+      ))}
+      <mesh geometry={BOX} material={night ? mat("#fef9c3", { emissive: "#fef08a", ei: 2 }) : mat("#e5e7eb")} position={[0, 0.45, 2.31]} scale={[1.5, 0.08, 0.02]} />
+      <mesh geometry={BOX} material={mat("#b91c1c", { emissive: "#ef4444", ei: night ? 1.5 : 0.3 })} position={[0, 0.5, -2.11]} scale={[1.6, 0.07, 0.02]} />
+    </group>
+  );
+}
+
+/** Cars driving along the road in both directions (loops forever). */
+function Traffic({ z1, z2, x0, x1, night }: { z1: number; z2: number; x0: number; x1: number; night: boolean }) {
+  const span = x1 - x0;
+  const cars = useMemo(
+    () =>
+      [
+        { lane: 0, speed: 7.5, off: 0, color: CAR_COLORS[0] },
+        { lane: 0, speed: 6.2, off: 0.38, color: CAR_COLORS[1] },
+        { lane: 0, speed: 9.5, off: 0.7, color: "sports" },
+        { lane: 1, speed: 6.8, off: 0.12, color: CAR_COLORS[2] },
+        { lane: 1, speed: 8.2, off: 0.5, color: CAR_COLORS[5] },
+        { lane: 1, speed: 5.9, off: 0.83, color: CAR_COLORS[3] },
+      ] as const,
+    [],
+  );
+  const refs = useRef<(THREE.Group | null)[]>([]);
+  const t0 = useRef(0);
+  useFrame((_, dt) => {
+    t0.current += Math.min(dt, 0.1);
+    cars.forEach((c, i) => {
+      const g = refs.current[i];
+      if (!g) return;
+      const p = (c.off * span + t0.current * c.speed) % span;
+      g.position.x = c.lane === 0 ? x0 + p : x1 - p;
+    });
+  });
+  return (
+    <group>
+      {cars.map((c, i) => (
+        <group key={i} ref={(g) => void (refs.current[i] = g)} position={[0, 0, c.lane === 0 ? z1 : z2]} rotation={[0, c.lane === 0 ? Math.PI / 2 : -Math.PI / 2, 0]}>
+          {c.color === "sports" ? <SportsCar body="#dc2626" trim="#111827" night={night} /> : <MovingCar color={c.color} night={night} />}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function MovingCar({ color, night }: { color: string; night: boolean }) {
+  return (
+    <group>
+      <Car color={color} x={0} z={0} rot={0} />
+      {night && <mesh geometry={BOX} material={mat("#fef9c3", { emissive: "#fef08a", ei: 2.5 })} position={[0, 0.5, 2.08]} scale={[1.45, 0.14, 0.03]} />}
+    </group>
+  );
+}
+
 const Exterior = memo(function Exterior({ night }: { night: boolean }) {
+  const W = OFFICE_W;
+  const D = OFFICE_D;
   const grass = useMemo(() => {
     const t = carpetTexture("#9fbf8f").clone();
-    t.repeat.set(50, 40);
+    t.repeat.set(60, 48);
     t.needsUpdate = true;
     return new THREE.MeshStandardMaterial({ map: t, roughness: 1 });
   }, []);
   const asphalt = useMemo(() => {
     const t = carpetTexture("#3f4652").clone();
-    t.repeat.set(30, 4);
+    t.repeat.set(40, 4);
     t.needsUpdate = true;
     return new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 });
   }, []);
   const white = mat("#f8fafc", { rough: 0.6 });
   const yellow = mat("#facc15", { rough: 0.6 });
+  const gold = mat("#fdb927", { rough: 0.5, metal: 0.4 });
+  const roadZ = D + 9;
+  const laneA = roadZ - 1.75;
+  const laneB = roadZ + 1.75;
+  const lotX = W + 9.5;
+  const bays = Math.floor((D - 2) / 3);
   return (
     <group>
-      <mesh geometry={PLANE} material={grass} rotation={[-Math.PI / 2, 0, 0]} position={[24, -0.12, 14]} scale={[200, 150, 1]} receiveShadow />
+      <mesh geometry={PLANE} material={grass} rotation={[-Math.PI / 2, 0, 0]} position={[W / 2, -0.12, D / 2 + 10]} scale={[260, 200, 1]} receiveShadow />
       {/* plinth */}
-      <mesh geometry={BOX} material={mat("#cbd5e1")} position={[24, -0.06, 11.5]} scale={[48.8, 0.12, 23.8]} receiveShadow />
+      <mesh geometry={BOX} material={mat("#cbd5e1")} position={[W / 2, -0.06, D / 2]} scale={[W + 0.8, 0.12, D + 0.8]} receiveShadow />
       {/* sidewalk + entrance path */}
-      <mesh geometry={BOX} material={mat("#e2e8f0", { rough: 0.95 })} position={[24, -0.08, 30]} scale={[110, 0.08, 3]} receiveShadow />
-      <mesh geometry={BOX} material={mat("#e7e5e4", { rough: 0.95 })} position={[5, -0.07, 26]} scale={[4.5, 0.1, 5]} receiveShadow />
+      <mesh geometry={BOX} material={mat("#e2e8f0", { rough: 0.95 })} position={[W / 2, -0.08, D + 4.5]} scale={[W + 130, 0.08, 3]} receiveShadow />
+      <mesh geometry={BOX} material={mat("#e7e5e4", { rough: 0.95 })} position={[5, -0.07, D + 1.6]} scale={[3.2, 0.1, 3.4]} receiveShadow />
       {/* road */}
-      <mesh geometry={BOX} material={asphalt} position={[24, -0.1, 34.5]} scale={[110, 0.06, 6]} receiveShadow />
-      {Array.from({ length: 28 }).map((_, i) => (
-        <mesh key={i} geometry={BOX} material={white} position={[-28 + i * 4, -0.065, 34.5]} scale={[2, 0.01, 0.15]} />
+      <mesh geometry={BOX} material={asphalt} position={[W / 2, -0.1, roadZ]} scale={[W + 130, 0.06, 7]} receiveShadow />
+      {Array.from({ length: 48 }).map((_, i) => (
+        <mesh key={i} geometry={BOX} material={white} position={[-62 + i * 4, -0.065, roadZ]} scale={[2, 0.01, 0.15]} />
       ))}
-      <mesh geometry={BOX} material={mat("#94a3b8")} position={[24, -0.05, 31.55]} scale={[110, 0.1, 0.12]} />
+      <mesh geometry={BOX} material={mat("#94a3b8")} position={[W / 2, -0.05, D + 6.05]} scale={[W + 130, 0.1, 0.12]} />
+      <Traffic z1={laneB} z2={laneA} x0={-60} x1={W + 60} night={night} />
+
       {/* parking lot (east) */}
-      <mesh geometry={BOX} material={asphalt} position={[57.5, -0.1, 14]} scale={[13, 0.06, 32]} receiveShadow />
-      <mesh geometry={BOX} material={asphalt} position={[57.5, -0.1, 30.5]} scale={[5, 0.06, 2]} receiveShadow />
-      {Array.from({ length: 9 }).map((_, i) => (
+      <mesh geometry={BOX} material={asphalt} position={[lotX, -0.1, D / 2 - 0.5]} scale={[13, 0.06, D]} receiveShadow />
+      <mesh geometry={BOX} material={asphalt} position={[lotX, -0.1, D + 3]} scale={[5, 0.06, 6]} receiveShadow />
+      {Array.from({ length: bays + 1 }).map((_, i) => (
         <group key={i}>
-          <mesh geometry={BOX} material={white} position={[53.6, -0.065, 1.2 + i * 3]} scale={[4.6, 0.01, 0.1]} />
-          <mesh geometry={BOX} material={white} position={[61.4, -0.065, 1.2 + i * 3]} scale={[4.6, 0.01, 0.1]} />
+          <mesh geometry={BOX} material={white} position={[lotX - 3.9, -0.065, 1.2 + i * 3]} scale={[4.6, 0.01, 0.1]} />
+          <mesh geometry={BOX} material={white} position={[lotX + 3.9, -0.065, 1.2 + i * 3]} scale={[4.6, 0.01, 0.1]} />
         </group>
       ))}
-      <mesh geometry={BOX} material={yellow} position={[57.5, -0.065, 14]} scale={[0.12, 0.01, 26]} />
+      <mesh geometry={BOX} material={yellow} position={[lotX, -0.065, D / 2 - 1]} scale={[0.12, 0.01, D - 6]} />
       {[
-        [53.6, 2.7, 0],
-        [53.6, 8.7, 3],
-        [53.6, 14.7, 1],
-        [61.4, 5.7, 2],
-        [61.4, 11.7, 4],
-        [61.4, 20.7, 5],
+        [lotX - 3.9, 2.7, 0],
+        [lotX - 3.9, 8.7, 3],
+        [lotX - 3.9, 17.7, 1],
+        [lotX + 3.9, 5.7, 2],
+        [lotX + 3.9, 11.7, 4],
+        [lotX + 3.9, 20.7, 5],
+        [lotX - 3.9, 26.7, 2],
       ].map(([x, z, c], i) => (
-        <Car key={i} x={x} z={z} rot={x < 57 ? Math.PI / 2 : -Math.PI / 2} color={CAR_COLORS[c]} />
+        <Car key={i} x={x} z={z} rot={x < lotX ? Math.PI / 2 : -Math.PI / 2} color={CAR_COLORS[c]} />
       ))}
-      <Car x={8} z={33} rot={Math.PI / 2} color={CAR_COLORS[1]} />
-      <Car x={36} z={36} rot={-Math.PI / 2} color={CAR_COLORS[0]} />
+
+      {/* private CEO driveway (west) with the purple & gold sports car */}
+      <mesh geometry={BOX} material={asphalt} position={[-6, -0.1, (6 + roadZ) / 2]} scale={[3.6, 0.06, roadZ - 6]} receiveShadow />
+      <mesh geometry={BOX} material={mat("#2b2f38", { rough: 0.9 })} position={[-6, -0.09, 6]} scale={[6, 0.06, 7]} receiveShadow />
+      <mesh geometry={BOX} material={gold} position={[-6, -0.06, 2.6]} scale={[5.4, 0.01, 0.12]} />
+      <mesh geometry={BOX} material={gold} position={[-8.7, -0.06, 6]} scale={[0.12, 0.01, 6.8]} />
+      <mesh geometry={BOX} material={gold} position={[-3.3, -0.06, 6]} scale={[0.12, 0.01, 6.8]} />
+      <group position={[-6, 0, 5.6]} rotation={[0, Math.PI, 0]}>
+        <SportsCar night={night} />
+      </group>
+      <group position={[-6, 0, 2.2]}>
+        <mesh geometry={CYL} material={mat("#334155", { metal: 0.6 })} position={[0, 0.6, 0]} scale={[0.08, 1.2, 0.08]} />
+        <mesh geometry={BOX} material={mat("#552583")} position={[0, 1.35, 0]} scale={[1.1, 0.5, 0.06]} />
+        <Html center transform position={[0, 1.35, 0.04]} scale={0.25} occlude={false} style={{ pointerEvents: "none" }}>
+          <div className="select-none font-extrabold tracking-[0.3em] text-[#fdb927]">CEO</div>
+        </Html>
+      </group>
+
       {/* lamp posts */}
-      {[-6, 2, 12, 22, 32, 42, 50, 64].map((x, i) => (
-        <LampPost key={i} x={x} z={29} night={night} />
+      {[-14, -2, 10, 22, 34, 46, 58, 70].map((x, i) => (
+        <LampPost key={i} x={x} z={D + 6.3} night={night} />
       ))}
-      {/* hedges + flower beds along the façade (gap at the entrance) */}
-      <Hedge x={1.6} z={24.1} w={2.6} d={0.7} />
-      <Hedge x={27} z={24.1} w={40} d={0.7} />
-      <Hedge x={-1.0} z={11.5} w={0.7} d={21} />
-      <Hedge x={49.2} z={11.5} w={0.7} d={21} />
-      <FlowerBed x={14} z={25.1} w={8} />
-      <FlowerBed x={36} z={25.1} w={8} />
+      {/* hedges + flower beds along the garden fence (gap at the gate) */}
+      <Hedge x={1.6} z={D + 0.75} w={2.6} d={0.7} />
+      <Hedge x={(6.6 + W) / 2} z={D + 0.75} w={W - 6.6} d={0.7} />
+      <Hedge x={-1.0} z={(10 + D) / 2} w={0.7} d={D - 10} />
+      <Hedge x={W + 1.2} z={D / 2} w={0.7} d={D - 2} />
+      <FlowerBed x={18} z={D + 1.75} w={10} />
+      <FlowerBed x={42} z={D + 1.75} w={10} />
       {/* trees */}
-      <Tree x={-4} z={3} s={1.1} />
-      <Tree x={-4.5} z={12} tone={1} />
-      <Tree x={-4} z={21} s={1.15} />
-      <Tree x={1.2} z={27.3} s={0.9} tone={1} />
-      <Tree x={9} z={27.5} s={0.9} />
-      <Tree x={20} z={27.4} tone={1} />
-      <Tree x={30} z={27.5} s={1.1} />
-      <Tree x={44} z={27.4} tone={1} />
-      <Tree x={24} z={-4} s={1.2} />
-      <Tree x={10} z={-4.5} tone={1} />
-      <Tree x={38} z={-4.2} s={1.1} />
-      <Tree x={66} z={6} tone={1} />
-      <Tree x={66} z={20} />
-      {/* signage */}
-      <group position={[5, 0, 24.6]}>
+      <Tree x={-11} z={1} s={1.1} />
+      <Tree x={-12} z={12} tone={1} />
+      <Tree x={-11} z={22} s={1.15} />
+      <Tree x={-11} z={31} s={0.9} tone={1} />
+      <Tree x={10} z={D + 2.6} s={0.9} />
+      <Tree x={28} z={D + 2.6} tone={1} />
+      <Tree x={52} z={D + 2.6} s={1.1} />
+      <Tree x={W / 2} z={-4} s={1.2} />
+      <Tree x={12} z={-4.5} tone={1} />
+      <Tree x={46} z={-4.2} s={1.1} />
+      <Tree x={W + 18} z={6} tone={1} />
+      <Tree x={W + 18} z={22} />
+      {/* signage by the gate */}
+      <group position={[9, 0, D + 1.4]}>
         <mesh geometry={BOX} material={mat(P.navy)} position={[0, 0.35, 0]} scale={[3.2, 0.7, 0.25]} castShadow />
         <Html center transform position={[0, 0.36, 0.13]} scale={0.32} occlude={false} style={{ pointerEvents: "none" }}>
           <div className="select-none font-semibold tracking-[0.25em] text-white">OFFICEVERSE</div>
@@ -417,7 +545,7 @@ export function RoomLabels({ labels, onFocus }: { labels: { room: Room; text: st
       {labels.map(({ room, text, color }) => (
         <Html
           key={room.id}
-          position={[(room.x0 + room.x1) / 2, 0.05, room.id === "corridor" ? 11.5 : room.z0 < 10 ? room.z1 - 0.8 : room.z1 - 0.7]}
+          position={[room.id === "corridor" ? 14 : (room.x0 + room.x1) / 2, 0.05, room.id === "corridor" ? (room.z0 + room.z1) / 2 : room.z1 - 0.75]}
           center
           zIndexRange={[10, 0]}
         >

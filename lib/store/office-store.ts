@@ -24,7 +24,7 @@ import type {
 } from "@/lib/data/types";
 import { DEFAULT_SETTINGS, SEED_COMPANIES, SEED_DEPARTMENTS, SEED_EMPLOYEES } from "@/lib/data/seed";
 import { applyTeamMerges } from "@/lib/data/team-migrations";
-import { DEFAULT_LAYOUT } from "@/lib/office/layout";
+import { DEFAULT_LAYOUT, LAYOUT_VERSION } from "@/lib/office/layout";
 
 export const uid = (p = "id") =>
   `${p}-${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10)}`;
@@ -112,7 +112,7 @@ export const initialData = (): OfficeData => ({
   ],
   activity: [],
   audit: [],
-  settings: DEFAULT_SETTINGS,
+  settings: { ...DEFAULT_SETTINGS, layoutVersion: LAYOUT_VERSION },
   furniture: DEFAULT_LAYOUT.furniture,
   approvals: [],
   chatMessages: [],
@@ -415,6 +415,11 @@ export const useOffice = create<OfficeState>()(
           set(initialData());
         },
         applyTeamUpdates() {
+          // cloud data may still hold furniture for an older floor plan
+          if ((get().settings.layoutVersion ?? 1) < LAYOUT_VERSION) {
+            set((s) => ({ furniture: DEFAULT_LAYOUT.furniture, settings: { ...s.settings, layoutVersion: LAYOUT_VERSION } }));
+            audit("upgrade", "layout", null, `floor plan v${LAYOUT_VERSION}`);
+          }
           const st = get();
           const r = applyTeamMerges(st.employees, st.settings.appliedMigrations ?? []);
           if (r.applied.length === (st.settings.appliedMigrations ?? []).length) return;
@@ -454,11 +459,16 @@ export const useOffice = create<OfficeState>()(
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<OfficeData>;
         const merged = { ...current, ...p, settings: { ...DEFAULT_SETTINGS, ...(p.settings ?? {}) } };
-        // forward-migrate older saves: add newly introduced default furniture
-        if (p.furniture) {
+        // a new floor plan replaces furniture saved for an older one (desk ids are kept, so seats stay)
+        if (p.furniture && (p.settings?.layoutVersion ?? 1) < LAYOUT_VERSION) {
+          merged.furniture = DEFAULT_LAYOUT.furniture;
+          merged.settings = { ...merged.settings, layoutVersion: LAYOUT_VERSION };
+        } else if (p.furniture) {
+          // forward-migrate older saves: add newly introduced default furniture
           const have = new Set(p.furniture.map((f) => f.id));
           merged.furniture = [...p.furniture, ...DEFAULT_LAYOUT.furniture.filter((f) => !have.has(f.id))];
         }
+        if (!p.settings?.layoutVersion) merged.settings = { ...merged.settings, layoutVersion: LAYOUT_VERSION };
         // ...and give seeded employees their default outfit if they have none yet
         if (p.employees) {
           merged.employees = p.employees.map((e) => {

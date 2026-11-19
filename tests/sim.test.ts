@@ -57,9 +57,23 @@ test("dropped employee in the corridor walks back to the desk", () => {
   sim.ambientLife = false;
   sim.addAgent("e1", "ws-art-3");
   sim.pickUp("e1");
-  sim.drop("e1", 3, 11.5);
+  sim.drop("e1", 3, 14);
   run(sim, 90);
   const a = sim.agents.get("e1")!;
   assert.equal(a.seatId, "ws-art-3");
   assert.equal(a.pose, "sit");
+});
+
+test("breaks send staff to the fun rooms (pantry, game room, garden, Main Street)", () => {
+  const sim = new OfficeSim(DEFAULT_LAYOUT);
+  const ids = Array.from({ length: 12 }, (_, i) => `b${i}`);
+  ids.forEach((id, i) => sim.addAgent(id, homes[i % homes.length] ?? null));
+  for (const id of ids) sim.startBreak(id);
+  const rooms = new Set<string>();
+  for (const id of ids) {
+    const a = sim.agents.get(id)!;
+    if (a.seatId) rooms.add(sim.seat(a.seatId)!.roomId);
+  }
+  assert.ok(rooms.size > 0);
+  for (const r of rooms) assert.ok(["kopitiam", "game", "garden", "corridor"].includes(r), `unexpected break room ${r}`);
 });

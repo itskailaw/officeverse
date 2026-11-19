@@ -121,13 +121,29 @@ function Limb({ len, w, m }: { len: number; w: number; m: THREE.Material }) {
 }
 
 /** What the activity bubble should say right now (honest: only real sim / status state). */
-function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: string | undefined): string | null {
+const BREAK_TEXT: Record<string, string> = {
+  hoop: "🏀 Shooting hoops",
+  ping_pong: "🏓 Playing ping-pong",
+  foosball: "⚽ Foosball match",
+  arcade: "🕹️ Arcade break",
+  coffee_bar: "☕ Grabbing a kopi",
+  snack_shelf: "🍪 Snack run",
+  nap_pod: "😴 Power nap",
+  hammock: "🌿 Chilling in the garden",
+  bench: "🌿 Fresh air break",
+  bbq: "🍢 At the BBQ",
+  bean_bag: "🛋️ Relaxing",
+  vending_machine: "🥤 Getting a drink",
+  water_cooler: "💧 Water break",
+};
+
+function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: string | undefined, furnitureType?: string): string | null {
   if (ag.pose === "held") return "😮 Whoa!";
   if (status === "error") return "⚠️ Needs attention";
   if (status === "waiting_approval") return "✋ Needs your approval";
   if (status === "waiting_data") return "⏳ Waiting for data";
   if (ag.intent === "meeting") return seatKind === "meeting" && ag.pose === "sit" ? "📋 In meeting" : "🚶 Off to the meeting";
-  if (ag.intent === "break") return ag.pose === "walk" ? "☕ Getting a coffee" : "☕ On a break";
+  if (ag.intent === "break") return ag.pose === "walk" ? "🚶 Taking a break" : (furnitureType && BREAK_TEXT[furnitureType]) || "☕ On a break";
   if (ag.intent === "summoned") return ag.pose === "walk" ? "📨 Coming to see you" : "📨 Here to report";
   if (status === "working") return "⌨️ Working on a task";
   if (ag.gesture === "talk") return "💬 Chatting";
@@ -334,7 +350,7 @@ export const Character = memo(function Character(props: Props) {
     bubbleClock.current -= dt;
     if (bubbleClock.current <= 0) {
       bubbleClock.current = 0.4;
-      const next = isCEO ? null : activityText(ag, status, seat?.kind);
+      const next = isCEO ? null : activityText(ag, status, seat?.kind, seat ? getSim().layout.furniture.find((f) => f.id === seat.furnitureId)?.type : undefined);
       if (next !== lastBubble.current) {
         lastBubble.current = next;
         setBubble(next);

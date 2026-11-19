@@ -126,6 +126,61 @@ export const CATALOG: Record<FurnitureType, CatalogEntry> = {
     movable: true,
   },
   standee: { label: "Company standee", size: [0.7, 0.3], blocks: true, seats: [], movable: true },
+  coffee_bar: {
+    label: "Coffee bar",
+    size: [4.0, 0.8],
+    blocks: true,
+    seats: [-1.3, 0, 1.3].map((lx) => ({ lx, lz: 0.85, f: Math.PI, alx: lx, alz: 0.85, kind: "lounge" as const, sit: false })),
+    movable: true,
+  },
+  snack_shelf: { label: "Snack wall", size: [1.8, 0.45], blocks: true, seats: [{ lx: 0, lz: 0.75, f: Math.PI, alx: 0, alz: 0.75, kind: "lounge", sit: false }], movable: true },
+  court: { label: "Half-court floor", size: [8.2, 10.8], blocks: false, seats: [], movable: true },
+  hoop: {
+    label: "Basketball hoop",
+    size: [1.2, 0.4],
+    blocks: true,
+    seats: [
+      { lx: -0.9, lz: 2.6, f: Math.PI, alx: -0.9, alz: 2.6, kind: "play", sit: false },
+      { lx: 1.1, lz: 3.6, f: Math.PI, alx: 1.1, alz: 3.6, kind: "play", sit: false },
+    ],
+    movable: true,
+  },
+  ping_pong: {
+    label: "Ping-pong table",
+    size: [1.5, 2.7],
+    blocks: true,
+    seats: [
+      { lx: 0, lz: 1.85, f: Math.PI, alx: 0, alz: 1.85, kind: "play", sit: false },
+      { lx: 0, lz: -1.85, f: 0, alx: 0, alz: -1.85, kind: "play", sit: false },
+    ],
+    movable: true,
+  },
+  foosball: {
+    label: "Foosball table",
+    size: [1.4, 0.75],
+    blocks: true,
+    seats: [
+      { lx: 0, lz: 0.85, f: Math.PI, alx: 0, alz: 0.85, kind: "play", sit: false },
+      { lx: 0, lz: -0.85, f: 0, alx: 0, alz: -0.85, kind: "play", sit: false },
+    ],
+    movable: true,
+  },
+  arcade: { label: "Arcade cabinet", size: [0.8, 0.8], blocks: true, seats: [{ lx: 0, lz: 0.8, f: Math.PI, alx: 0, alz: 0.8, kind: "play", sit: false }], movable: true },
+  bean_bag: { label: "Bean bag", size: [0.9, 0.9], blocks: true, seats: [{ lx: 0, lz: 0.05, f: 0, alx: 0, alz: 0.85, kind: "lounge", sit: true }], movable: true },
+  bike: { label: "Bicycle", size: [1.7, 0.5], blocks: true, seats: [], movable: true },
+  hammock: { label: "Hammock", size: [2.6, 0.9], blocks: true, seats: [{ lx: 0, lz: 0, f: 0, alx: 0, alz: 0.85, kind: "lounge", sit: true }], movable: true },
+  nap_pod: { label: "Nap pod", size: [1.6, 1.3], blocks: true, seats: [{ lx: 0, lz: 0.1, f: 0, alx: 0, alz: 1.05, kind: "lounge", sit: true }], movable: true },
+  bench: {
+    label: "Garden bench",
+    size: [1.8, 0.6],
+    blocks: true,
+    seats: [
+      { lx: -0.45, lz: 0.05, f: 0, alx: -0.45, alz: 0.75, kind: "lounge", sit: true },
+      { lx: 0.45, lz: 0.05, f: 0, alx: 0.45, alz: 0.75, kind: "lounge", sit: true },
+    ],
+    movable: true,
+  },
+  bbq: { label: "BBQ grill", size: [1.2, 0.8], blocks: true, seats: [{ lx: 0, lz: -0.85, f: 0, alx: 0, alz: -0.85, kind: "lounge", sit: false }], movable: true },
 };
 
 export function sizeOf(item: FurnitureItem): [number, number] {

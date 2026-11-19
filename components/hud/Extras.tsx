@@ -6,7 +6,7 @@ import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { CEO_ID } from "@/lib/data/seed";
 import { STATUS_META } from "@/lib/data/types";
-import { ROOMS } from "@/lib/office/layout";
+import { OFFICE_D, OFFICE_W, ROOMS } from "@/lib/office/layout";
 import { getSim } from "@/lib/office/runtime";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -93,12 +93,15 @@ export function CompanySwitcher() {
 
 // ------------------------------------------------------------------ minimap
 const MAP_W = 220;
-const SCALE = MAP_W / 48;
-const MAP_H = 23 * SCALE;
+const SCALE = MAP_W / OFFICE_W;
+const MAP_H = OFFICE_D * SCALE;
 const ROOM_FILL: Record<string, string> = {
-  ceo: "#8b5a36",
-  meeting: "#a0714a",
-  lounge: "#b07d4f",
+  ceo: "#5a3a24",
+  boardroom: "#a0714a",
+  ea: "#c4b5fd",
+  kopitiam: "#d6a46a",
+  game: "#7c3aed",
+  garden: "#86c06c",
   corridor: "#e2e8f0",
   reception: "#f1f5f9",
   it: "#475569",
@@ -229,7 +232,7 @@ const STEPS = [
   },
   {
     title: "Your avatar",
-    body: "You're the one with the gold ring in the CEO Office. Click anywhere on the floor to walk there. Click your desk to open the Executive Dashboard.",
+    body: "You're the one with the gold ring in the CEO Suite. Click anywhere on the floor to walk there. Click your desk to open the Executive Dashboard.",
   },
   {
     title: "Your team",

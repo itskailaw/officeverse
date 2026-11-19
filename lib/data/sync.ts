@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useOffice, type OfficeData } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
+import { DEFAULT_LAYOUT, LAYOUT_VERSION } from "@/lib/office/layout";
 
 const COLLECTIONS = {
   companies: "companies",
@@ -84,7 +85,12 @@ export async function startSync(sb: SupabaseClient, workspaceId: string) {
   } else {
     store.getState().hydrate({
       ...loaded,
-      ...(layout ? { furniture: layout.furniture, settings: { ...store.getState().settings, ...layout.settings } } : {}),
+      // cloud furniture saved for an older floor plan is replaced by the current default
+      ...(layout
+        ? (layout.settings?.layoutVersion ?? 1) < LAYOUT_VERSION
+          ? { furniture: DEFAULT_LAYOUT.furniture, settings: { ...store.getState().settings, ...layout.settings, layoutVersion: LAYOUT_VERSION } }
+          : { furniture: layout.furniture, settings: { ...store.getState().settings, ...layout.settings } }
+        : {}),
     });
   }
 

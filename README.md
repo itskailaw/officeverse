@@ -25,7 +25,7 @@ Deploy to Vercel as a standard Next.js app with the same env vars.
 ## What works in Phase 1
 
 - Isometric 3D office: 11 areas, automatic sliding doors, glass partitions, three wall modes, and day, evening, night and auto (MYT) lighting.
-- 22 AI employees plus your CEO avatar. They walk on an A*-pathfound navigation grid with collision against walls and furniture, sit at their own desks, take lounge breaks and recover if stuck.
+- 22 AI employees plus your CEO avatar. They walk on an A*-pathfound navigation grid with collision against walls and furniture, sit at their own desks, take breaks in the Kopitiam pantry, game room (half-court, ping-pong, foosball, arcade) and garden, and recover if stuck.
 - Click the floor to walk. Click an employee to open their profile and use **Visit**, **Summon**, **Break** or **To desk**. Press and drag an employee to pick them up; drop them on a free desk to reassign it.
 - Click your desk for the **Executive Dashboard**: company and department filters, KPIs, revenue chart, tasks, meetings, notifications, activity and audit log.
 - Tasks are persisted and queued. AI execution arrives in Phase 2, and nothing pretends to run before then.

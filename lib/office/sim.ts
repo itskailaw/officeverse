@@ -3,7 +3,7 @@
 // the 3D layer reads agent transforms each frame.
 
 import type { Door, OfficeLayout, Seat } from "../data/types.ts";
-import { CEO_DESK_ID, CEO_MEETING_SEAT_INDEX, MEETING_TABLE_ID } from "./layout.ts";
+import { BREAK_ROOMS, CEO_DESK_ID, CEO_MEETING_SEAT_INDEX, MEETING_TABLE_ID } from "./layout.ts";
 import { seatsFor } from "./catalog.ts";
 import { buildNavGrid, findPath, isWalkablePoint, nearestWalkable, type NavGrid, type Vec2 } from "./navgrid.ts";
 
@@ -134,7 +134,7 @@ export class OfficeSim {
   addAgent(id: string, homeSeatId: string | null, isCEO = false) {
     if (this.agents.has(id)) return this.agents.get(id)!;
     const home = homeSeatId ? this.seats.get(homeSeatId) : undefined;
-    const spawn = home ?? { x: 5, z: 21.5, facing: Math.PI };
+    const spawn = home ?? { x: 5, z: 25, facing: Math.PI };
     const a: Agent = {
       id,
       isCEO,
@@ -299,7 +299,10 @@ export class OfficeSim {
   startBreak(id: string) {
     const a = this.agents.get(id);
     if (!a || a.isCEO) return false;
-    const spots = this.freeSeats("lounge", "lounge");
+    // any free lounge or play spot in a break room; games are popular, so weight them up
+    const lounge = [...this.seats.values()].filter((s) => s.kind === "lounge" && BREAK_ROOMS.includes(s.roomId) && !this.occupancy.has(s.id));
+    const play = this.freeSeats("play");
+    const spots = Math.random() < 0.45 && play.length ? play : lounge.length ? lounge : play;
     if (!spots.length) return false;
     const spot = spots[Math.floor(Math.random() * spots.length)];
     if (this.goToSeat(id, spot.id, "break")) {
@@ -381,7 +384,7 @@ export class OfficeSim {
     if (!a) return false;
     const visitor = this.freeSeats("visitor", "ceo")[0];
     if (visitor) return this.goToSeat(id, visitor.id, "summoned");
-    return this.goToPoint(id, 5, 6.5, "summoned", Math.PI);
+    return this.goToPoint(id, 7, 6.6, "summoned", Math.PI);
   }
 
   pickUp(id: string) {

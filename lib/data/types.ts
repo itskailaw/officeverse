@@ -234,6 +234,8 @@ export interface OfficeSettings {
   ambientLife: boolean;
   /** one-time data updates already applied to this office */
   appliedMigrations?: string[];
+  /** floor-plan version the saved furniture belongs to (see LAYOUT_VERSION) */
+  layoutVersion?: number;
   /** UI panels theme; "auto" follows the office lighting */
   uiTheme: UITheme;
   /** floating activity bubbles above employees */
@@ -273,7 +275,20 @@ export type FurnitureType =
   | "pendant_light"
   | "fridge"
   | "vending_machine"
-  | "standee";
+  | "standee"
+  | "coffee_bar"
+  | "snack_shelf"
+  | "court"
+  | "hoop"
+  | "ping_pong"
+  | "foosball"
+  | "arcade"
+  | "bean_bag"
+  | "bike"
+  | "hammock"
+  | "nap_pod"
+  | "bench"
+  | "bbq";
 
 export interface FurnitureItem {
   id: ID;
@@ -297,14 +312,14 @@ export interface Room {
   z0: number;
   x1: number;
   z1: number;
-  floor: "wood" | "carpet" | "tile" | "dark";
+  floor: "wood" | "carpet" | "tile" | "dark" | "grass";
   floorColor?: string;
 }
 
 export interface WallLine {
   a: [number, number];
   b: [number, number];
-  kind: "exterior" | "interior" | "glass";
+  kind: "exterior" | "interior" | "glass" | "fence";
 }
 
 export interface Door {
@@ -320,7 +335,7 @@ export interface Door {
 
 export interface Seat {
   id: ID;
-  kind: "workstation" | "meeting" | "lounge" | "visitor" | "ceo";
+  kind: "workstation" | "meeting" | "lounge" | "visitor" | "ceo" | "play";
   roomId: ID;
   x: number;
   z: number;

@@ -84,7 +84,7 @@ tests/                     node:test suites for nav grid and simulation
 
 ## 4. 3D office layout plan
 
-48 m × 23 m, metres, x east and z south. An orthographic isometric camera looks from the south-east.
+60 m × 33 m (floor plan v2: CEO suite, boardroom, departments, Main Street, Kopitiam pantry, game room, garden), metres, x east and z south. An orthographic isometric camera looks from the south-east.
 
 ```
 z 0 ┌──────────┬───────────────┬────────────┬───────────────┐
@@ -100,7 +100,7 @@ z13 ├─arch─────┬──door───┬arch──┬──door─
 z23 └──entrance┴─────────┴──────┴─────────┴──────┴─────────┘
 ```
 
-- Every room opens onto the corridor through a 1.6 m automatic sliding door, or an archway for the reception and lounge.
+- Every room opens onto the corridor through a 1.6 m automatic sliding door, or an archway for the reception, pantry and game room. Saved furniture from an older floor plan is replaced on load (`LAYOUT_VERSION`); desk ids are kept so everyone keeps their seat.
 - Desks come in facing pods with chairs on the walkable side. The meeting table has 4 + 4 side seats plus two ends; the east end is reserved for the CEO.
 - Furniture is data (`lib/office/layout.ts`). Each type in `catalog.ts` declares its footprint, whether it blocks movement, and its seats. Every seat has an *approach point*: agents path-find there, then glide into the seat.
 - Wall modes: walls up (2.7 m), cut-away (1.05 m, default), walls down. Lighting: day, evening, night (room lamps) and auto (by MYT clock).
@@ -112,7 +112,7 @@ z23 └──entrance┴─────────┴──────┴─�
 - **Agents**: pose (stand/walk/sit/held), intent (desk/meeting/break/free/visit/summoned), seat reservation, heading smoothing, fixed 50 ms substeps so speed is frame-rate independent.
 - **Doors**: open when a walking agent comes within 2.3 m. Agents wait if the door is less than 75% open, so nobody walks through closed glass.
 - **Stuck recovery**: if an agent moves less than 0.2 m in 2.5 s it snaps to the nearest walkable cell and re-paths. Agents dropped inside furniture also snap out.
-- **Life**: seated employees with no work occasionally take 25–50 s lounge breaks, then return to their desks.
+- **Life**: seated employees with no work occasionally take 25–50 s breaks at lounge or play spots in the break rooms (`BREAK_ROOMS`), then return to their desks.
 - **Meetings**: attendees reserve meeting seats and walk over. The panel shows live "n/m seated". Ending the meeting saves a summary (decisions, action items → tasks, notes) and sends everyone back to their desks.
 - **CEO**: click the floor to walk. Click your desk or the performance screen to sit down and open the dashboard. "Visit" walks to an employee and both switch to talking gestures. "Summon" sends an employee to a visitor chair in your office.
 - **Pick-up**: press and drag an employee. They lift and dangle while held. Drop them on a free workstation to reassign it (persisted), on any free seat to sit, or anywhere else to stand briefly and then walk home.

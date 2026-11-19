@@ -6,6 +6,7 @@ import { useFrame } from "@react-three/fiber";
 import type { FurnitureItem } from "@/lib/data/types";
 import { CATALOG, sizeOf } from "@/lib/office/catalog";
 import { PALETTE as P, mat, makeScreenTexture } from "./materials";
+import { FunVisual } from "./FunFurniture";
 
 // ---------- primitive helpers (shared unit geometries, scaled) ----------
 const BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -593,7 +594,7 @@ export const FurnitureVisual = memo(function FurnitureVisual({ item, frames, scr
     case "meeting_table":
       return <MeetingTable />;
     case "sofa":
-      return <Sofa color={item.roomId === "reception" ? "#475569" : P.navy} />;
+      return <Sofa color={item.color ?? (item.roomId === "reception" ? "#475569" : P.navy)} />;
     case "armchair":
       return <Sofa w={0.9} color="#0f766e" />;
     case "visitor_chair":
@@ -645,7 +646,7 @@ export const FurnitureVisual = memo(function FurnitureVisual({ item, frames, scr
     case "standee":
       return <Standee brand={brand} />;
     default:
-      return <B p={[0, 0.4, 0]} s={[w, 0.8, d]} c="#f0f" />;
+      return <FunVisual item={item} w={w} d={d} night={night} />;
   }
 });
 

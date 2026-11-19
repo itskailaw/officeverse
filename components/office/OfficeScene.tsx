@@ -10,7 +10,7 @@ import { useUI } from "@/lib/store/ui-store";
 import { CEO_ID } from "@/lib/data/seed";
 import type { FurnitureItem, LightingMode, Room } from "@/lib/data/types";
 import { CATALOG, sizeOf } from "@/lib/office/catalog";
-import { CEO_DESK_ID, MEETING_TABLE_ID, ROOMS } from "@/lib/office/layout";
+import { CEO_DESK_ID, MEETING_TABLE_ID, OFFICE_D, OFFICE_W, ROOMS } from "@/lib/office/layout";
 import { getSim } from "@/lib/office/runtime";
 import { resolveLighting } from "@/lib/office/lighting";
 import { departmentColor } from "@/lib/data/brand";
@@ -20,7 +20,7 @@ import { FurnitureVisual } from "./Furniture";
 import { Character } from "./Character";
 import { meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
-const CENTER = new THREE.Vector3(24, 0, 11.5);
+const CENTER = new THREE.Vector3(OFFICE_W / 2, 0, OFFICE_D / 2);
 const pressedKeys = new Set<string>();
 const ISO_OFFSET = new THREE.Vector3(26, 30, 30);
 
@@ -89,13 +89,13 @@ function Lighting({ lm }: { lm: Exclude<LightingMode, "auto"> }) {
         intensity={cfg.sun}
         color={cfg.sunColor}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[3072, 3072]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
-        shadow-camera-left={-32}
-        shadow-camera-right={32}
-        shadow-camera-top={22}
-        shadow-camera-bottom={-22}
+        shadow-camera-left={-42}
+        shadow-camera-right={42}
+        shadow-camera-top={30}
+        shadow-camera-bottom={-30}
         shadow-camera-near={1}
         shadow-camera-far={90}
       />
@@ -122,7 +122,7 @@ function CameraRig() {
   const anim = useRef<{ fromT: THREE.Vector3; toT: THREE.Vector3; fromO: THREE.Vector3; toO: THREE.Vector3; fromZ: number; toZ: number; t: number } | null>(null);
   const size = useThree((s) => s.size);
 
-  const fitZoom = () => Math.max(9, Math.min(size.width / 56, size.height / 34));
+  const fitZoom = () => Math.max(7, Math.min(size.width / (OFFICE_W + 8), size.height / (OFFICE_D + 12)));
 
   useEffect(() => {
     camera.zoom = fitZoom();
@@ -265,7 +265,7 @@ function useBrands(): Record<string, Brand | undefined> {
       const dept = departments.find((d) => d.id === r.departmentId);
       if (!dept || !dept.active) continue;
       const color = departmentColor(dept, companies);
-      out[r.id] = { name: r.id === "ceo" ? "CEO Office" : dept.name, color };
+      out[r.id] = { name: r.id === "ceo" ? "CEO Suite" : dept.name, color };
     }
     return out;
   }, [departments, companies]);
@@ -503,7 +503,7 @@ function InteractionPlane() {
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[24, 0.01, 11.5]}
+      position={[OFFICE_W / 2, 0.01, OFFICE_D / 2]}
       onPointerMove={(e) => {
         lastPoint.current.copy(e.point);
         const ui = useUI.getState();
@@ -514,8 +514,8 @@ function InteractionPlane() {
           ui.set({
             furnitureDrag: {
               ...d,
-              x: THREE.MathUtils.clamp(snap(e.point.x + d.dx), 0.3, 47.7),
-              z: THREE.MathUtils.clamp(snap(e.point.z + d.dz), 0.3, 22.7),
+              x: THREE.MathUtils.clamp(snap(e.point.x + d.dx), 0.3, OFFICE_W - 0.3),
+              z: THREE.MathUtils.clamp(snap(e.point.z + d.dz), 0.3, OFFICE_D - 0.3),
             },
           });
         }
@@ -527,12 +527,12 @@ function InteractionPlane() {
           ui.set({ selectedFurnitureId: null });
           return;
         }
-        if (e.point.x < 0 || e.point.x > 48 || e.point.z < 0 || e.point.z > 23) return;
+        if (e.point.x < 0 || e.point.x > OFFICE_W || e.point.z < 0 || e.point.z > OFFICE_D) return;
         getSim().goToPoint(CEO_ID, e.point.x, e.point.z, "free");
         ui.set({ selectedEmployeeId: null });
       }}
     >
-      <planeGeometry args={[60, 40]} />
+      <planeGeometry args={[OFFICE_W + 12, OFFICE_D + 12]} />
       <meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
   );
@@ -548,7 +548,7 @@ function Labels() {
       ROOMS.filter((r) => r.id !== "corridor").map((room) => {
         const dept = departments.find((d) => d.id === room.departmentId);
         const co = companies.find((c) => c.id === dept?.companyId);
-        const text = room.id === "ceo" ? "CEO Office" : dept ? (dept.active ? dept.name : `${dept.name} (inactive)`) : room.name;
+        const text = room.id === "ceo" ? "CEO Suite" : dept ? (dept.active ? dept.name : `${dept.name} (inactive)`) : room.name;
         return { room, text, color: co?.color };
       }),
     [departments, companies],
