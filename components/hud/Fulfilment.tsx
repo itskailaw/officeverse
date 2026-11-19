@@ -18,25 +18,29 @@ interface Order {
   status: string;
   amount: number;
   orderedAt: string;
+  paidAt: string;
+  paidKnown: boolean;
   shipBy: string | null;
   items: { name: string; model: string | null; qty: number }[];
 }
 const NAME: Record<Plat, string> = { shopee: "Shopee", lazada: "Lazada" };
 
-type Sort = "oldest" | "newest" | "deadline" | "amount";
+type Sort = "paid" | "paid-new" | "oldest" | "newest" | "deadline" | "amount";
 const SORTS: { v: Sort; label: string }[] = [
-  { v: "oldest", label: "Oldest order first" },
-  { v: "newest", label: "Newest order first" },
+  { v: "paid", label: "Paid — oldest first (like Shopee)" },
+  { v: "paid-new", label: "Paid — newest first" },
+  { v: "oldest", label: "Order time — oldest first" },
+  { v: "newest", label: "Order time — newest first" },
   { v: "deadline", label: "Ship-by deadline (most urgent)" },
   { v: "amount", label: "Amount (highest first)" },
 ];
-const SORT_KEY = "ov:fulfil-sort";
+const SORT_KEY = "ov:fulfil-sort-v2";
 function readSort(): Sort {
   try {
     const v = localStorage.getItem(SORT_KEY) as Sort | null;
-    return v && SORTS.some((x) => x.v === v) ? v : "oldest";
+    return v && SORTS.some((x) => x.v === v) ? v : "paid";
   } catch {
-    return "oldest";
+    return "paid";
   }
 }
 const t = (iso: string | null) => (iso ? Date.parse(iso) : Number.POSITIVE_INFINITY);
@@ -91,6 +95,8 @@ export function Fulfilment() {
   const list = useMemo(() => {
     const l = (orders ?? []).filter((o) => o.stage === stage);
     const cmp: Record<Sort, (a: Order, b: Order) => number> = {
+      paid: (a, b) => t(a.paidAt) - t(b.paidAt),
+      "paid-new": (a, b) => t(b.paidAt) - t(a.paidAt),
       oldest: (a, b) => t(a.orderedAt) - t(b.orderedAt),
       newest: (a, b) => t(b.orderedAt) - t(a.orderedAt),
       deadline: (a, b) => t(a.shipBy) - t(b.shipBy) || t(a.orderedAt) - t(b.orderedAt),
@@ -233,8 +239,12 @@ export function Fulfilment() {
                         <span className="h-2 w-2 rounded-full" style={{ background: DOT[o.platform] }} />
                         <span className="font-semibold text-slate-800">{NAME[o.platform]}</span>
                         <span className="font-mono text-[11px] text-slate-500">#{o.id}</span>
-                        <span className="text-slate-400" title={new Date(o.orderedAt).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" })}>
-                          · ordered {new Date(o.orderedAt).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} ({timeAgo(o.orderedAt)})
+                        <span
+                          className="text-slate-400"
+                          title={`Ordered ${new Date(o.orderedAt).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" })}${o.paidKnown ? ` · paid ${new Date(o.paidAt).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" })}` : ""}`}
+                        >
+                          · {o.platform === "shopee" && !o.paidKnown ? "ordered (COD)" : "paid"}{" "}
+                          {new Date(o.paidAt).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} ({timeAgo(o.paidAt)})
                         </span>
                         <span className="ml-auto font-semibold tabular-nums text-slate-800">{formatMYR(o.amount, 2)}</span>
                       </div>

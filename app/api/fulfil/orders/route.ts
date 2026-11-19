@@ -17,7 +17,7 @@ export async function GET() {
     const toShip = [...STATUS.shopee.awaitingPickup, ...STATUS.lazada.awaitingPickup];
     const { data, error } = await sb
       .from("marketplace_orders")
-      .select("platform, external_order_id, status, gross_amount, ordered_at, ship_by, items")
+      .select("platform, external_order_id, status, gross_amount, ordered_at, pay_time, ship_by, items")
       .eq("workspace_id", m.workspaceId)
       .in("status", [...toProcess, ...toShip])
       .order("ship_by", { ascending: true, nullsFirst: false })
@@ -32,6 +32,9 @@ export async function GET() {
         status: o.status as string,
         amount: Number(o.gross_amount) || 0,
         orderedAt: o.ordered_at as string,
+        // Shopee lists orders by payment time; COD (no payment yet) and Lazada (order = paid) use the order time
+        paidAt: ((o.pay_time as string | null) ?? (o.ordered_at as string)) as string,
+        paidKnown: !!o.pay_time,
         shipBy: (o.ship_by as string) ?? null,
         items: ((o.items as { name: string; model?: string | null; qty: number }[] | null) ?? []).map((i) => ({ name: i.name, model: i.model ?? null, qty: i.qty })),
       }));
