@@ -35,7 +35,7 @@ import { CompaniesManager } from "./CompaniesManager";
 import { TeamTable } from "./TeamTable";
 import { StatusBadge, TaskRow } from "./EmployeePanel";
 import { ApprovalCard } from "./AIWork";
-import { liveSources, useLive, type LiveSummary } from "@/lib/integrations/client";
+import { liveSources, useLive, type LiveSummary, type PlatformFigures } from "@/lib/integrations/client";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
 
@@ -331,8 +331,8 @@ function Hero() {
   if (queued) items.push({ label: `${queued} task${queued > 1 ? "s" : ""} queued for the AI engine`, tone: "sky", onClick: () => set({ dashboardTab: "tasks" }) });
   if (shopeeLive) {
     if (shopeeLive.toPack.urgent) items.push({ label: `${shopeeLive.toPack.urgent} parcel${shopeeLive.toPack.urgent > 1 ? "s" : ""} due to ship within 24h`, tone: "red" });
-    const toShip = shopeeLive.toPack.total ?? shopeeLive.toPack.readyToShip + shopeeLive.toPack.processed;
-    if (toShip) items.push({ label: `${toShip} orders to ship (${liveSources(shopeeLive)})`, tone: "amber" });
+    if (shopeeLive.toPack.readyToShip) items.push({ label: `${shopeeLive.toPack.readyToShip} new orders to process`, tone: "amber" });
+    if (shopeeLive.toPack.processed) items.push({ label: `${shopeeLive.toPack.processed} accepted orders to ship`, tone: "amber" });
   } else if (d) {
     if (d.parcels.priority) items.push({ label: `${d.parcels.priority} priority parcels to ship`, tone: "amber", demo: true });
     const low = d.ads.find((a) => a.daysLeft < 4);
@@ -410,12 +410,10 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
   const hasShopee = s.platforms.shopee.connected;
   const hasLazada = s.platforms.lazada.connected;
   const chart = s.days.slice(-range).map((x) => ({ date: x.date.slice(5), Shopee: x.shopee ?? x.revenue, Lazada: x.lazada ?? 0 }));
-  const aov = s.yesterday.orders ? s.yesterday.revenue / s.yesterday.orders : 0;
   const bp = s.byPlatform ?? {};
   /** "Shopee RM 1,200 · Lazada RM 300" style split for a KPI */
   const split = (pick: (f: NonNullable<typeof bp.shopee>) => string) =>
     [hasShopee && bp.shopee && `Shopee ${pick(bp.shopee)}`, hasLazada && bp.lazada && `Lazada ${pick(bp.lazada)}`].filter(Boolean).join(" · ");
-  const toShip = s.toPack.total ?? s.toPack.readyToShip + s.toPack.processed;
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -438,20 +436,33 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <LiveKpi icon={<Wallet />} label="Today" value={formatMYR(s.today.revenue)} sub={`${s.today.orders} orders${hasShopee && hasLazada ? ` · ${split((f) => formatMYR(f.today.revenue))}` : ""}`} />
-          <LiveKpi icon={<Wallet />} label="Yesterday" value={formatMYR(s.yesterday.revenue)} sub={hasShopee && hasLazada ? split((f) => formatMYR(f.yesterday.revenue)) : `AOV ${formatMYR(aov, 2)}`} />
-          <LiveKpi icon={<Wallet />} label="Month to date" value={formatMYR(s.monthToDate.revenue)} sub={hasShopee && hasLazada ? split((f) => formatMYR(f.monthToDate.revenue)) : `${s.monthToDate.orders} orders`} />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <RevenueKpi s={s} split={split} both={hasShopee && hasLazada} />
+          <LiveKpi
+            icon={<ClipboardList />}
+            label="To process"
+            value={String(s.toPack.readyToShip)}
+            sub={[
+              "Not accepted yet",
+              hasShopee && hasLazada ? split((f) => String(f.toPack.readyToShip)) : null,
+              (s.toPack.urgentToProcess ?? 0) > 0 ? `${s.toPack.urgentToProcess} due within 24h` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            warn={(s.toPack.urgentToProcess ?? 0) > 0}
+          />
           <LiveKpi
             icon={<Package />}
             label="To ship"
-            value={String(toShip)}
-            sub={
-              hasShopee && hasLazada
-                ? `${split((f) => String(f.toPack.total))} · ${s.toPack.urgent} due within 24h`
-                : `${s.toPack.readyToShip} to process · ${s.toPack.processed} awaiting pickup · ${s.toPack.urgent} due within 24h`
-            }
-            warn={s.toPack.urgent > 0}
+            value={String(s.toPack.processed)}
+            sub={[
+              "Accepted, awaiting pickup",
+              hasShopee && hasLazada ? split((f) => String(f.toPack.processed)) : null,
+              (s.toPack.urgentToShip ?? 0) > 0 ? `${s.toPack.urgentToShip} due within 24h` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            warn={(s.toPack.urgentToShip ?? 0) > 0}
           />
           <LiveKpi
             icon={<Megaphone />}
@@ -492,7 +503,7 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
                 <AreaChart data={chart} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid stroke="#e2e8f0" vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} />
-                  <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
+                  <YAxis domain={[0, "auto"]} tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
                   <Tooltip formatter={(v) => formatMYR(Number(v))} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} cursor={{ stroke: "#94a3b8", strokeDasharray: "3 3" }} />
                   {hasLazada && <Area type="monotone" dataKey="Lazada" stackId="1" stroke={SERIES.lazada} strokeWidth={2} fill={SERIES.lazada} fillOpacity={0.18} isAnimationActive={false} />}
                   {hasShopee && <Area type="monotone" dataKey="Shopee" stackId="1" stroke={SERIES.shopee} strokeWidth={2} fill={SERIES.shopee} fillOpacity={0.18} isAnimationActive={false} />}
@@ -529,6 +540,56 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+type Period = "today" | "yesterday" | "monthToDate";
+const PERIOD_LABEL: Record<Period, string> = { today: "Today", yesterday: "Yesterday", monthToDate: "Month to date" };
+
+/** One revenue card with a period dropdown (remembers the choice in this browser). */
+function RevenueKpi({ s, split, both }: { s: LiveSummary; split: (pick: (f: PlatformFigures) => string) => string; both: boolean }) {
+  const [period, setPeriod] = useState<Period>(() => {
+    try {
+      const v = localStorage.getItem("ov:revenue-period");
+      return v === "yesterday" || v === "monthToDate" ? v : "today";
+    } catch {
+      return "today";
+    }
+  });
+  const choose = (p: Period) => {
+    setPeriod(p);
+    try {
+      localStorage.setItem("ov:revenue-period", p);
+    } catch {}
+  };
+  const v = s[period];
+  const aov = v.orders ? v.revenue / v.orders : 0;
+  return (
+    <div className="rounded-xl border border-slate-200 bg-panel p-3.5 shadow-sm">
+      <div className="flex items-center justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-500 [&_svg]:h-3.5 [&_svg]:w-3.5">
+        <span className="flex items-center gap-1.5">
+          <Wallet /> Revenue
+        </span>
+        <span className="rounded bg-emerald-100 px-1 text-[9px] font-bold text-emerald-800">LIVE</span>
+      </div>
+      <select
+        value={period}
+        onChange={(e) => choose(e.target.value as Period)}
+        className="mt-1 h-6 rounded-md border border-slate-200 bg-panel px-1 text-[11px] font-medium text-slate-700"
+        aria-label="Revenue period"
+      >
+        {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => (
+          <option key={p} value={p}>
+            {PERIOD_LABEL[p]}
+          </option>
+        ))}
+      </select>
+      <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{formatMYR(v.revenue)}</div>
+      <div className="mt-0.5 text-[11px] text-slate-500">
+        {v.orders} orders · AOV {formatMYR(aov, 2)}
+        {both && <span className="block">{split((f) => formatMYR(f[period].revenue))}</span>}
+      </div>
+    </div>
   );
 }
 
@@ -624,7 +685,7 @@ function EcommerceSection({ demo }: { demo: boolean }) {
                     <AreaChart data={chart} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid stroke="#e2e8f0" vertical={false} />
                       <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} />
-                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                      <YAxis domain={[0, "auto"]} tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
                       <Tooltip
                         formatter={(v) => formatMYR(Number(v))}
                         contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}

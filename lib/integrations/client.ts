@@ -17,7 +17,7 @@ export interface PlatformFigures {
   today: { revenue: number; orders: number };
   yesterday: { revenue: number; orders: number };
   monthToDate: { revenue: number; orders: number };
-  toPack: { total: number; readyToShip: number; processed: number; urgent: number };
+  toPack: { total: number; readyToShip: number; processed: number; urgent: number; urgentToProcess?: number; urgentToShip?: number };
   cancelledToday: number;
 }
 
@@ -30,7 +30,7 @@ export interface LiveSummary {
   yesterday: { revenue: number; orders: number };
   monthToDate: { revenue: number; orders: number };
   days: { date: string; revenue: number; orders: number; shopee?: number; lazada?: number }[];
-  toPack: { total?: number; readyToShip: number; processed: number; urgent: number };
+  toPack: { total?: number; readyToShip: number; processed: number; urgent: number; urgentToProcess?: number; urgentToShip?: number };
   cancelledToday: number;
   byPlatform?: { shopee?: PlatformFigures; lazada?: PlatformFigures };
   bestSellers30d: { name: string; units: number; revenue: number }[];

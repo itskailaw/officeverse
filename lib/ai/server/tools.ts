@@ -135,7 +135,7 @@ function liveData(metric: string, live: Live) {
         ...meta,
         toPack: live.toPack,
         parcelsNote:
-          "total = Seller Centre 'To Ship' (orders still to process + packed/processed awaiting pickup). readyToShip = still to process; processed = arranged/packed, awaiting courier pickup; urgent = ship-by deadline within 24h.",
+          "Use the CEO's terms: readyToShip = 'To process' (new orders not accepted / shipment not arranged yet); processed = 'To ship' (accepted, waiting to be packed and picked up by the courier). total = both. urgentToProcess / urgentToShip = ship-by deadline within 24h in each group.",
         cancelledToday: live.cancelledToday,
       };
     case "advertising":

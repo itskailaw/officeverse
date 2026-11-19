@@ -33,7 +33,7 @@ export interface PlatformFigures {
   today: { revenue: number; orders: number };
   yesterday: { revenue: number; orders: number };
   monthToDate: { revenue: number; orders: number };
-  toPack: { total: number; readyToShip: number; processed: number; urgent: number };
+  toPack: { total: number; readyToShip: number; processed: number; urgent: number; urgentToProcess: number; urgentToShip: number };
   cancelledToday: number;
 }
 
@@ -48,7 +48,7 @@ export interface LiveSummary {
   monthToDate: { revenue: number; orders: number };
   days: { date: string; revenue: number; orders: number; shopee: number; lazada: number }[];
   /** total = Seller Centre "To Ship" (To Process + Processed / Packed, awaiting pickup) */
-  toPack: { total: number; readyToShip: number; processed: number; urgent: number };
+  toPack: { total: number; readyToShip: number; processed: number; urgent: number; urgentToProcess: number; urgentToShip: number };
   cancelledToday: number;
   byPlatform: Partial<Record<Platform, PlatformFigures>>;
   bestSellers30d: { name: string; units: number; revenue: number }[];
@@ -116,7 +116,7 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
   const byDay = new Map<string, { revenue: number; orders: number; shopee: number; lazada: number }>();
   for (let i = 29; i >= 0; i--) byDay.set(klDay(new Date(now.getTime() - i * 86400 * 1000)), { revenue: 0, orders: 0, shopee: 0, lazada: 0 });
   const fig: Partial<Record<Platform, PlatformFigures>> = {};
-  for (const p of platforms) fig[p] = { today: zero(), yesterday: zero(), monthToDate: zero(), toPack: { total: 0, readyToShip: 0, processed: 0, urgent: 0 }, cancelledToday: 0 };
+  for (const p of platforms) fig[p] = { today: zero(), yesterday: zero(), monthToDate: zero(), toPack: { total: 0, readyToShip: 0, processed: 0, urgent: 0, urgentToProcess: 0, urgentToShip: 0 }, cancelledToday: 0 };
   const sellers = new Map<string, { units: number; revenue: number }>();
 
   for (const o of orders) {
@@ -152,9 +152,15 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
     if (!f) continue;
     const st = STATUS[p.platform];
     f.toPack.total++;
-    if (st.toProcess.has(p.status)) f.toPack.readyToShip++;
-    else f.toPack.processed++;
-    if (p.ship_by && Date.parse(p.ship_by) < soon) f.toPack.urgent++;
+    const isUrgent = !!p.ship_by && Date.parse(p.ship_by) < soon;
+    if (st.toProcess.has(p.status)) {
+      f.toPack.readyToShip++;
+      if (isUrgent) f.toPack.urgentToProcess++;
+    } else {
+      f.toPack.processed++;
+      if (isUrgent) f.toPack.urgentToShip++;
+    }
+    if (isUrgent) f.toPack.urgent++;
   }
 
   const sum = (pick: (f: PlatformFigures) => { revenue: number; orders: number }) => {
@@ -194,6 +200,8 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
       readyToShip: vals.reduce((s, f) => s + f.toPack.readyToShip, 0),
       processed: vals.reduce((s, f) => s + f.toPack.processed, 0),
       urgent: vals.reduce((s, f) => s + f.toPack.urgent, 0),
+      urgentToProcess: vals.reduce((s, f) => s + f.toPack.urgentToProcess, 0),
+      urgentToShip: vals.reduce((s, f) => s + f.toPack.urgentToShip, 0),
     },
     cancelledToday: vals.reduce((s, f) => s + f.cancelledToday, 0),
     byPlatform: fig,

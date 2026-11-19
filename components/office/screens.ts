@@ -88,11 +88,11 @@ export function perfScreenTexture(demoMode: boolean, live?: LiveSummary | null) 
     if (live) {
       const sources = liveSources(live).toUpperCase();
       pill(g, w - 40, 44, `LIVE · ${sources}`, "#10b981", "#ffffff");
-      const toShip = live.toPack.total ?? live.toPack.readyToShip + live.toPack.processed;
+      const urgent = (n?: number) => (n ? `  (${n} urgent)` : "");
       drawKpis(g, [
-        ["Today", formatMYR(live.today.revenue)],
-        ["Month to date", formatMYR(live.monthToDate.revenue)],
-        ["To ship", `${toShip}${live.toPack.urgent ? `  (${live.toPack.urgent} urgent)` : ""}`],
+        ["Revenue today", formatMYR(live.today.revenue)],
+        ["To process", `${live.toPack.readyToShip}${urgent(live.toPack.urgentToProcess)}`],
+        ["To ship", `${live.toPack.processed}${urgent(live.toPack.urgentToShip)}`],
       ]);
       const syncs = [live.platforms.shopee.lastSync, live.platforms.lazada.lastSync].filter((x): x is string => !!x).sort();
       drawTrend(g, w, live.days.map((d) => d.revenue), `${liveSources(live)} revenue, last 30 days · synced ${ago(syncs[0] ?? null)}`, "#eb6834");
