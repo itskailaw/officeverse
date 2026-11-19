@@ -67,8 +67,14 @@ export function ProfitPanel({ s, view }: { s: LiveSummary; view: "all" | Plat })
             note={p.costsEntered ? `${Math.round(f.costCoverage * 100)}% of units costed` : "enter costs →"}
           />
           <Line label="Ad spend" value={f.adSpend} neg note={view === "shopee" ? "not tracked yet" : "Lazada only"} />
-          <Line label="Estimated profit" value={f.estProfit} strong note={f.margin != null ? `${f.margin}% margin` : null} />
-          {!p.costsEntered && <p className="mt-1 text-[10px] text-amber-700">Add your product costs to see a real profit figure.</p>}
+          {p.costsEntered ? (
+            <Line label="Estimated profit" value={f.estProfit} strong note={f.margin != null ? `${f.margin}% margin${f.costCoverage < 0.95 ? " · some products not costed" : ""}` : null} />
+          ) : (
+            <Line label="Payout after ads" value={f.estProfit} strong note="before product costs" />
+          )}
+          {!p.costsEntered && (
+            <p className="mt-1 text-[10px] text-amber-700">This isn&apos;t profit yet — click Product costs and enter what each item costs you.</p>
+          )}
         </>
       )}
       <ProductCostsDialog s={s} open={costsOpen} onOpenChange={setCostsOpen} />
