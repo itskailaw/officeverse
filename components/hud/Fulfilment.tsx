@@ -22,6 +22,24 @@ interface Order {
   items: { name: string; model: string | null; qty: number }[];
 }
 const NAME: Record<Plat, string> = { shopee: "Shopee", lazada: "Lazada" };
+
+type Sort = "oldest" | "newest" | "deadline" | "amount";
+const SORTS: { v: Sort; label: string }[] = [
+  { v: "oldest", label: "Oldest order first" },
+  { v: "newest", label: "Newest order first" },
+  { v: "deadline", label: "Ship-by deadline (most urgent)" },
+  { v: "amount", label: "Amount (highest first)" },
+];
+const SORT_KEY = "ov:fulfil-sort";
+function readSort(): Sort {
+  try {
+    const v = localStorage.getItem(SORT_KEY) as Sort | null;
+    return v && SORTS.some((x) => x.v === v) ? v : "oldest";
+  } catch {
+    return "oldest";
+  }
+}
+const t = (iso: string | null) => (iso ? Date.parse(iso) : Number.POSITIVE_INFINITY);
 const DOT: Record<Plat, string> = { shopee: "#eb6834", lazada: "#2a78d6" };
 
 function due(shipBy: string | null) {
@@ -43,6 +61,13 @@ export function Fulfilment() {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, { ok: boolean; message: string }>>({});
+  const [sort, setSort] = useState<Sort>(readSort);
+  const chooseSort = (v: Sort) => {
+    setSort(v);
+    try {
+      localStorage.setItem(SORT_KEY, v);
+    } catch {}
+  };
 
   const load = useCallback(async () => {
     setErr(null);
@@ -63,7 +88,16 @@ export function Fulfilment() {
     }
   }, [open, load]);
 
-  const list = useMemo(() => (orders ?? []).filter((o) => o.stage === stage), [orders, stage]);
+  const list = useMemo(() => {
+    const l = (orders ?? []).filter((o) => o.stage === stage);
+    const cmp: Record<Sort, (a: Order, b: Order) => number> = {
+      oldest: (a, b) => t(a.orderedAt) - t(b.orderedAt),
+      newest: (a, b) => t(b.orderedAt) - t(a.orderedAt),
+      deadline: (a, b) => t(a.shipBy) - t(b.shipBy) || t(a.orderedAt) - t(b.orderedAt),
+      amount: (a, b) => b.amount - a.amount,
+    };
+    return [...l].sort(cmp[sort]);
+  }, [orders, stage, sort]);
   const key = (o: Order) => `${o.platform}:${o.id}`;
   const chosen = list.filter((o) => sel.has(key(o)));
   const toggle = (o: Order) =>
@@ -154,6 +188,21 @@ export function Fulfilment() {
               <button className="text-[11px] text-sky-700 hover:underline" onClick={() => setSel(new Set(list.map(key)))} disabled={!list.length}>
                 Select all
               </button>
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                Sort
+                <select
+                  value={sort}
+                  onChange={(e) => chooseSort(e.target.value as Sort)}
+                  className="h-7 rounded-md border border-slate-200 bg-panel px-1.5 text-[11px] font-medium text-slate-700"
+                  aria-label="Sort orders"
+                >
+                  {SORTS.map((o) => (
+                    <option key={o.v} value={o.v}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="ml-auto flex gap-2">
                 <Button size="sm" variant="ghost" onClick={() => void load()} title="Refresh">
                   <RefreshCw />
@@ -184,7 +233,9 @@ export function Fulfilment() {
                         <span className="h-2 w-2 rounded-full" style={{ background: DOT[o.platform] }} />
                         <span className="font-semibold text-slate-800">{NAME[o.platform]}</span>
                         <span className="font-mono text-[11px] text-slate-500">#{o.id}</span>
-                        <span className="text-slate-400">· {timeAgo(o.orderedAt)}</span>
+                        <span className="text-slate-400" title={new Date(o.orderedAt).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" })}>
+                          · ordered {new Date(o.orderedAt).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} ({timeAgo(o.orderedAt)})
+                        </span>
                         <span className="ml-auto font-semibold tabular-nums text-slate-800">{formatMYR(o.amount, 2)}</span>
                       </div>
                       <ul className="mt-1 space-y-0.5 text-slate-700">
