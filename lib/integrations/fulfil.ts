@@ -194,6 +194,8 @@ export async function labelsShopee(ws: string, orderSns: string[]): Promise<Labe
       if (pending.length) await sleep(1500);
     }
     for (const o of pending) problems.push(`${o.order_sn}: Shopee is still preparing the label — try again in a minute`);
+    // keep the CEO's list order (e.g. oldest paid first) in the printed PDF
+    ready.sort((a, b) => orderSns.indexOf(a) - orderSns.indexOf(b));
     if (ready.length) {
       const download = (sns: string[]) =>
         shopPostFile(cfg, "/api/v2/logistics/download_shipping_document", { shipping_document_type: type, order_list: sns.map((sn) => ({ order_sn: sn })) }, token, shopId);
