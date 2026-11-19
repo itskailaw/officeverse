@@ -16,7 +16,8 @@ export interface LiveSummary {
   yesterday: { revenue: number; orders: number };
   monthToDate: { revenue: number; orders: number };
   days: { date: string; revenue: number; orders: number }[];
-  toPack: { readyToShip: number; processed: number; urgent: number };
+  /** total = Shopee Seller Centre "To Ship" (To Process + Processed) */
+  toPack: { total: number; readyToShip: number; processed: number; urgent: number };
   cancelledToday: number;
   bestSellers30d: { name: string; units: number; revenue: number }[];
   ads: { shopee: { balance: number; at: string } | null };
@@ -125,9 +126,11 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
     monthToDate: { revenue: round(mtd.revenue), orders: mtd.orders },
     days,
     toPack: {
+      total: pending.length,
       readyToShip: pending.filter((p) => p.status === "READY_TO_SHIP").length,
       processed: pending.filter((p) => p.status === "PROCESSED").length,
-      urgent: pending.filter((p) => p.status === "READY_TO_SHIP" && p.ship_by && Date.parse(p.ship_by) < soon).length,
+      // both statuses still have to leave the warehouse before the ship-by deadline
+      urgent: pending.filter((p) => p.ship_by && Date.parse(p.ship_by) < soon).length,
     },
     cancelledToday,
     bestSellers30d: [...sellers.entries()]

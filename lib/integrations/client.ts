@@ -17,7 +17,7 @@ export interface LiveSummary {
   yesterday: { revenue: number; orders: number };
   monthToDate: { revenue: number; orders: number };
   days: { date: string; revenue: number; orders: number }[];
-  toPack: { readyToShip: number; processed: number; urgent: number };
+  toPack: { total?: number; readyToShip: number; processed: number; urgent: number };
   cancelledToday: number;
   bestSellers30d: { name: string; units: number; revenue: number }[];
   ads: { shopee: { balance: number; at: string } | null };

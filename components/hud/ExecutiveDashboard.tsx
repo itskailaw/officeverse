@@ -325,7 +325,8 @@ function Hero() {
   if (queued) items.push({ label: `${queued} task${queued > 1 ? "s" : ""} queued for the AI engine`, tone: "sky", onClick: () => set({ dashboardTab: "tasks" }) });
   if (shopeeLive) {
     if (shopeeLive.toPack.urgent) items.push({ label: `${shopeeLive.toPack.urgent} Shopee parcel${shopeeLive.toPack.urgent > 1 ? "s" : ""} due to ship within 24h`, tone: "red" });
-    if (shopeeLive.toPack.readyToShip) items.push({ label: `${shopeeLive.toPack.readyToShip} Shopee orders to pack`, tone: "amber" });
+    const toShip = shopeeLive.toPack.total ?? shopeeLive.toPack.readyToShip + shopeeLive.toPack.processed;
+    if (toShip) items.push({ label: `${toShip} Shopee orders to ship`, tone: "amber" });
   } else if (d) {
     if (d.parcels.priority) items.push({ label: `${d.parcels.priority} priority parcels to ship`, tone: "amber", demo: true });
     const low = d.ads.find((a) => a.daysLeft < 4);
@@ -430,9 +431,9 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
           <LiveKpi icon={<Wallet />} label="Month to date" value={formatMYR(s.monthToDate.revenue)} sub={`${s.monthToDate.orders} orders`} />
           <LiveKpi
             icon={<Package />}
-            label="To pack"
-            value={String(s.toPack.readyToShip)}
-            sub={`${s.toPack.urgent} due within 24h · ${s.toPack.processed} awaiting pickup`}
+            label="To ship"
+            value={String(s.toPack.total ?? s.toPack.readyToShip + s.toPack.processed)}
+            sub={`${s.toPack.readyToShip} to process · ${s.toPack.processed} awaiting pickup · ${s.toPack.urgent} due within 24h`}
             warn={s.toPack.urgent > 0}
           />
           <LiveKpi

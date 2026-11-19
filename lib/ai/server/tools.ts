@@ -130,7 +130,7 @@ function liveData(metric: string, live: Live) {
       return {
         ...meta,
         toPack: live.toPack,
-        note: "readyToShip = orders the seller still needs to arrange shipment for; processed = shipment arranged, awaiting pickup; urgent = ship-by deadline within 24h.",
+        note: "total = Shopee Seller Centre 'To Ship' count (To Process + Processed). readyToShip = 'To Process' (shipment not arranged yet); processed = shipment arranged, parcel awaiting pickup; urgent = ship-by deadline within 24h.",
         cancelledToday: live.cancelledToday,
       };
     case "advertising":
