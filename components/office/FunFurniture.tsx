@@ -9,6 +9,7 @@ import { useFrame } from "@react-three/fiber";
 import type { FurnitureItem } from "@/lib/data/types";
 import { getSim } from "@/lib/office/runtime";
 import { useOffice } from "@/lib/store/office-store";
+import { isKobeDay } from "@/lib/office/kobeday";
 import { WALL_HEIGHT } from "./Building";
 import { mat, makeScreenTexture } from "./materials";
 
@@ -893,6 +894,55 @@ function Aquarium({ w, night }: { w: number; night?: boolean }) {
   );
 }
 
+/** Glowing neon lettering on a dark backing board (wall-mounted). On Kobe Day the game-room sign changes. */
+function NeonSign({ w, text, color = "#ec4899", night }: { w: number; text: string; color?: string; night?: boolean }) {
+  const kobe = useMemo(() => isKobeDay(), []);
+  const label = kobe && text === "PLAY" ? "MAMBA FOREVER 8·24" : text;
+  const tint = kobe && text === "PLAY" ? "#fdb927" : color;
+  const h = 0.62;
+  const tex = useMemo(
+    () =>
+      makeScreenTexture(
+        (g, W, H) => {
+          g.clearRect(0, 0, W, H);
+          g.font = `800 ${Math.round(H * (label.length > 10 ? 0.38 : 0.62))}px "Trebuchet MS", system-ui, sans-serif`;
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          g.shadowColor = tint;
+          g.shadowBlur = 28;
+          g.strokeStyle = tint;
+          g.lineWidth = 10;
+          g.strokeText(label, W / 2, H / 2 + 4, W - 40);
+          g.shadowBlur = 8;
+          g.fillStyle = "#fff7fb";
+          g.fillText(label, W / 2, H / 2 + 4, W - 40);
+        },
+        1024,
+        Math.round((1024 * h) / w),
+      ),
+    [label, tint, w],
+  );
+  useEffect(() => () => tex.dispose(), [tex]);
+  const m = useRef<THREE.MeshBasicMaterial>(null);
+  const seed = useMemo(() => Math.random() * 10, []);
+  useFrame(({ clock }) => {
+    if (!m.current) return;
+    const t = clock.elapsedTime + seed;
+    const flicker = Math.sin(t * 37) > 0.985 ? 0.55 : 1; // the odd neon flicker
+    m.current.opacity = (night ? 1 : 0.82) * flicker;
+  });
+  const y = useWallY(h, 1.75);
+  return (
+    <group position={[0, y, 0]}>
+      <B p={[0, 0, 0]} s={[w, h, 0.03]} c="#0b0f19" shadow={false} />
+      <mesh geometry={PLANE} position={[0, 0, 0.02]} scale={[w, h, 1]}>
+        <meshBasicMaterial ref={m} map={tex} transparent toneMapped={false} depthWrite={false} />
+      </mesh>
+      {night && <pointLight position={[0, 0, 0.6]} intensity={2.2} distance={4.5} color={tint} />}
+    </group>
+  );
+}
+
 /** Returns a model for the fun furniture types, or null for other types. */
 export function FunVisual({ item, w, d, night }: { item: FurnitureItem; w: number; d: number; night?: boolean }) {
   switch (item.type) {
@@ -956,6 +1006,8 @@ export function FunVisual({ item, w, d, night }: { item: FurnitureItem; w: numbe
       return <MiniHoop />;
     case "aquarium":
       return <Aquarium w={w} night={night} />;
+    case "neon_sign":
+      return <NeonSign w={w} text={item.label ?? "OPEN"} color={item.color} night={night} />;
     default:
       return null;
   }

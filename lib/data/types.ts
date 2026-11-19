@@ -305,7 +305,8 @@ export type FurnitureType =
   | "kobe_cabinet"
   | "court_rug"
   | "mini_hoop"
-  | "aquarium";
+  | "aquarium"
+  | "neon_sign";
 
 export interface FurnitureItem {
   id: ID;

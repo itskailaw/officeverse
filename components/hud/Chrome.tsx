@@ -245,11 +245,29 @@ export function Toolbar() {
   );
 }
 
+/** Quick-jump camera spots (world coordinates of the v3 floor plan). */
+const JUMPS = [
+  { label: "Work", title: "Open work floor", x: 36.5, z: 5.5, zoom: 26 },
+  { label: "Fun", title: "Pantry, game room & garden", x: 19, z: 21, zoom: 26 },
+  { label: "CEO", title: "Your CEO suite", x: 6, z: 5.5, zoom: 40 },
+] as const;
+
 export function CameraControls() {
   const camera = useUI((s) => s.camera);
   const btn = "grid h-9 w-9 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 [&_svg]:h-4 [&_svg]:w-4";
   return (
     <div className="pointer-events-auto absolute bottom-3 right-3 z-20 flex items-center gap-0.5 rounded-2xl border border-panel/70 bg-panel/90 p-1 shadow-lg backdrop-blur">
+      {JUMPS.map((j) => (
+        <button
+          key={j.label}
+          className="h-9 rounded-xl px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          title={`Fly to: ${j.title}`}
+          onClick={() => camera({ kind: "focus", x: j.x, z: j.z, zoom: j.zoom })}
+        >
+          {j.label}
+        </button>
+      ))}
+      <span className="mx-1 h-5 w-px bg-slate-200" />
       <button className={btn} title="Rotate left (Q)" onClick={() => camera({ kind: "rotate", dir: -1 })}>
         <RotateCcw />
       </button>

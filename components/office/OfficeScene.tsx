@@ -149,7 +149,7 @@ function CameraRig() {
     }
     if (cmd.kind === "focus") {
       toT = new THREE.Vector3(cmd.x, 0, cmd.z);
-      toZ = Math.max(camera.zoom, 38);
+      toZ = cmd.zoom ?? Math.max(camera.zoom, 38);
     }
     anim.current = { fromT: target, toT, fromO: offset, toO, fromZ: camera.zoom, toZ, t: 0 };
     // eslint-disable-next-line react-hooks/exhaustive-deps

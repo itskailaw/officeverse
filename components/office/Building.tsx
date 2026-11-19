@@ -342,6 +342,55 @@ function Tree({ x, z, s = 1, tone = 0 }: { x: number; z: number; s?: number; ton
   );
 }
 
+/** Strings of warm fairy lights across the garden (sagging between the building and the fence). */
+const GardenLights = memo(function GardenLights({ night }: { night: boolean }) {
+  const garden = ROOMS.find((r) => r.id === "garden");
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const points = useMemo(() => {
+    if (!garden) return [];
+    const out: [number, number, number][] = [];
+    const per = 11;
+    for (let x = garden.x0 + 1.5; x <= garden.x1 - 1; x += 3) {
+      for (let i = 0; i < per; i++) {
+        const t = i / (per - 1);
+        const z = garden.z0 + 0.15 + t * (garden.z1 - garden.z0 - 0.3);
+        const y = 2.3 - t * 0.9 - Math.sin(t * Math.PI) * 0.45; // sag
+        out.push([x + (i % 2 ? 0.05 : -0.05), y, z]);
+      }
+    }
+    return out;
+  }, [garden]);
+  useEffect(() => {
+    const m = ref.current;
+    if (!m) return;
+    const o = new THREE.Object3D();
+    points.forEach((p, i) => {
+      o.position.set(p[0], p[1], p[2]);
+      o.scale.setScalar(0.07);
+      o.updateMatrix();
+      m.setMatrixAt(i, o.matrix);
+    });
+    m.instanceMatrix.needsUpdate = true;
+  }, [points]);
+  const bulb = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: "#fff7d6", emissive: new THREE.Color("#ffd58a"), emissiveIntensity: night ? 3 : 0.4, roughness: 0.4 }),
+    [night],
+  );
+  useEffect(() => () => bulb.dispose(), [bulb]);
+  if (!garden || !points.length) return null;
+  return (
+    <group>
+      <instancedMesh ref={ref} args={[undefined, undefined, points.length]} material={bulb}>
+        <sphereGeometry args={[1, 8, 6]} />
+      </instancedMesh>
+      {night &&
+        [0.2, 0.5, 0.8].map((t, i) => (
+          <pointLight key={i} position={[garden.x0 + t * (garden.x1 - garden.x0), 2, (garden.z0 + garden.z1) / 2]} intensity={5} distance={14} decay={1.6} color="#ffcf87" />
+        ))}
+    </group>
+  );
+});
+
 /** Low, wide sports car in purple & gold (the CEO's). */
 function SportsCar({ body = "#552583", trim = "#fdb927", night = false }: { body?: string; trim?: string; night?: boolean }) {
   const paint = mat(body, { rough: 0.18, metal: 0.65 });
@@ -593,6 +642,7 @@ export const Building = memo(function Building({
         return room && b ? <EntranceMat key={`m-${d.id}`} door={d} room={room} brand={b} /> : null;
       })}
       <Walls mode={walls} wallColor={wallColor} accent={accent} night={night} />
+      <GardenLights night={night} />
       {DOORS.filter((d) => !d.open).map((d) => (
         <SlidingDoor key={d.id} {...d} mode={walls} />
       ))}

@@ -197,6 +197,7 @@ export const CATALOG: Record<FurnitureType, CatalogEntry> = {
   court_rug: { label: "Court-floor rug", size: [5, 3.6], blocks: false, seats: [], movable: true },
   mini_hoop: { label: "Mini hoop", size: [0.9, 0.3], blocks: false, seats: [], movable: true },
   aquarium: { label: "Aquarium", size: [3.2, 0.6], blocks: true, seats: [], movable: true },
+  neon_sign: { label: "Neon sign", size: [2.2, 0.1], blocks: false, seats: [], movable: true },
   bbq: { label: "BBQ grill", size: [1.2, 0.8], blocks: true, seats: [{ lx: 0, lz: -0.85, f: 0, alx: 0, alz: -0.85, kind: "lounge", sit: false }], movable: true },
 };
 

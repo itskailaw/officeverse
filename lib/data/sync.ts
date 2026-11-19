@@ -89,7 +89,14 @@ export async function startSync(sb: SupabaseClient, workspaceId: string) {
       ...(layout
         ? (layout.settings?.layoutVersion ?? 1) < LAYOUT_VERSION
           ? { furniture: DEFAULT_LAYOUT.furniture, settings: { ...store.getState().settings, ...layout.settings, layoutVersion: LAYOUT_VERSION } }
-          : { furniture: layout.furniture, settings: { ...store.getState().settings, ...layout.settings } }
+          : {
+              // same floor plan: keep the saved positions, add any newly introduced default pieces
+              furniture: [
+                ...(layout.furniture as OfficeData["furniture"]),
+                ...DEFAULT_LAYOUT.furniture.filter((d) => !(layout.furniture as OfficeData["furniture"]).some((x) => x.id === d.id)),
+              ],
+              settings: { ...store.getState().settings, ...layout.settings },
+            }
         : {}),
     });
   }

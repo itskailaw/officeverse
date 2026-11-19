@@ -191,6 +191,7 @@ export const FURNITURE: FurnitureItem[] = [
   f("mkt-plant-1", "plant", "marketing", 51.5, 10.4),
   f("mkt-plant-2", "plant", "marketing", 51.5, 0.5),
   f("mkt-art", "wall_art", "marketing", 43.2, 0.12, 0, { color: "#ec4899" }),
+  f("mkt-neon", "neon_sign", "marketing", 49, 10.88, 0, { label: "CREATE", color: "#22d3ee", size: [2.4, 0.1] }),
 
   // ── Main Street ──
   f("cor-plant-1", "plant", "corridor", 2, 11.45),
@@ -234,6 +235,7 @@ export const FURNITURE: FurnitureItem[] = [
   f("kop-pendant-2", "pendant_light", "kopitiam", 14.8, 21.9),
   f("kop-cooler", "water_cooler", "kopitiam", 17.5, 15.9, -HALF),
   f("kop-plant", "plant", "kopitiam", 17.5, 24.5),
+  f("kop-neon", "neon_sign", "kopitiam", 11.4, 15.1, 0, { label: "KOPI ☕", color: "#f59e0b", size: [2.4, 0.1] }),
 
   // ── Game room ──
   f("game-court", "court", "game", 22.2, 20, 0, { size: [8.2, 9.6] }),
@@ -246,6 +248,7 @@ export const FURNITURE: FurnitureItem[] = [
   f("game-bean-1", "bean_bag", "game", 27.6, 24.3, PI, { color: "#fdb927" }),
   f("game-plant", "plant", "game", 29.5, 20),
   f("game-pendant", "pendant_light", "game", 26.8, 17.6),
+  f("game-neon", "neon_sign", "game", 28.3, 15.1, 0, { label: "PLAY", color: "#ec4899", size: [2.6, 0.1] }),
 
   // ── Artides Home (glass studio) ──
   ...pod("ws-art", "artides", 32.2, 18, 1, 2),
