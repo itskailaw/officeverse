@@ -154,7 +154,8 @@ export async function syncLazada(row: IntegrationRow) {
     }
     const returns = await syncLazadaReturns(cfg, token, row.workspace_id, warnings);
 
-    const summary = { orders: rows.length, from: from.toISOString(), to: new Date(now).toISOString(), warnings, ads, financeAt, feesSynced, returns };
+    const autoTried = (row.last_sync_summary as { autoTried?: string[] } | null)?.autoTried;
+    const summary = { orders: rows.length, from: from.toISOString(), to: new Date(now).toISOString(), warnings, ads, financeAt, feesSynced, returns, autoTried };
     await updateIntegration(row.id, { last_success_at: new Date().toISOString(), last_error: null, status: "connected", last_sync_summary: summary });
     if (runId) await sb.from("sync_runs").update({ status: "succeeded", records_in: orders.length, records_new: rows.length, finished_at: new Date().toISOString() }).eq("id", runId);
     return summary;

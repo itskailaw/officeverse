@@ -268,7 +268,9 @@ export function ApprovalCard({ a, showEmployee }: { a: Approval; showEmployee?: 
         >
           <Copy className="h-3 w-3" /> Copy draft
         </button>
-        {a.status === "pending" ? (
+        {a.status === "pending" && a.id.startsWith("cancel-shopee-") ? (
+          <CancellationButtons a={a} />
+        ) : a.status === "pending" ? (
           <>
             <Button size="sm" variant="outline" onClick={() => decide(a.id, "rejected")}>
               <X /> Reject
@@ -290,6 +292,38 @@ export function ApprovalCard({ a, showEmployee }: { a: Approval; showEmployee?: 
         )}
       </div>
     </div>
+  );
+}
+
+/** Buyer cancellation request: the decision is sent to Shopee straight away. */
+function CancellationButtons({ a }: { a: Approval }) {
+  const decide = useOffice((s) => s.decideApproval);
+  const toast = useUI((s) => s.toast);
+  const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
+  const send = async (accept: boolean) => {
+    if (!confirm(accept ? "Accept the cancellation? The order is cancelled and the buyer refunded." : "Reject the cancellation? You'll need to ship this order.")) return;
+    setBusy(accept ? "accept" : "reject");
+    try {
+      const r = await fetch("/api/fulfil/cancellation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: a.id, accept }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((j as { error?: string }).error ?? `Request failed (${r.status})`);
+      decide(a.id, accept ? "approved" : "rejected");
+      toast("success", accept ? "Cancellation accepted on Shopee" : "Cancellation rejected — ship the order");
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <>
+      <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => send(false)}>
+        {busy === "reject" ? <Loader2 className="animate-spin" /> : <X />} Reject — ship it
+      </Button>
+      <Button size="sm" disabled={busy !== null} onClick={() => send(true)}>
+        {busy === "accept" ? <Loader2 className="animate-spin" /> : <Check />} Accept cancellation
+      </Button>
+    </>
   );
 }
 

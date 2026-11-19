@@ -29,7 +29,10 @@ export const TEAM_MERGES: TeamMerge[] = [
 ];
 
 /** New seeded employees added to existing offices (once). */
-export const TEAM_HIRES: { id: string; employeeId: string }[] = [{ id: "2026-11-hire-receptionist", employeeId: "emp-recep" }];
+export const TEAM_HIRES: { id: string; employeeId: string }[] = [
+  { id: "2026-11-hire-receptionist", employeeId: "emp-recep" },
+  { id: "2026-11-hire-order-exec", employeeId: "emp-orders" },
+];
 
 const union = <T,>(a: T[], b: T[]) => [...a, ...b.filter((x) => !a.includes(x))];
 

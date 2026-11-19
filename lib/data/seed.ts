@@ -210,6 +210,13 @@ const DEFS: Def[] = [
     look: look(0, "#18181b", "bun", "#1e3a5f", "#0f172a", { outfit: "blazer" }),
   },
   {
+    id: "emp-orders", name: "Farid Osman", gender: "male", title: "Order Processing Executive", dept: "dept-wgs", company: "co-wgs", ws: "ws-wgs-6",
+    personality: "Fast, careful and dependable. Confirms every new order the moment it's paid and never lets a cancellation request sit unanswered.",
+    responsibilities: ["Confirm new paid orders (arrange drop-off)", "Watch for buyer cancellation requests", "Ask the CEO to accept or reject cancellations", "Flag orders that need manual handling", "Keep To process at zero"],
+    permissions: ["orders:read", "customers:read"], schedule: "Instantly, whenever a new order arrives",
+    look: look(1, "#111827", "short", "#0ea5e9", "#1e293b", { outfit: "polo" }),
+  },
+  {
     id: "emp-recep", name: "Nadia Hassan", gender: "female", title: "Receptionist & Office Coordinator", dept: "dept-exec", company: null, ws: "lobby-desk",
     personality: "Warm, cheerful and organised. First smile visitors see; never lets a courier or a call slip through.",
     responsibilities: ["Welcome visitors and guests", "Log courier pickups and incoming deliveries", "Answer and route calls and enquiries", "Book the boardroom and manage the visitor log", "Keep the lobby and pantry stocked", "Remind the team of office events"],

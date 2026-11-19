@@ -103,6 +103,48 @@ function loadingPage(count: number) {
 </div></body></html>`;
 }
 
+/** Farid's on/off switch and working hours for confirming new orders automatically. */
+function AutoArrangeBar() {
+  const auto = useOffice((s) => s.settings.autoArrange) ?? { enabled: false, start: "08:00", end: "22:00" };
+  const update = useOffice((s) => s.updateSettings);
+  const farid = useOffice((s) => s.employees.find((e) => e.id === "emp-orders" && e.active));
+  const toast = useUI((s) => s.toast);
+  const set = (patch: Partial<typeof auto>) => update({ autoArrange: { ...auto, ...patch } });
+  return (
+    <div className={cn("flex flex-wrap items-center gap-3 border-b px-5 py-2 text-xs", auto.enabled ? "border-emerald-100 bg-emerald-50/70" : "border-slate-100 bg-slate-50/70")}>
+      <span className="text-base" aria-hidden>
+        🤖
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold text-slate-800">{farid?.name ?? "Order assistant"} confirms new orders automatically</div>
+        <div className="text-[11px] text-slate-500">
+          {auto.enabled
+            ? `On — new paid orders get drop-off arranged within seconds, ${auto.start}–${auto.end}. Cancellation requests come to you for approval.`
+            : "Off — you confirm orders yourself. Cancellation requests still come to you for approval."}
+        </div>
+      </div>
+      <label className="flex items-center gap-1 text-[11px] text-slate-500">
+        from
+        <input type="time" value={auto.start} onChange={(e) => set({ start: e.target.value || "00:00" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]" />
+        to
+        <input type="time" value={auto.end} onChange={(e) => set({ end: e.target.value || "23:59" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]" />
+      </label>
+      <button
+        role="switch"
+        aria-checked={auto.enabled}
+        onClick={() => {
+          if (!auto.enabled && !confirm("Turn on automatic order confirmation? New paid orders will be arranged for DROP-OFF on Shopee/Lazada as soon as they arrive (including any waiting in To process now).")) return;
+          set({ enabled: !auto.enabled });
+          toast("success", auto.enabled ? "Automatic confirmation off" : "Automatic confirmation on — takes effect at the next order update");
+        }}
+        className={cn("relative h-6 w-11 rounded-full transition", auto.enabled ? "bg-emerald-500" : "bg-slate-300")}
+      >
+        <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition", auto.enabled ? "left-[22px]" : "left-0.5")} />
+      </button>
+    </div>
+  );
+}
+
 /** To process → arrange drop-off; To ship → print shipping labels. Owner only. */
 export function Fulfilment() {
   const open = useUI((s) => s.dialog === "fulfil");
@@ -268,6 +310,7 @@ export function Fulfilment() {
           <p className="p-6 text-sm text-slate-600">Only the workspace owner can arrange shipments and print labels.</p>
         ) : (
           <div className="flex h-full min-h-0 flex-col">
+            <AutoArrangeBar />
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-2">
               <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
                 {(["process", "ship"] as const).map((st) => (

@@ -8,6 +8,7 @@ import { liveSummary } from "./summary";
 import { listIntegrations, updateIntegration } from "./store";
 import { escapeHtml, sendTelegram, tg } from "./telegram";
 import { mdToTelegram, pickRecipient } from "./telegram-format";
+import { handleCancellation } from "./order-automation";
 
 interface EmpRow {
   id: string;
@@ -151,10 +152,15 @@ export async function sendApprovalCards(chatId: string, ws: string, list: { id: 
       text: `${KIND[a.kind] ?? KIND.other} · <b>${escapeHtml(who)}</b> needs your approval\n${escapeHtml(a.summary)}\n\n<blockquote>${escapeHtml(a.draft.slice(0, 2500))}</blockquote>`,
       reply_markup: {
         inline_keyboard: [
-          [
-            { text: "✅ Approve", callback_data: `ap:${a.id}:a` },
-            { text: "❌ Reject", callback_data: `ap:${a.id}:r` },
-          ],
+          a.id.startsWith("cancel-")
+            ? [
+                { text: "✅ Accept cancellation", callback_data: `ap:${a.id}:a` },
+                { text: "❌ Reject — ship it", callback_data: `ap:${a.id}:r` },
+              ]
+            : [
+                { text: "✅ Approve", callback_data: `ap:${a.id}:a` },
+                { text: "❌ Reject", callback_data: `ap:${a.id}:r` },
+              ],
         ],
       },
     });
@@ -194,6 +200,16 @@ export async function notifyNewApprovals(ws: string) {
 
 /** ✅ / ❌ pressed in Telegram. */
 export async function decideFromTelegram(ws: string, approvalId: string, approve: boolean) {
+  if (approvalId.startsWith("cancel-shopee-")) {
+    const { data: row } = await getAdminSupabase().from("approvals").select("status").eq("workspace_id", ws).eq("id", approvalId).maybeSingle();
+    if (!row || row.status !== "pending") return { ok: false, text: "Already decided (or no longer pending)." };
+    try {
+      const r = await handleCancellation(ws, approvalId, approve);
+      return { ok: true, text: approve ? "✅ Cancellation accepted" : "❌ Cancellation rejected — please ship it", summary: `Shopee order #${r.sn}` };
+    } catch (e) {
+      return { ok: false, text: `Shopee refused: ${(e instanceof Error ? e.message : String(e)).slice(0, 150)}` };
+    }
+  }
   const { data, error } = await getAdminSupabase()
     .from("approvals")
     .update({ status: approve ? "approved" : "rejected", decided_at: new Date().toISOString() })

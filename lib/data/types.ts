@@ -236,6 +236,8 @@ export interface OfficeSettings {
   appliedMigrations?: string[];
   /** unit cost (RM) per product name, for estimated profit */
   productCosts?: Record<string, number>;
+  /** Farid (Order Processing Executive) arranges drop-off for new paid orders automatically */
+  autoArrange?: { enabled: boolean; start: string; end: string };
   /** floor-plan version the saved furniture belongs to (see LAYOUT_VERSION) */
   layoutVersion?: number;
   /** UI panels theme; "auto" follows the office lighting */

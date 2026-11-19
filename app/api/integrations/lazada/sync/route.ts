@@ -1,5 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { checkAlerts } from "@/lib/integrations/alerts";
+import { runOrderAutomation } from "@/lib/integrations/order-automation";
 import { errorResponse, HttpError } from "@/lib/ai/server/guard";
 import { getMembership, listIntegrations, requireRole } from "@/lib/integrations/store";
 import { syncLazada } from "@/lib/integrations/lazada/sync";
@@ -25,6 +26,9 @@ export async function POST() {
     }
     // alerts run in the background so the button stays fast
     after(async () => {
+      try {
+        await runOrderAutomation(m.workspaceId);
+      } catch {}
       try {
         await checkAlerts(m.workspaceId);
       } catch {}

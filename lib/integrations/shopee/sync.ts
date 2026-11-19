@@ -170,7 +170,8 @@ export async function syncShopee(row: IntegrationRow): Promise<SyncResult> {
     const feesSynced = await syncShopeeFees(cfg, token, shopId, row.workspace_id, warnings);
     const returns = await syncShopeeReturns(cfg, token, shopId, row.workspace_id, warnings);
 
-    const summary = { orders: saved, from: new Date(from * 1000).toISOString(), to: new Date(to * 1000).toISOString(), adsBalance, feesSynced, returns, warnings };
+    const autoTried = (row.last_sync_summary as { autoTried?: string[] } | null)?.autoTried;
+    const summary = { orders: saved, from: new Date(from * 1000).toISOString(), to: new Date(to * 1000).toISOString(), adsBalance, feesSynced, returns, warnings, autoTried };
     await updateIntegration(row.id, { last_success_at: new Date().toISOString(), last_error: null, status: "connected", last_sync_summary: summary });
     if (runId) await sb.from("sync_runs").update({ status: "succeeded", records_in: sns.length, records_new: saved, finished_at: new Date().toISOString() }).eq("id", runId);
     return summary;

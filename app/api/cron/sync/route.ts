@@ -5,6 +5,7 @@ import { listIntegrations } from "@/lib/integrations/store";
 import { syncShopee } from "@/lib/integrations/shopee/sync";
 import { syncLazada } from "@/lib/integrations/lazada/sync";
 import { checkAlerts } from "@/lib/integrations/alerts";
+import { runOrderAutomation } from "@/lib/integrations/order-automation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,9 @@ export async function GET(req: Request) {
         results.push({ workspace: ws, shop: row.shop_id, ok: false, error: e instanceof Error ? e.message : String(e) });
       }
     }
+    try {
+      await runOrderAutomation(ws);
+    } catch {}
     try {
       await checkAlerts(ws);
     } catch {}

@@ -51,6 +51,11 @@ Deploy to Vercel as a standard Next.js app with the same env vars.
 
 Dashboard → **To process** → *Arrange drop-off*: tick packed orders and confirm. Shopee uses `logistics.get_shipping_parameter` + `logistics.ship_order` (drop-off); Lazada `/order/fulfill/pack` (dropship) + `/order/package/rts`. **To ship** → *Print labels* opens the AWB PDF (Shopee `create/get_result/download_shipping_document`; Lazada package document / AWB). Labels are streamed from the marketplace and never stored. Every action is written to the audit log.
 
+### Farid — Order Processing Executive
+
+- **Auto-confirm (owner switch + hours, Dashboard → To process):** after every order update (instant push, manual sync, nightly cron) new paid orders are arranged for drop-off. Each order is tried once automatically; anything that fails (e.g. a courier needing extra details) is reported on Telegram and left for the CEO.
+- **Buyer cancellation requests:** Shopee orders in `IN_CANCEL` become approvals (`cancel-shopee-<order_sn>`) with *Accept cancellation / Reject — ship it* in the app and on Telegram; the decision calls `order.handle_buyer_cancellation`. Lazada cancellation requests are alerted only (no API to answer them).
+
 ### Office extras
 
 - Quick-jump camera buttons (Work · Fun · CEO) next to the camera controls.
