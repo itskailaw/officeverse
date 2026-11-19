@@ -62,6 +62,13 @@ Vercel environment variables (all **Secret**): `SHOPEE_PARTNER_ID`, `SHOPEE_PART
 
 Same model as Shopee: Settings → Integrations → **Connect Lazada store**. Vercel environment variables (Secret): `LAZADA_APP_KEY`, `LAZADA_APP_SECRET`. In the Lazada Open Platform console set the app's Callback URL to `https://<your-domain>/api/integrations/lazada/callback`. Orders sync incrementally (`/orders/get` by update time, items via `/orders/items/get`), de-duplicated by order number; the dashboard shows Shopee and Lazada side by side. `npm run check:lazada` verifies signing against a mock that re-implements Lazada's official SDK signature.
 
+### Instant updates (push)
+
+Both marketplaces can notify OfficeVerse the moment an order changes. Each push is signature-checked and only triggers an incremental sync from the official API (the push body itself is never trusted as data). Open dashboards refresh every 30 seconds.
+
+- Lazada: App Console → **Push Mechanism** → Push URL `https://<your-domain>/api/integrations/lazada/push`, enable the Trade Order message, Verify.
+- Shopee: Open Platform → App → **Push Mechanism** → Live Call Back URL `https://<your-domain>/api/integrations/shopee/push`, tick order status / tracking number pushes. Set `SHOPEE_PUSH_URL` if the signed URL differs from the deployed one.
+
 ## Scripts
 
 | | |

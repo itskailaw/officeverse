@@ -148,3 +148,24 @@ export async function bootLiveData(): Promise<string | null> {
   }
   return errors.length ? errors.join(" ") : null;
 }
+
+/**
+ * Keep the dashboard fresh while the office is open: marketplace pushes update the
+ * database in the background, so re-read the summary every 30 s while the tab is
+ * visible, and straight away when the CEO comes back to the tab.
+ */
+export function watchLiveData(intervalMs = 30_000): () => void {
+  if (!supabaseConfigured || typeof window === "undefined") return () => {};
+  const refresh = () => {
+    if (document.visibilityState !== "visible") return;
+    const live = useLive.getState();
+    if (!live.status?.integrations.length || live.syncing) return;
+    void Promise.all([live.loadSummary(), live.loadStatus()]);
+  };
+  const id = window.setInterval(refresh, intervalMs);
+  document.addEventListener("visibilitychange", refresh);
+  return () => {
+    window.clearInterval(id);
+    document.removeEventListener("visibilitychange", refresh);
+  };
+}

@@ -9,7 +9,7 @@ import { useUI } from "@/lib/store/ui-store";
 import { useSimBridge } from "@/lib/office/useSimBridge";
 import { resolveLighting } from "@/lib/office/lighting";
 import { recoverInterruptedTasks } from "@/lib/ai/runner";
-import { bootLiveData } from "@/lib/integrations/client";
+import { bootLiveData, watchLiveData } from "@/lib/integrations/client";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { ensureWorkspace, startSync } from "@/lib/data/sync";
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,7 @@ export default function OfficeApp() {
   // boot: wait for local persistence, then (optionally) connect Supabase
   useEffect(() => {
     let stop: (() => void) | undefined;
+    let stopLive: (() => void) | undefined;
     let cancelled = false;
     (async () => {
       if (!useOffice.persist.hasHydrated()) await new Promise<void>((r) => useOffice.persist.onFinishHydration(() => r()));
@@ -123,6 +124,7 @@ export default function OfficeApp() {
           window.history.replaceState(null, "", "/office");
         }
         void bootLiveData().then((err) => err && useUI.getState().toast("error", err));
+        stopLive = watchLiveData();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
         setPhase("error");
@@ -131,6 +133,7 @@ export default function OfficeApp() {
     return () => {
       cancelled = true;
       stop?.();
+      stopLive?.();
     };
   }, [router]);
 
