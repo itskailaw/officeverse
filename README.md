@@ -69,6 +69,15 @@ Both marketplaces can notify OfficeVerse the moment an order changes. Each push 
 - Lazada: App Console → **Push Mechanism** → Push URL `https://<your-domain>/api/integrations/lazada/push`, enable the Trade Order message, Verify.
 - Shopee: Open Platform → App → **Push Mechanism** → Live Call Back URL `https://<your-domain>/api/integrations/shopee/push`, tick order status / tracking number pushes. Set `SHOPEE_PUSH_URL` if the signed URL differs from the deployed one.
 
+### Telegram morning briefing
+
+1. In Telegram, message **@BotFather** → `/newbot` → copy the bot token.
+2. Vercel → Environment Variables (Secret): `TELEGRAM_BOT_TOKEN`, and `CRON_SECRET` (any long random text) if not set. Redeploy.
+3. Supabase → SQL Editor: run `supabase/migrations/0004_telegram.sql`.
+4. OfficeVerse → Settings → Integrations → Telegram → **Connect Telegram** → press **Start** in Telegram.
+
+The briefing (yesterday's sales per platform, orders to process/ship, urgent parcels, ads, best seller) is sent daily around 8:30am Malaysia time by Vercel Cron (`/api/cron/briefing`); **Send briefing now** sends it on demand. Linking uses a signed 30-minute `/start` code; the webhook checks Telegram's secret token header.
+
 ## Scripts
 
 | | |

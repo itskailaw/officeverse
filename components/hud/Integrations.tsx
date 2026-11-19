@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { CheckCircle2, CircleDashed, Link2, Loader2, PlugZap, RefreshCw, Unplug, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, CircleDashed, Link2, Loader2, PlugZap, RefreshCw, Send, Unplug, XCircle } from "lucide-react";
 import { useLive, type IntegrationStatus } from "@/lib/integrations/client";
 import { useUI } from "@/lib/store/ui-store";
 import { supabaseConfigured } from "@/lib/supabase/client";
@@ -191,9 +191,164 @@ export function IntegrationsPanel() {
     <div className="space-y-4">
       <MarketplaceCard provider="shopee" status={status} />
       <MarketplaceCard provider="lazada" status={status} />
+      <TelegramCard status={status} />
       <p className="text-[11px] text-slate-500">
         OfficeVerse syncs automatically when you open the office (if the last sync is older than 15 minutes) and once a day overnight.
       </p>
+    </div>
+  );
+}
+
+function TelegramCard({ status }: { status: IntegrationStatus }) {
+  const { loadStatus } = useLive();
+  const toast = useUI((s) => s.toast);
+  const [busy, setBusy] = useState<"connect" | "test" | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const s = status.setup;
+  const tg = status.integrations.find((i) => i.provider === "telegram");
+  const canManage = status.role === "owner" || status.role === "admin";
+  const ready = !!s.telegramBot && s.serviceRole;
+
+  // while waiting for the CEO to press Start in Telegram, check every 3 s
+  useEffect(() => {
+    if (!link || tg) return;
+    const t = window.setInterval(() => void loadStatus(), 3000);
+    const stop = window.setTimeout(() => window.clearInterval(t), 10 * 60 * 1000);
+    return () => {
+      window.clearInterval(t);
+      window.clearTimeout(stop);
+    };
+  }, [link, tg, loadStatus]);
+  useEffect(() => {
+    if (tg && link) {
+      setLink(null);
+      toast("success", "Telegram connected — check your Telegram for a welcome message.");
+    }
+  }, [tg, link, toast]);
+
+  const post = async (url: string) => {
+    const r = await fetch(url, { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((j as { error?: string }).error ?? `Request failed (${r.status})`);
+    return j as { url?: string };
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#229ED9] text-white">
+            <Send className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-slate-900">Telegram</div>
+            <div className="text-[11px] text-slate-500">Morning briefing every day around 8:30am (Malaysia time)</div>
+          </div>
+        </div>
+        {tg ? <Badge variant={tg.status === "connected" ? "success" : "danger"}>{tg.status === "connected" ? "Connected" : "Error"}</Badge> : <Badge variant="secondary">Not connected</Badge>}
+      </div>
+
+      {tg ? (
+        <div className="mt-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-lg bg-slate-50 p-2">
+              <div className="text-[10px] uppercase tracking-wide text-slate-400">Chat</div>
+              <div className="font-medium text-slate-800">{tg.shopName ?? "Telegram"}</div>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-2">
+              <div className="text-[10px] uppercase tracking-wide text-slate-400">Last briefing sent</div>
+              <div className="font-medium text-slate-800">{tg.lastSync ? timeAgo(tg.lastSync) : "Not yet"}</div>
+            </div>
+          </div>
+          {tg.lastError && (
+            <div className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-[11px] text-red-800">
+              <XCircle className="h-4 w-4 shrink-0" /> {tg.lastError}
+            </div>
+          )}
+          {!s.cronSecret && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+              Add CRON_SECRET (any long random text, Secret) in Vercel and redeploy, otherwise the daily briefing can&apos;t run.
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              size="sm"
+              disabled={busy !== null}
+              onClick={async () => {
+                setBusy("test");
+                try {
+                  await post("/api/integrations/telegram/test");
+                  toast("success", "Briefing sent — check Telegram.");
+                } catch (e) {
+                  toast("error", e instanceof Error ? e.message : String(e));
+                } finally {
+                  setBusy(null);
+                  void loadStatus();
+                }
+              }}
+            >
+              {busy === "test" ? <Loader2 className="animate-spin" /> : <Send />} Send briefing now
+            </Button>
+            {canManage && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-red-600"
+                onClick={async () => {
+                  if (!confirm("Disconnect Telegram? Briefings will stop.")) return;
+                  await fetch("/api/integrations/telegram/disconnect", { method: "POST" });
+                  toast("success", "Telegram disconnected");
+                  void loadStatus();
+                }}
+              >
+                <Unplug /> Disconnect
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <div className="space-y-2 rounded-lg bg-slate-50 p-3">
+            <Check ok={!!s.telegramBot} label="Telegram bot token" hint="Create a bot with @BotFather in Telegram, then add TELEGRAM_BOT_TOKEN in Vercel (Secret) and redeploy." />
+            <Check ok={s.serviceRole} label="Secure server storage" hint="Add SUPABASE_SERVICE_ROLE_KEY in Vercel (Secret)." />
+            <Check ok={!!s.cronSecret} label="Daily schedule key" hint="Add CRON_SECRET (any long random text) in Vercel (Secret) so the 8:30am briefing can run." />
+          </div>
+          {link ? (
+            <div className="space-y-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
+              <div className="font-semibold">Last step: open Telegram and press Start</div>
+              <Button size="sm" asChild>
+                <a href={link} target="_blank" rel="noreferrer">
+                  <Send /> Open Telegram
+                </a>
+              </Button>
+              <div className="flex items-center gap-2 text-[11px] text-sky-800">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Waiting for you to press Start… (link valid 30 minutes)
+              </div>
+            </div>
+          ) : (
+            <Button
+              disabled={!ready || !canManage || busy !== null}
+              onClick={async () => {
+                setBusy("connect");
+                try {
+                  const r = await post("/api/integrations/telegram/connect");
+                  if (r.url) {
+                    setLink(r.url);
+                    window.open(r.url, "_blank", "noopener");
+                  }
+                } catch (e) {
+                  toast("error", e instanceof Error ? e.message : String(e));
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            >
+              {busy === "connect" ? <Loader2 className="animate-spin" /> : <PlugZap />} Connect Telegram
+            </Button>
+          )}
+          {!canManage && <p className="text-[11px] text-slate-500">Only the workspace owner can connect Telegram.</p>}
+        </div>
+      )}
     </div>
   );
 }

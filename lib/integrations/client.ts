@@ -75,7 +75,7 @@ export interface IntegrationInfo {
 }
 
 export interface IntegrationStatus {
-  setup: { supabase: boolean; serviceRole: boolean; encryptionKey: boolean; shopeeApp: boolean; shopeeEnv: "live" | "sandbox" | null; lazadaApp?: boolean };
+  setup: { supabase: boolean; serviceRole: boolean; encryptionKey: boolean; shopeeApp: boolean; shopeeEnv: "live" | "sandbox" | null; lazadaApp?: boolean; telegramBot?: boolean; cronSecret?: boolean };
   role?: string;
   integrations: IntegrationInfo[];
 }
@@ -125,7 +125,7 @@ export const useLive = create<LiveState>()((set, get) => ({
   syncLazada: () => syncProvider("lazada"),
   async syncAll() {
     const st = get().status;
-    const providers = (st?.integrations ?? []).filter((i) => i.status !== "expired").map((i) => i.provider as "shopee" | "lazada");
+    const providers = (st?.integrations ?? []).filter((i) => i.status !== "expired" && (i.provider === "shopee" || i.provider === "lazada")).map((i) => i.provider as "shopee" | "lazada");
     if (!providers.length) return { ok: false, message: "No marketplace is connected yet." };
     const results = [];
     for (const p of [...new Set(providers)]) results.push(await syncProvider(p));
