@@ -1,17 +1,30 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { saveIntegration } from "@/lib/integrations/store";
-import { sendTelegram, verifyLinkCode, webhookSecret } from "@/lib/integrations/telegram";
+import { sendTelegram, tg, verifyLinkCode, webhookSecret } from "@/lib/integrations/telegram";
+import { answerFromTelegram, decideFromTelegram, sendApprovalCards, workspaceForChat } from "@/lib/integrations/telegram-office";
+import { sendBriefing } from "@/lib/integrations/briefing-send";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 interface Update {
   message?: { text?: string; chat: { id: number; type: string; first_name?: string; username?: string } };
+  callback_query?: { id: string; data?: string; message?: { message_id: number; chat: { id: number } } };
 }
 
-/** Telegram → OfficeVerse. Only used to link a chat via "/start <code>". */
+const HELP = `<b>OfficeVerse bot</b>
+Just type a message and Sophia (your Executive Assistant) answers with live data.
+Talk to someone specific: <i>"ask Daniel how are our ads"</i> or <i>"Priya, what's low on stock?"</i>
+
+/approvals — requests waiting for your OK (with ✅ / ❌ buttons)
+/briefing — today's briefing now
+/team — who's in the office
+/help — this message`;
+
+/** Telegram → OfficeVerse: linking (/start code), commands, chatting with staff and approval buttons. */
 export async function POST(req: Request) {
   const secret = webhookSecret();
   const given = req.headers.get("x-telegram-bot-api-secret-token") ?? "";
@@ -19,6 +32,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const u = (await req.json().catch(() => ({}))) as Update;
+
+  // ✅ / ❌ buttons on approval cards — only from the linked chat
+  const cb = u.callback_query;
+  if (cb?.data && cb.message) {
+    const chat = String(cb.message.chat.id);
+    try {
+      const ws = await workspaceForChat(chat);
+      const m = /^ap:([\w-]{1,60}):([ar])$/.exec(cb.data);
+      if (!ws || !m) {
+        await tg("answerCallbackQuery", { callback_query_id: cb.id, text: "Not allowed." });
+      } else {
+        const r = await decideFromTelegram(ws, m[1], m[2] === "a");
+        await tg("answerCallbackQuery", { callback_query_id: cb.id, text: r.text });
+        await tg("editMessageReplyMarkup", { chat_id: chat, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => {});
+        if (r.ok) await sendTelegram(chat, `${r.text}: ${(r.summary ?? "").replace(/[<>&]/g, "")}`);
+      }
+    } catch (e) {
+      console.error("[telegram callback]", e instanceof Error ? e.message : e);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   const msg = u.message;
   if (!msg?.chat) return NextResponse.json({ ok: true });
   const chatId = String(msg.chat.id);
@@ -48,10 +83,28 @@ export async function POST(req: Request) {
           await sendTelegram(chatId, "⚠️ Couldn't link this chat. Make sure the <b>0004 database update</b> has been run in Supabase (SQL Editor), then click Connect again.");
           return NextResponse.json({ ok: true });
         }
-        await sendTelegram(chatId, "✅ <b>Connected to OfficeVerse.</b>\nYou'll get your morning briefing here every day around 8:30am (Malaysia time).");
+        await sendTelegram(chatId, "✅ <b>Connected to OfficeVerse.</b>\nYou'll get your morning briefing here every day around 8:30am (Malaysia time), plus alerts when something needs you.\n\nYou can also message me to talk to your team — type /help.");
       }
-    } else if (text.startsWith("/")) {
-      await sendTelegram(chatId, "I'm your OfficeVerse bot: I send the morning briefing and important alerts. Manage me in OfficeVerse → Settings → Integrations.");
+    } else if (text) {
+      const ws = await workspaceForChat(chatId);
+      if (!ws) {
+        if (text.startsWith("/")) await sendTelegram(chatId, "This chat isn't linked yet. Open OfficeVerse → Settings → Integrations → Telegram → Connect.");
+      } else if (/^\/(help|start)\b/.test(text)) {
+        await sendTelegram(chatId, HELP);
+      } else if (/^\/briefing\b/.test(text)) {
+        after(() => sendBriefing(ws, { refresh: true }).catch((e) => sendTelegram(chatId, `⚠️ ${String(e instanceof Error ? e.message : e).replace(/[<>&]/g, "")}`)));
+      } else if (/^\/approvals\b/.test(text)) {
+        const { data } = await getAdminSupabase().from("approvals").select("id, kind, summary, draft, employee_id").eq("workspace_id", ws).eq("status", "pending").order("created_at", { ascending: true }).limit(5);
+        if (!data?.length) await sendTelegram(chatId, "Nothing is waiting for your approval. 👍");
+        else await sendApprovalCards(chatId, ws, data as { id: string; kind: string; summary: string; draft: string; employee_id: string }[]);
+      } else if (/^\/team\b/.test(text)) {
+        const { data } = await getAdminSupabase().from("employees").select("name, title, status, active").eq("workspace_id", ws).order("name");
+        const list = (data ?? []).filter((e) => e.active).map((e) => `• <b>${String(e.name).replace(/[<>&]/g, "")}</b> — ${String(e.title).replace(/[<>&]/g, "")} (${String(e.status).replace(/_/g, " ")})`);
+        await sendTelegram(chatId, list.length ? list.join("\n") : "No team saved yet — open OfficeVerse once.");
+      } else {
+        // a message for the team — answered in the background (AI replies take a few seconds)
+        after(() => answerFromTelegram(ws, chatId, text.slice(0, 2000)).catch((e) => console.error("[telegram chat]", e)));
+      }
     }
   } catch (e) {
     console.error("[telegram webhook]", e instanceof Error ? e.message : e);

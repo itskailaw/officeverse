@@ -174,10 +174,22 @@ export async function startSync(sb: SupabaseClient, workspaceId: string) {
     .channel(`ws-${workspaceId}`)
     .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `workspace_id=eq.${workspaceId}` }, (p) => mergeRemote("notifications", p))
     .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `workspace_id=eq.${workspaceId}` }, (p) => mergeRemote("tasks", p))
+    .on("postgres_changes", { event: "*", schema: "public", table: "approvals", filter: `workspace_id=eq.${workspaceId}` }, (p) => mergeRemote("approvals", p))
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `workspace_id=eq.${workspaceId}` }, (p) => mergeRemote("chatMessages", p))
     .subscribe();
 
-  function mergeRemote(coll: "notifications" | "tasks", p: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) {
+  function mergeRemote(coll: "notifications" | "tasks" | "approvals" | "chatMessages", p: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) {
     const s = store.getState();
+    // decided in Telegram: run the normal decision flow (closes the task, logs it)
+    if (coll === "approvals" && p.eventType === "UPDATE") {
+      const local = s.approvals.find((a) => a.id === p.new.id);
+      const status = p.new.status as string;
+      if (local && local.status === "pending" && (status === "approved" || status === "rejected")) {
+        s.decideApproval(local.id, status);
+        useUI.getState().toast("info", `${status === "approved" ? "Approved" : "Rejected"} from Telegram: ${local.summary}`);
+        return;
+      }
+    }
     const list = s[coll] as unknown as { id: string }[];
     if (p.eventType === "DELETE") {
       const id = p.old.id as string;
@@ -187,7 +199,8 @@ export async function startSync(sb: SupabaseClient, workspaceId: string) {
     const rec = fromRow<{ id: string }>(p.new);
     const existing = list.find((x) => x.id === rec.id);
     if (existing && JSON.stringify(existing) === JSON.stringify(rec)) return;
-    const next = existing ? list.map((x) => (x.id === rec.id ? rec : x)) : [rec, ...list];
+    // chat is oldest → newest; the other collections are newest first
+    const next = existing ? list.map((x) => (x.id === rec.id ? rec : x)) : coll === "chatMessages" ? [...list, rec] : [rec, ...list];
     store.getState().hydrate({ [coll]: next } as Partial<OfficeData>);
     // remote change: mark as already synced so it isn't echoed back
     synced[coll] = store.getState()[coll];

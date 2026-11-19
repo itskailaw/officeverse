@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { errorResponse, HttpError } from "@/lib/ai/server/guard";
 import { getMembership, requireRole } from "@/lib/integrations/store";
-import { linkCode, telegramToken, tg, webhookSecret } from "@/lib/integrations/telegram";
+import { linkCode, setWebhook, telegramToken, tg } from "@/lib/integrations/telegram";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const origin = new URL(req.url).origin;
     if (!origin.startsWith("https://")) throw new HttpError(400, "Telegram needs the live https site — connect from your Vercel address.");
     const me = await tg<{ username: string }>("getMe", {});
-    await tg("setWebhook", { url: `${origin}/api/telegram/webhook`, secret_token: webhookSecret(), allowed_updates: ["message"], drop_pending_updates: true });
+    await setWebhook(origin);
     return NextResponse.json({ url: `https://t.me/${me.username}?start=${linkCode(m.workspaceId)}`, bot: me.username });
   } catch (e) {
     if (e instanceof Error && e.message.startsWith("Telegram:")) return errorResponse(new HttpError(502, e.message));

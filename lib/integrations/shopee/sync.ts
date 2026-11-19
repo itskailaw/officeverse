@@ -2,6 +2,7 @@ import "server-only";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { readTokens, saveIntegration, updateIntegration, type IntegrationRow } from "../store";
 import { refreshAccessToken, requireShopeeConfig, shopGet, ShopeeError, type ShopeeConfig } from "./api";
+import { syncShopeeFees, syncShopeeReturns } from "./extras";
 import { windows } from "./sign";
 
 const DAY = 86400;
@@ -165,7 +166,11 @@ export async function syncShopee(row: IntegrationRow): Promise<SyncResult> {
       warnings.push(`Ads balance unavailable: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    const summary = { orders: saved, from: new Date(from * 1000).toISOString(), to: new Date(to * 1000).toISOString(), adsBalance, warnings };
+    // 4. fees & payout per order, and return / refund requests (optional; never fail the order sync)
+    const feesSynced = await syncShopeeFees(cfg, token, shopId, row.workspace_id, warnings);
+    const returns = await syncShopeeReturns(cfg, token, shopId, row.workspace_id, warnings);
+
+    const summary = { orders: saved, from: new Date(from * 1000).toISOString(), to: new Date(to * 1000).toISOString(), adsBalance, feesSynced, returns, warnings };
     await updateIntegration(row.id, { last_success_at: new Date().toISOString(), last_error: null, status: "connected", last_sync_summary: summary });
     if (runId) await sb.from("sync_runs").update({ status: "succeeded", records_in: sns.length, records_new: saved, finished_at: new Date().toISOString() }).eq("id", runId);
     return summary;

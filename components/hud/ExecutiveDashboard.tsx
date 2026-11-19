@@ -35,6 +35,7 @@ import { CompaniesManager } from "./CompaniesManager";
 import { TeamTable } from "./TeamTable";
 import { StatusBadge, TaskRow } from "./EmployeePanel";
 import { ApprovalCard } from "./AIWork";
+import { ProfitPanel, ReturnsPanel } from "./ProfitReturns";
 import { liveSources, useLive, type LiveSummary, type PlatformFigures } from "@/lib/integrations/client";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
@@ -333,6 +334,8 @@ function Hero() {
     if (shopeeLive.toPack.urgent) items.push({ label: `${shopeeLive.toPack.urgent} parcel${shopeeLive.toPack.urgent > 1 ? "s" : ""} due to ship within 24h`, tone: "red" });
     if (shopeeLive.toPack.readyToShip) items.push({ label: `${shopeeLive.toPack.readyToShip} new orders to process`, tone: "amber" });
     if (shopeeLive.toPack.processed) items.push({ label: `${shopeeLive.toPack.processed} accepted orders to ship`, tone: "amber" });
+    const ret = shopeeLive.returns?.open ?? 0;
+    if (ret) items.push({ label: `${ret} return request${ret > 1 ? "s" : ""} to handle`, tone: "red" });
   } else if (d) {
     if (d.parcels.priority) items.push({ label: `${d.parcels.priority} priority parcels to ship`, tone: "amber", demo: true });
     const low = d.ads.find((a) => a.daysLeft < 4);
@@ -673,6 +676,10 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
             warn={cancelled > 0}
             rows={rows((p, x) => ({ p, value: String(x.cancelledToday), warn: x.cancelledToday > 0 }))}
           />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ProfitPanel s={s} view={view} />
+          <ReturnsPanel s={s} view={view} />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-panel p-3 lg:col-span-2">

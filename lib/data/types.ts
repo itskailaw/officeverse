@@ -234,6 +234,8 @@ export interface OfficeSettings {
   ambientLife: boolean;
   /** one-time data updates already applied to this office */
   appliedMigrations?: string[];
+  /** unit cost (RM) per product name, for estimated profit */
+  productCosts?: Record<string, number>;
   /** floor-plan version the saved furniture belongs to (see LAYOUT_VERSION) */
   layoutVersion?: number;
   /** UI panels theme; "auto" follows the office lighting */

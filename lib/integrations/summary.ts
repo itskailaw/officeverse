@@ -8,7 +8,7 @@ type Platform = "shopee" | "lazada";
 const up = (s: Set<string>) => new Set([...s].map((x) => x.toUpperCase()));
 
 /** Per-platform status meaning (stored statuses are upper-case). */
-const STATUS: Record<Platform, { toProcess: Set<string>; awaitingPickup: Set<string>; notSales: Set<string>; cancelled: Set<string> }> = {
+export const STATUS: Record<Platform, { toProcess: Set<string>; awaitingPickup: Set<string>; notSales: Set<string>; cancelled: Set<string> }> = {
   shopee: {
     toProcess: new Set(["READY_TO_SHIP"]),
     awaitingPickup: new Set(["PROCESSED"]),
@@ -40,6 +40,35 @@ export interface PlatformFigures {
   bestSellers30d: { name: string; units: number; revenue: number }[];
 }
 
+export interface ProfitFigures {
+  /** month-to-date orders that already have payout data from the marketplace */
+  ordersWithFees: number;
+  ordersTotal: number;
+  gross: number;
+  fees: number;
+  net: number;
+  feeBreakdown: Record<string, number>;
+  productCost: number;
+  /** share of sold units that have a product cost entered (0-1) */
+  costCoverage: number;
+  adSpend: number;
+  estProfit: number;
+  margin: number | null;
+}
+export interface ReturnRow {
+  platform: Platform;
+  id: string;
+  orderId: string | null;
+  status: string;
+  type: string | null;
+  reason: string | null;
+  refund: number;
+  items: string;
+  requestedAt: string | null;
+  dueAt: string | null;
+  open: boolean;
+}
+
 export interface LiveSummary {
   live: true;
   currency: "MYR";
@@ -56,7 +85,11 @@ export interface LiveSummary {
   byPlatform: Partial<Record<Platform, PlatformFigures>>;
   bestSellers30d: { name: string; units: number; revenue: number }[];
   ads: { shopee: { balance: number; at: string } | null; lazada: LazadaAds | null };
+  profit: { total: ProfitFigures; byPlatform: Partial<Record<Platform, ProfitFigures>>; costsEntered: number; note: string } | null;
+  returns: { open: number; last30: number; refund30: number; byPlatform: Partial<Record<Platform, { open: number; last30: number }>>; recent: ReturnRow[]; available: boolean };
 }
+
+const CLOSED_RETURN = /CANCEL|CLOSED|COMPLETE|SUCCESS|REFUNDED|ACCEPTED|REJECT|FINISH/;
 
 const klDay = (d: Date) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
@@ -102,17 +135,40 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
 
   const now = new Date();
   const since = new Date(now.getTime() - 32 * 86400 * 1000).toISOString();
-  type Row = { platform: Platform; status: string; gross_amount: number; ordered_at: string; items: { name: string; qty: number; price: number }[] | null };
+  type Row = {
+    platform: Platform;
+    status: string;
+    gross_amount: number;
+    ordered_at: string;
+    items: { name: string; qty: number; price: number }[] | null;
+    net_amount?: number | null;
+    fees?: Record<string, number | boolean> | null;
+  };
+  // net_amount / fees arrive with the 0005 database update — fall back gracefully before it is run
+  let hasFees = true;
   const orders = await fetchAll<Row>((a, b) =>
     sb
       .from("marketplace_orders")
-      .select("platform, status, gross_amount, ordered_at, items")
+      .select("platform, status, gross_amount, ordered_at, items, net_amount, fees")
       .eq("workspace_id", workspaceId)
       .in("platform", platforms)
       .gte("ordered_at", since)
       .order("ordered_at", { ascending: false })
       .range(a, b),
-  );
+  ).catch(async (e: Error) => {
+    if (!/net_amount|fees|column/i.test(e.message)) throw e;
+    hasFees = false;
+    return fetchAll<Row>((a, b) =>
+      sb
+        .from("marketplace_orders")
+        .select("platform, status, gross_amount, ordered_at, items")
+        .eq("workspace_id", workspaceId)
+        .in("platform", platforms)
+        .gte("ordered_at", since)
+        .order("ordered_at", { ascending: false })
+        .range(a, b),
+    );
+  });
   const openStatuses = platforms.flatMap((p) => [...STATUS[p].toProcess, ...STATUS[p].awaitingPickup]);
   const pending = await fetchAll<{ platform: Platform; status: string; ship_by: string | null }>((a, b) =>
     sb.from("marketplace_orders").select("platform, status, ship_by").eq("workspace_id", workspaceId).in("platform", platforms).in("status", openStatuses).range(a, b),
@@ -204,6 +260,54 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
     .order("captured_at", { ascending: false })
     .limit(1);
 
+  // ── profit (month to date): marketplace payouts − product cost − ad spend ──
+  let costs: Record<string, number> = {};
+  try {
+    const { data: lay } = await sb.from("office_layouts").select("settings").eq("workspace_id", workspaceId).maybeSingle();
+    const pc = (lay?.settings as { productCosts?: Record<string, number> } | null)?.productCosts;
+    if (pc && typeof pc === "object") costs = Object.fromEntries(Object.entries(pc).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)]));
+  } catch {}
+  const emptyProfit = (): ProfitFigures => ({ ordersWithFees: 0, ordersTotal: 0, gross: 0, fees: 0, net: 0, feeBreakdown: {}, productCost: 0, costCoverage: 0, adSpend: 0, estProfit: 0, margin: null });
+  const prof: Partial<Record<Platform, ProfitFigures & { units: number; costedUnits: number }>> = {};
+  for (const p of platforms) prof[p] = { ...emptyProfit(), units: 0, costedUnits: 0 };
+  for (const o of orders) {
+    const st = STATUS[o.platform];
+    if (st.notSales.has(o.status) || !klDay(new Date(o.ordered_at)).startsWith(month)) continue;
+    const pf = prof[o.platform];
+    if (!pf) continue;
+    pf.ordersTotal++;
+    if (o.net_amount == null) continue;
+    pf.ordersWithFees++;
+    pf.gross += Number(o.gross_amount) || 0;
+    pf.net += Number(o.net_amount) || 0;
+    for (const [k, v] of Object.entries(o.fees ?? {})) if (typeof v === "number") pf.feeBreakdown[k] = (pf.feeBreakdown[k] ?? 0) + v;
+    for (const it of o.items ?? []) {
+      pf.units += it.qty || 0;
+      const c = costs[it.name];
+      if (c) {
+        pf.productCost += c * (it.qty || 0);
+        pf.costedUnits += it.qty || 0;
+      }
+    }
+  }
+  const finish = (pf: ProfitFigures & { units?: number; costedUnits?: number }, adSpend: number): ProfitFigures => {
+    const net = round(pf.net);
+    const est = round(net - pf.productCost - adSpend);
+    return {
+      ordersWithFees: pf.ordersWithFees,
+      ordersTotal: pf.ordersTotal,
+      gross: round(pf.gross),
+      fees: round(net - pf.gross),
+      net,
+      feeBreakdown: Object.fromEntries(Object.entries(pf.feeBreakdown).map(([k, v]) => [k, round(v)])),
+      productCost: round(pf.productCost),
+      costCoverage: pf.units ? Math.round(((pf.costedUnits ?? 0) / pf.units) * 100) / 100 : 0,
+      adSpend: round(adSpend),
+      estProfit: est,
+      margin: pf.gross > 0 ? Math.round((est / pf.gross) * 1000) / 10 : null,
+    };
+  };
+
   // Lazada ads figures live in the integration's last sync summary (admin read, scoped to this workspace).
   let lazadaAds: LazadaAds | null = null;
   if (platforms.includes("lazada")) {
@@ -215,6 +319,67 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
       lazadaAds = null;
     }
   }
+
+  const profitBy: Partial<Record<Platform, ProfitFigures>> = {};
+  for (const p of platforms) profitBy[p] = finish(prof[p]!, p === "lazada" ? (lazadaAds?.monthToDate?.spend ?? 0) : 0);
+  const pv = Object.values(profitBy) as ProfitFigures[];
+  const totalRaw = {
+    ...emptyProfit(),
+    ordersWithFees: pv.reduce((a, x) => a + x.ordersWithFees, 0),
+    ordersTotal: pv.reduce((a, x) => a + x.ordersTotal, 0),
+    gross: pv.reduce((a, x) => a + x.gross, 0),
+    net: pv.reduce((a, x) => a + x.net, 0),
+    productCost: pv.reduce((a, x) => a + x.productCost, 0),
+    feeBreakdown: pv.reduce<Record<string, number>>((acc, x) => {
+      for (const [k, v] of Object.entries(x.feeBreakdown)) acc[k] = (acc[k] ?? 0) + v;
+      return acc;
+    }, {}),
+  };
+  const units = platforms.reduce((a, p) => a + (prof[p]?.units ?? 0), 0);
+  const costed = platforms.reduce((a, p) => a + (prof[p]?.costedUnits ?? 0), 0);
+  const totalProfit = finish({ ...totalRaw, units, costedUnits: costed }, pv.reduce((a, x) => a + x.adSpend, 0));
+
+  // ── returns / refunds (last 60 days) ──
+  let returnsBlock: LiveSummary["returns"] = { open: 0, last30: 0, refund30: 0, byPlatform: {}, recent: [], available: false };
+  try {
+    const { data: rets, error: rerr } = await sb
+      .from("marketplace_returns")
+      .select("platform, external_id, order_id, status, request_type, reason, refund_amount, items, requested_at, due_at")
+      .eq("workspace_id", workspaceId)
+      .gte("requested_at", new Date(now.getTime() - 60 * 86400 * 1000).toISOString())
+      .order("requested_at", { ascending: false })
+      .limit(300);
+    if (!rerr) {
+      const cut30 = now.getTime() - 30 * 86400 * 1000;
+      const list: ReturnRow[] = (rets ?? []).map((r) => ({
+        platform: r.platform as Platform,
+        id: r.external_id as string,
+        orderId: (r.order_id as string) ?? null,
+        status: r.status as string,
+        type: (r.request_type as string) ?? null,
+        reason: (r.reason as string) ?? null,
+        refund: Number(r.refund_amount) || 0,
+        items: ((r.items as { name: string; qty?: number }[] | null) ?? []).map((i) => `${i.name}${(i.qty ?? 1) > 1 ? ` ×${i.qty}` : ""}`).join(", "),
+        requestedAt: (r.requested_at as string) ?? null,
+        dueAt: (r.due_at as string) ?? null,
+        open: !CLOSED_RETURN.test(String(r.status)),
+      }));
+      const by: LiveSummary["returns"]["byPlatform"] = {};
+      for (const r of list) {
+        const b = (by[r.platform] ??= { open: 0, last30: 0 });
+        if (r.open) b.open++;
+        if (r.requestedAt && Date.parse(r.requestedAt) >= cut30) b.last30++;
+      }
+      returnsBlock = {
+        open: list.filter((r) => r.open).length,
+        last30: list.filter((r) => r.requestedAt && Date.parse(r.requestedAt) >= cut30).length,
+        refund30: round(list.filter((r) => r.requestedAt && Date.parse(r.requestedAt) >= cut30).reduce((a, r) => a + r.refund, 0)),
+        byPlatform: by,
+        recent: list.sort((a, b) => Number(b.open) - Number(a.open)).slice(0, 10),
+        available: true,
+      };
+    }
+  } catch {}
 
   return {
     live: true,
@@ -238,5 +403,14 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
     byPlatform: fig,
     bestSellers30d: top(sellers),
     ads: { shopee: ads?.[0] ? { balance: Number(ads[0].balance), at: ads[0].captured_at as string } : null, lazada: lazadaAds },
+    profit: hasFees
+      ? {
+          total: totalProfit,
+          byPlatform: profitBy,
+          costsEntered: Object.keys(costs).length,
+          note: "Month to date. Net payout = what the marketplace pays after its fees (only orders with payout data yet). Estimated profit = net payout − product cost (entered in OfficeVerse) − ad spend tracked so far (Lazada only; Shopee ad spend not tracked yet).",
+        }
+      : null,
+    returns: returnsBlock,
   };
 }

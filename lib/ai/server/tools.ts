@@ -13,6 +13,8 @@ const METRICS: Record<string, { label: string; perms: Permission[] }> = {
   advertising: { label: "Ad balances, spend, ROAS", perms: ["ads:read"] },
   inventory: { label: "Stock levels and low-stock products", perms: ["inventory:read"] },
   best_sellers: { label: "Best-selling products", perms: ["orders:read", "finance:read", "inventory:read", "listings:read"] },
+  profit: { label: "Month-to-date marketplace fees, net payout and estimated profit", perms: ["finance:read"] },
+  returns: { label: "Return / refund requests (open, reasons, refund amounts)", perms: ["customers:read", "orders:read"] },
   artides_projects: { label: "Artides Home projects and quotations", perms: ["projects:read"] },
   amare_jobs: { label: "Amare Localization translation jobs", perms: ["projects:read", "files:read"] },
 };
@@ -116,6 +118,8 @@ type Live = {
   cancelledToday: number;
   bestSellers30d: unknown;
   ads: { shopee: unknown; lazada?: unknown };
+  profit?: unknown;
+  returns?: { available?: boolean } & Record<string, unknown>;
 };
 
 function liveData(metric: string, live: Live) {
@@ -152,6 +156,19 @@ function liveData(metric: string, live: Live) {
       };
     case "best_sellers":
       return { ...meta, currency: "MYR", last30Days: live.bestSellers30d };
+    case "profit":
+      return live.profit
+        ? { ...meta, currency: "MYR", profit: live.profit }
+        : { ...meta, profit: "Unavailable — the 0005 database update hasn't been run yet, so marketplace fees aren't stored." };
+    case "returns":
+      return live.returns?.available
+        ? {
+            ...meta,
+            currency: "MYR",
+            returns: live.returns,
+            note: "open = still needs a decision from the shop. Draft any customer reply with request_approval (customer_message); never promise refunds yourself.",
+          }
+        : { ...meta, returns: "Unavailable — run the 0005 database update, and make sure the Returns permission is enabled on the marketplace app." };
     default:
       return null;
   }

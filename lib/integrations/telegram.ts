@@ -60,3 +60,19 @@ export const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, 
 export function sendTelegram(chatId: string, html: string) {
   return tg<{ message_id: number }>("sendMessage", { chat_id: chatId, text: html.slice(0, 4000), parse_mode: "HTML", link_preview_options: { is_disabled: true } });
 }
+
+const UPDATES = ["message", "callback_query"];
+
+/** Point the bot at this deployment (messages + button presses). */
+export function setWebhook(origin: string) {
+  return tg("setWebhook", { url: `${origin}/api/telegram/webhook`, secret_token: webhookSecret(), allowed_updates: UPDATES, drop_pending_updates: false });
+}
+
+/** Older links only asked Telegram for messages; add button presses without re-linking. */
+export async function ensureWebhook(origin: string) {
+  try {
+    const info = await tg<{ url?: string; allowed_updates?: string[] }>("getWebhookInfo", {});
+    const ok = info.url === `${origin}/api/telegram/webhook` && UPDATES.every((u) => info.allowed_updates?.includes(u));
+    if (!ok && origin.startsWith("https://")) await setWebhook(origin);
+  } catch {}
+}

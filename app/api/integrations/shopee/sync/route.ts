@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { checkAlerts } from "@/lib/integrations/alerts";
 import { errorResponse, HttpError } from "@/lib/ai/server/guard";
 import { getMembership, listIntegrations, requireRole } from "@/lib/integrations/store";
 import { syncShopee } from "@/lib/integrations/shopee/sync";
@@ -23,6 +24,12 @@ export async function POST() {
         results.push({ shop: row.shop_name ?? row.shop_id, ok: false, error: e instanceof ShopeeError ? `${e.code}: ${e.message}` : e instanceof Error ? e.message : String(e) });
       }
     }
+    // alerts run in the background so the button stays fast
+    after(async () => {
+      try {
+        await checkAlerts(m.workspaceId);
+      } catch {}
+    });
     return NextResponse.json({ results }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return errorResponse(e);

@@ -3,6 +3,7 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 import type { IntegrationRow } from "./store";
 import { syncShopee } from "./shopee/sync";
 import { syncLazada } from "./lazada/sync";
+import { checkAlerts } from "./alerts";
 
 const COLUMNS =
   "id, workspace_id, company_id, provider, status, shop_id, shop_name, credentials_enc, token_expires_at, expires_at, last_success_at, last_error, last_sync_summary";
@@ -43,6 +44,13 @@ export async function syncFromPush(provider: "shopee" | "lazada", shopId: string
       else await syncLazada(row);
       synced++;
       break;
+    }
+  }
+  if (synced) {
+    try {
+      await checkAlerts(rows[0].workspace_id);
+    } catch (e) {
+      console.error("[push] alerts failed", e instanceof Error ? e.message : e);
     }
   }
   return { synced };

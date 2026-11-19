@@ -38,6 +38,8 @@ export function briefingFacts(s: LiveSummary) {
       lazadaMonthToDate: s.ads.lazada?.monthToDate ? { spend: s.ads.lazada.monthToDate.spend, adSales: s.ads.lazada.monthToDate.revenue, roi: s.ads.lazada.monthToDate.roi } : null,
     },
     bestSellers30d: s.bestSellers30d.slice(0, 5),
+    returns: s.returns?.available ? { open: s.returns.open, last30Days: s.returns.last30, refunds30Days: s.returns.refund30 } : null,
+    profitMonthToDate: s.profit?.total ?? null,
   };
 }
 
@@ -75,6 +77,10 @@ export function briefingText(s: LiveSummary | null, opts: { ceoName?: string; ap
   const lz = s.ads.lazada?.yesterday;
   if (lz) ads.push(`Lazada spent ${rm2(lz.spend)} yesterday${lz.roi != null ? ` (ROI ${lz.roi.toFixed(1)}x)` : ""}`);
   if (ads.length) lines.push("", `📣 Ads: ${ads.join(" · ")}`);
+
+  if (s.returns?.available && (s.returns.open || s.returns.last30)) lines.push(`↩️ Returns: <b>${s.returns.open} open</b> · ${s.returns.last30} in the last 30 days (refunds ${rm(s.returns.refund30)})`);
+  const pr = s.profit?.total;
+  if (pr && pr.ordersWithFees) lines.push(`📈 Month-to-date payout ${rm(pr.net)} after ${rm(-pr.fees)} fees${s.profit!.costsEntered ? ` · est. profit ${rm(pr.estProfit)}` : ""} (${pr.ordersWithFees}/${pr.ordersTotal} orders with payout data)`);
 
   const top = s.bestSellers30d[0];
   if (top) lines.push(`🏆 Best seller (30 days): ${escapeHtml(top.name)} — ${top.units} units`);

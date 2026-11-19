@@ -39,6 +39,14 @@ Deploy to Vercel as a standard Next.js app with the same env vars.
 
 **Controls:** left-drag pans · right-drag rotates · scroll zooms · Q/E rotate 90° · WASD/arrows pan · R rotates furniture in build mode · Esc deselects.
 
+### Profit, returns & Telegram (run `supabase/migrations/0005_profit_returns.sql` once)
+
+- **Profit (month to date):** each sync stores per-order marketplace fees and the net payout (Shopee `payment.get_escrow_detail`, Lazada `/finance/transaction/details/get`). Enter unit costs under Dashboard → Profit → Product costs; estimated profit = net payout − product cost − tracked ad spend (Lazada).
+- **Returns & refunds:** Shopee `returns.get_return_list` and Lazada `/reverse/getreverseordersforseller` sync with the orders; the dashboard lists open requests and Mei Ling can review them (read-only — decisions stay in Seller Centre).
+- **Telegram alerts** after every sync: parcels due within 6 h, Shopee ads balance below RM 50, cancellation spikes (3/5/10 a day), new return requests. Each alert is sent once; non-urgent alerts wait out quiet hours (23:00–07:00).
+- **Chat from Telegram:** any message goes to Sophia; "ask Daniel …" / "Priya, …" picks someone else. Replies use the same live data and permissions, and appear in the app's chat. `/approvals`, `/briefing`, `/team`, `/help`.
+- **Approvals in Telegram:** new approval requests are posted with ✅ / ❌ buttons; a decision there updates the app live.
+
 ### Office extras
 
 - Quick-jump camera buttons (Work · Fun · CEO) next to the camera controls.

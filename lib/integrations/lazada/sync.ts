@@ -2,6 +2,7 @@ import "server-only";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { readTokens, saveIntegration, updateIntegration, type IntegrationRow } from "../store";
 import { lazadaGet, LazadaError, refreshToken, requireLazadaConfig, type LazadaConfig } from "./api";
+import { syncLazadaFees, syncLazadaReturns } from "./extras";
 import { fetchLazadaAds, type LazadaAds } from "./ads";
 import { LAZADA_STATUS, lazadaTime, parseLazadaDate } from "./sign";
 
@@ -143,7 +144,17 @@ export async function syncLazada(row: IntegrationRow) {
     if (ads?.errors.length && !ads.today && !ads.autoTopUp)
       warnings.push(`Lazada ads data unavailable (${ads.errors[0]}). If you just enabled Sponsor Solution, click Re-connect.`);
 
-    const summary = { orders: rows.length, from: from.toISOString(), to: new Date(now).toISOString(), warnings, ads };
+    // 5. fees / payouts (every 6 h) and return requests — optional, never fail the order sync
+    const prevSum = row.last_sync_summary as { financeAt?: string } | null;
+    let financeAt = prevSum?.financeAt ?? null;
+    let feesSynced = 0;
+    if (!financeAt || Date.now() - Date.parse(financeAt) > 6 * 3600 * 1000) {
+      feesSynced = await syncLazadaFees(cfg, token, row.workspace_id, warnings);
+      financeAt = new Date().toISOString();
+    }
+    const returns = await syncLazadaReturns(cfg, token, row.workspace_id, warnings);
+
+    const summary = { orders: rows.length, from: from.toISOString(), to: new Date(now).toISOString(), warnings, ads, financeAt, feesSynced, returns };
     await updateIntegration(row.id, { last_success_at: new Date().toISOString(), last_error: null, status: "connected", last_sync_summary: summary });
     if (runId) await sb.from("sync_runs").update({ status: "succeeded", records_in: orders.length, records_new: rows.length, finished_at: new Date().toISOString() }).eq("id", runId);
     return summary;

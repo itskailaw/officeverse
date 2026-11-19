@@ -242,7 +242,7 @@ function TelegramCard({ status }: { status: IntegrationStatus }) {
           </div>
           <div>
             <div className="text-sm font-semibold text-slate-900">Telegram</div>
-            <div className="text-[11px] text-slate-500">Morning briefing every day around 8:30am (Malaysia time)</div>
+            <div className="text-[11px] text-slate-500">Morning briefing, instant alerts, and chat with your team</div>
           </div>
         </div>
         {tg ? <Badge variant={tg.status === "connected" ? "success" : "danger"}>{tg.status === "connected" ? "Connected" : "Error"}</Badge> : <Badge variant="secondary">Not connected</Badge>}

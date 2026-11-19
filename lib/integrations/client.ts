@@ -36,6 +36,41 @@ export interface LiveSummary {
   byPlatform?: { shopee?: PlatformFigures; lazada?: PlatformFigures };
   bestSellers30d: { name: string; units: number; revenue: number }[];
   ads: { shopee: { balance: number; at: string } | null; lazada?: LazadaAds | null };
+  profit?: { total: ProfitFigures; byPlatform: { shopee?: ProfitFigures; lazada?: ProfitFigures }; costsEntered: number; note: string } | null;
+  returns?: {
+    open: number;
+    last30: number;
+    refund30: number;
+    byPlatform: { shopee?: { open: number; last30: number }; lazada?: { open: number; last30: number } };
+    recent: ReturnRow[];
+    available: boolean;
+  };
+}
+export interface ProfitFigures {
+  ordersWithFees: number;
+  ordersTotal: number;
+  gross: number;
+  fees: number;
+  net: number;
+  feeBreakdown: Record<string, number>;
+  productCost: number;
+  costCoverage: number;
+  adSpend: number;
+  estProfit: number;
+  margin: number | null;
+}
+export interface ReturnRow {
+  platform: "shopee" | "lazada";
+  id: string;
+  orderId: string | null;
+  status: string;
+  type: string | null;
+  reason: string | null;
+  refund: number;
+  items: string;
+  requestedAt: string | null;
+  dueAt: string | null;
+  open: boolean;
 }
 export interface AdMetrics {
   spend: number;

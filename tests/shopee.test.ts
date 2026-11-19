@@ -31,3 +31,22 @@ test("order windows never exceed 15 days and cover the range", () => {
   for (const [a, b] of w) assert.ok(b - a < 15 * 86400);
   for (let i = 1; i < w.length; i++) assert.equal(w[i][0], w[i - 1][1] + 1);
 });
+
+test("fees: Shopee escrow and Lazada ledger lines", async () => {
+  const { shopeeFees, lazadaFeesByOrder } = await import("../lib/integrations/fees.ts");
+  const s = shopeeFees({ escrow_amount: "101.50", commission_fee: 9.5, service_fee: "6.00", seller_transaction_fee: 3 }, 129);
+  assert.equal(s.net, 101.5);
+  assert.equal(s.fees.Commission, -9.5);
+  assert.equal(s.fees["Service fee"], -6);
+  assert.equal(s.fees["Transaction fee"], -3);
+  assert.equal(s.fees["Other adjustments"], -9); // 101.5 - 129 - (-18.5)
+  const l = lazadaFeesByOrder([
+    { order_no: "1", amount: "129.00", fee_name: "Item Price Credit" },
+    { order_no: "1", amount: "-7.74", fee_name: "Commission" },
+    { order_no: "1", amount: "-2.58", fee_name: "Payment Fee" },
+    { order_no: "2", amount: "1,200.00", fee_name: "Item Price Credit" },
+  ]);
+  assert.equal(l.get("1")!.net, 118.68);
+  assert.deepEqual(l.get("1")!.fees, { Commission: -7.74, "Payment Fee": -2.58 });
+  assert.equal(l.get("2")!.net, 1200);
+});

@@ -46,6 +46,8 @@ async function main() {
       days: [], toPack: { total: 6, readyToShip: 4, processed: 2, urgent: 2, urgentToProcess: 2, urgentToShip: 0 }, cancelledToday: 1,
       byPlatform: { shopee: fig(300), lazada: fig(126) },
       bestSellers30d: [{ name: "MDBC <Filter> & Tap", units: 40, revenue: 5160 }],
+      profit: null,
+      returns: { open: 2, last30: 3, refund30: 129, byPlatform: { lazada: { open: 2, last30: 3 } }, recent: [], available: true },
       ads: { shopee: { balance: 117.47, at: "" }, lazada: { at: "", today: null, yesterday: { spend: 25, revenue: 80, roi: 3.2, clicks: 0, impressions: 0, unitsSold: 0, orders: 0 }, monthToDate: null, solutions: { discovery: null, smax: null }, autoTopUp: null, errors: [] } },
     },
     { appUrl: "https://officeverse-ten.vercel.app/office", from: "Sophia", notes: ["Lazada <up> 12%", "Ship 2 parcels before noon."] },

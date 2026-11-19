@@ -140,6 +140,8 @@ export async function runTask(taskId: string) {
     const st = useOffice.getState();
     st.updateTask(taskId, { status: res.status, result: res.result, usage: res.usage, model: res.model });
     st.addApprovals(res.approvals.map((a) => ({ ...a, taskId, employeeId: emp.id })));
+    // also post them to the CEO's Telegram (✅ / ❌ buttons) when it's linked — best effort
+    if (res.approvals.length) void fetch("/api/integrations/telegram/approvals", { method: "POST" }).catch(() => {});
     const quiet = inQuietHours();
     const stillInMeeting = useOffice.getState().employees.find((e) => e.id === emp.id)?.status === "in_meeting";
     if (res.status === "completed") {
