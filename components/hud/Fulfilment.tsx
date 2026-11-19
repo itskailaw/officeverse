@@ -43,6 +43,21 @@ function readSort(): Sort {
     return "paid";
   }
 }
+type Paper = "original" | "a5" | "a6" | "a4";
+const PAPERS: { v: Paper; label: string }[] = [
+  { v: "a5", label: "A5" },
+  { v: "a6", label: "A6 / thermal 100×150" },
+  { v: "a4", label: "A4" },
+  { v: "original", label: "As sent by marketplace" },
+];
+function readPaper(): Paper {
+  try {
+    const v = localStorage.getItem("ov:label-paper") as Paper | null;
+    return v && PAPERS.some((x) => x.v === v) ? v : "a5";
+  } catch {
+    return "a5";
+  }
+}
 const t = (iso: string | null) => (iso ? Date.parse(iso) : Number.POSITIVE_INFINITY);
 const DOT: Record<Plat, string> = { shopee: "#eb6834", lazada: "#2a78d6" };
 
@@ -66,6 +81,13 @@ export function Fulfilment() {
   const [busy, setBusy] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, { ok: boolean; message: string }>>({});
   const [sort, setSort] = useState<Sort>(readSort);
+  const [paper, setPaper] = useState<Paper>(readPaper);
+  const choosePaper = (v: Paper) => {
+    setPaper(v);
+    try {
+      localStorage.setItem("ov:label-paper", v);
+    } catch {}
+  };
   const [justArranged, setJustArranged] = useState<{ platform: Plat; id: string }[]>([]);
   const chooseSort = (v: Sort) => {
     setSort(v);
@@ -154,7 +176,7 @@ export function Fulfilment() {
       // open the tab first (popup blockers), then fill it with the PDF
       const tab = window.open("", "_blank");
       try {
-        const r = await fetch("/api/fulfil/labels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform: p, orderIds: ids }) });
+        const r = await fetch("/api/fulfil/labels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform: p, orderIds: ids, paper }) });
         if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `Request failed (${r.status})`);
         let problems: string[] = [];
         try {
@@ -227,9 +249,26 @@ export function Fulfilment() {
                     {busy === "ship" ? <Loader2 className="animate-spin" /> : <PackageCheck />} Arrange drop-off ({chosen.length})
                   </Button>
                 ) : (
+                  <>
+                  <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    Paper
+                    <select
+                      value={paper}
+                      onChange={(e) => choosePaper(e.target.value as Paper)}
+                      className="h-7 rounded-md border border-slate-200 bg-panel px-1.5 text-[11px] font-medium text-slate-700"
+                      aria-label="Label paper size"
+                    >
+                      {PAPERS.map((o) => (
+                        <option key={o.v} value={o.v}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <Button size="sm" onClick={print} disabled={!chosen.length || busy !== null}>
                     {busy === "print" ? <Loader2 className="animate-spin" /> : <Printer />} Print labels ({chosen.length})
                   </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -241,7 +280,7 @@ export function Fulfilment() {
                     {justArranged.length} order{justArranged.length > 1 ? "s" : ""} arranged for drop-off.
                   </span>
                   <Button size="sm" className="ml-auto" onClick={() => void printFor(justArranged)} disabled={busy !== null}>
-                    {busy === "print" ? <Loader2 className="animate-spin" /> : <Printer />} Print airway bills now
+                    {busy === "print" ? <Loader2 className="animate-spin" /> : <Printer />} Print airway bills now ({PAPERS.find((x) => x.v === paper)?.label})
                   </Button>
                 </div>
               )}

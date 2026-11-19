@@ -4,6 +4,7 @@ import { getMembership, requireRole } from "@/lib/integrations/store";
 import { ShopeeError } from "@/lib/integrations/shopee/api";
 import { LazadaError } from "@/lib/integrations/lazada/api";
 import { labelsLazada, labelsShopee } from "@/lib/integrations/fulfil";
+import { fitToPaper, type Paper } from "@/lib/integrations/label-paper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,12 +15,14 @@ export async function POST(req: Request) {
   try {
     const m = await getMembership();
     requireRole(m, ["owner"]);
-    const body = (await req.json().catch(() => null)) as { platform?: string; orderIds?: unknown } | null;
+    const body = (await req.json().catch(() => null)) as { platform?: string; orderIds?: unknown; paper?: string } | null;
+    const paper: Paper = body?.paper === "a4" || body?.paper === "a5" || body?.paper === "a6" ? body.paper : "original";
     const ids = Array.isArray(body?.orderIds) ? body!.orderIds.map(String).filter((x) => /^[\w-]{4,40}$/.test(x)).slice(0, 50) : [];
     if (!ids.length) throw new HttpError(400, "Pick at least one order.");
     const res = body?.platform === "shopee" ? await labelsShopee(m.workspaceId, ids) : body?.platform === "lazada" ? await labelsLazada(m.workspaceId, ids) : null;
     if (!res) throw new HttpError(400, "Unknown platform.");
-    return new NextResponse(res.pdf, {
+    const pdf = await fitToPaper(res.pdf, paper).catch(() => res.pdf); // never lose the labels over a resize problem
+    return new NextResponse(pdf, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="${body!.platform}-labels.pdf"`,
