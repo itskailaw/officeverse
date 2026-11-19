@@ -80,6 +80,8 @@ export async function shipShopee(ws: string, orderSns: string[]): Promise<ShipRe
 
 export interface LabelResult {
   pdf: ArrayBuffer;
+  /** Lazada sometimes sends the label as a printable web page instead of a PDF */
+  kind?: "pdf" | "html";
   /** orders that couldn't be printed, with Shopee's reason */
   problems: string[];
 }
@@ -231,6 +233,15 @@ async function lazadaItems(cfg: ReturnType<typeof requireLazadaConfig>, token: s
   return d?.[0]?.order_items ?? [];
 }
 
+/** Lazada's newer fulfilment APIs answer { result: { success, data, error_code } }; older ones { data }. */
+function lzPayload<T>(env: unknown): T | undefined {
+  const e = env as { data?: T; result?: { success?: boolean | string; data?: T; error_code?: string; error_msg?: string } & T };
+  if (e?.result && (e.result.success === false || e.result.success === "false")) {
+    throw new LazadaError(String(e.result.error_code ?? "error"), String(e.result.error_msg ?? "Lazada request failed"));
+  }
+  return e?.data ?? e?.result?.data ?? (e?.result as T | undefined);
+}
+
 const lzOk = (code: unknown) => code === undefined || code === null || String(code) === "0" || code === "";
 
 /** Lazada: pack (drop-ship) then ready-to-ship each order (/order/fulfill/pack → /order/package/rts). */
@@ -258,7 +269,8 @@ export async function shipLazada(ws: string, orderIds: string[]): Promise<ShipRe
           },
           token,
         );
-        const lines = (r.data?.pack_order_list ?? []).flatMap((o) => o.order_item_list ?? []);
+        const lines = (lzPayload<{ pack_order_list?: { order_item_list?: { order_item_id: number; package_id?: string; tracking_number?: string; item_err_code?: string; msg?: string }[] }[] }>(r)?.pack_order_list ?? []).flatMap((o) => o.order_item_list ?? []);
+        if (!lines.length) throw new LazadaError("empty_reply", `Lazada didn't confirm the packing (reply: ${JSON.stringify(r).slice(0, 160)})`);
         const bad = lines.find((l) => !lzOk(l.item_err_code));
         if (bad) throw new LazadaError(String(bad.item_err_code), bad.msg || "Packing failed");
         packages = [...new Set([...packages, ...lines.map((l) => l.package_id).filter((x): x is string => !!x)])];
@@ -274,7 +286,7 @@ export async function shipLazada(ws: string, orderIds: string[]): Promise<ShipRe
         { readyToShipReq: JSON.stringify({ packages: packages.map((p) => ({ package_id: p })) }) },
         token,
       );
-      const bad = (rts.data?.packages ?? []).find((p) => !lzOk(p.item_err_code));
+      const bad = (lzPayload<{ packages?: { package_id: string; item_err_code?: string; msg?: string }[] }>(rts)?.packages ?? []).find((p) => !lzOk(p.item_err_code));
       if (bad) throw new LazadaError(String(bad.item_err_code), bad.msg || "Ready-to-ship failed");
       await markLocal(ws, "lazada", id, "READY_TO_SHIP", { packages, tracking, arranged: "dropoff", arranged_at: new Date().toISOString() });
       out.push({ orderId: id, ok: true, message: "Packed & ready to ship", tracking });
@@ -301,25 +313,56 @@ export async function labelsLazada(ws: string, orderIds: string[]): Promise<Labe
   }
   const uniq = [...new Set(packages)];
   if (!uniq.length) throw new HttpError(409, "These Lazada orders aren't packed yet — arrange the shipment first.");
-  // current API: package document (returns a PDF link or a base64 file)
+  // what kind of file did Lazada send?
+  const asResult = (bytes: Uint8Array): LabelResult | null => {
+    if (bytes.length < 50) return null;
+    const head = Buffer.from(bytes.slice(0, 64)).toString("latin1").trimStart();
+    const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    if (head.startsWith("%PDF")) return { pdf: buf, kind: "pdf", problems: [] };
+    if (head.startsWith("<")) return { pdf: buf, kind: "html", problems: [] };
+    return null;
+  };
+  const fromDoc = async (doc: Record<string, unknown> | undefined): Promise<LabelResult | null> => {
+    if (!doc) return null;
+    const nested = (doc.document ?? doc.doc ?? doc) as Record<string, unknown>;
+    const link = String(nested.pdf_url ?? nested.url ?? nested.file_url ?? "");
+    if (/^https?:\/\//.test(link)) {
+      const res = await fetch(link, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
+      if (res.ok) {
+        const r = asResult(new Uint8Array(await res.arrayBuffer()));
+        if (r) return r;
+      }
+    }
+    const file = nested.file ?? nested.content;
+    if (typeof file === "string" && file.length > 50) return asResult(new Uint8Array(Buffer.from(file, "base64")));
+    return null;
+  };
+
+  let reply = "";
+  // current API: package document (PDF link or base64 file)
   try {
-    const r = await lazadaPost<{ pdf_url?: string; file?: string; url?: string }>(
+    const env = await lazadaPost<unknown>(
       cfg,
       "/order/package/document/get",
       { getDocumentReq: JSON.stringify({ doc_type: "PDF", packages: uniq.map((p) => ({ package_id: p })), print_item_list: true }) },
       token,
     );
-    const link = r.data?.pdf_url ?? r.data?.url;
-    if (link) {
-      const res = await fetch(link, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
-      if (res.ok) return { pdf: await res.arrayBuffer(), problems: [] };
-    }
-    if (r.data?.file) return { pdf: new Uint8Array(Buffer.from(r.data.file, "base64")).buffer, problems: [] };
+    const r = await fromDoc(lzPayload<Record<string, unknown>>(env));
+    if (r) return r;
+    reply = JSON.stringify(env).slice(0, 200);
   } catch (e) {
     if (!(e instanceof LazadaError)) throw e;
+    reply = `${e.code}: ${e.message}`;
   }
-  // older API: AWB PDF by order item ids
-  const d = await lazadaGet<{ document?: { file?: string } }>(cfg, "/order/document/awb/pdf/get", { order_item_ids: JSON.stringify(itemIds) }, token);
-  if (!d?.document?.file) throw new HttpError(502, "Lazada didn't return a label file.");
-  return { pdf: new Uint8Array(Buffer.from(d.document.file, "base64")).buffer, problems: [] };
+  // older API: AWB by order item ids
+  try {
+    const d = await lazadaGet<Record<string, unknown>>(cfg, "/order/document/awb/pdf/get", { order_item_ids: JSON.stringify(itemIds) }, token);
+    const r = await fromDoc(d);
+    if (r) return r;
+    reply += ` · ${JSON.stringify(d).slice(0, 160)}`;
+  } catch (e) {
+    if (!(e instanceof LazadaError)) throw e;
+    reply += ` · ${e.code}: ${e.message}`;
+  }
+  throw new HttpError(502, `Lazada didn't send a label file. Lazada replied: ${reply}`);
 }

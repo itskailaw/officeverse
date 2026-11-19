@@ -21,10 +21,12 @@ export async function POST(req: Request) {
     if (!ids.length) throw new HttpError(400, "Pick at least one order.");
     const res = body?.platform === "shopee" ? await labelsShopee(m.workspaceId, ids) : body?.platform === "lazada" ? await labelsLazada(m.workspaceId, ids) : null;
     if (!res) throw new HttpError(400, "Unknown platform.");
-    const pdf = await fitToPaper(res.pdf, paper).catch(() => res.pdf); // never lose the labels over a resize problem
+    const html = res.kind === "html";
+    // never lose the labels over a resize problem; web-page labels are printed as they come
+    const pdf = html ? res.pdf : await fitToPaper(res.pdf, paper).catch(() => res.pdf);
     return new NextResponse(pdf, {
       headers: {
-        "Content-Type": "application/pdf",
+        "Content-Type": html ? "text/html; charset=utf-8" : "application/pdf",
         "Content-Disposition": `inline; filename="${body!.platform}-labels.pdf"`,
         "Cache-Control": "no-store",
         // orders that couldn't be printed (shown to the CEO as a warning)

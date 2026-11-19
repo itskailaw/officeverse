@@ -184,7 +184,9 @@ export function Fulfilment() {
           problems = JSON.parse(decodeURIComponent(r.headers.get("X-OV-Problems") ?? "%5B%5D"));
         } catch {}
         if (problems.length) toast("error", `${NAME[p]}: ${problems.length} label${problems.length > 1 ? "s" : ""} not printed — ${problems.join(" · ")}`);
-        const url = URL.createObjectURL(await r.blob());
+        const blob = await r.blob();
+        if (blob.size < 100) throw new Error("the marketplace sent an empty label file — try again in a minute");
+        const url = URL.createObjectURL(blob);
         if (tab) tab.location.href = url;
         else window.location.assign(url);
         useOffice.getState().recordAudit("print_labels", "order", null, `${NAME[p]} labels: ${ids.join(", ")}`);
