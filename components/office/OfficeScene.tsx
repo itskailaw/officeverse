@@ -14,6 +14,7 @@ import { CEO_DESK_ID, MEETING_TABLE_ID, ROOMS } from "@/lib/office/layout";
 import { getSim } from "@/lib/office/runtime";
 import { resolveLighting } from "@/lib/office/lighting";
 import { departmentColor } from "@/lib/data/brand";
+import { useLive } from "@/lib/integrations/client";
 import { Building, RoomLabels, type Brand } from "./Building";
 import { FurnitureVisual } from "./Furniture";
 import { Character } from "./Character";
@@ -181,6 +182,7 @@ function CameraRig() {
     if (!new URLSearchParams(window.location.search).has("debug")) return;
     const w = window as unknown as Record<string, unknown>;
     w.__ovSim = getSim();
+    w.__ovLive = useLive;
     w.__ovProject = (x: number, y: number, z: number) => {
       const v = new THREE.Vector3(x, y, z).project(camera);
       return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height };
@@ -296,7 +298,8 @@ function FurnitureLayer({ night, brands }: { night: boolean; brands: Record<stri
   const f2 = useTextureFromUrl(settings.photoFrames[2] ?? null);
   const frames = useMemo(() => [f0, f1, f2], [f0, f1, f2]);
 
-  const perfTex = useMemo(() => perfScreenTexture(settings.demoMode), [settings.demoMode]);
+  const liveSummary = useLive((x) => x.summary);
+  const perfTex = useMemo(() => perfScreenTexture(settings.demoMode, liveSummary), [settings.demoMode, liveSummary]);
   const logo = useTextureImage(settings.logoUrl);
   const recTex = useMemo(() => receptionTexture(companies, logo), [companies, logo]);
   const meetTex = useMemo(() => meetingTexture(liveMeeting), [liveMeeting]);

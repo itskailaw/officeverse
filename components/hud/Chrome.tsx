@@ -35,6 +35,7 @@ import { cn, klTime, timeAgo } from "@/lib/utils";
 import type { LightingMode, WallMode } from "@/lib/data/types";
 import { PriorityDot } from "./ExecutiveDashboard";
 import { CompanySwitcher, Logo } from "./Extras";
+import { useLive } from "@/lib/integrations/client";
 
 function Clock24() {
   const [now, setNow] = useState<Date | null>(null);
@@ -60,6 +61,7 @@ const WALL_LABEL = { cutaway: "Cut-away", full: "Walls up", hidden: "Walls down"
 export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
   const settings = useOffice((s) => s.settings);
   const update = useOffice((s) => s.updateSettings);
+  const liveShopee = useLive((s) => !!s.summary?.platforms.shopee.connected);
   const unread = useOffice((s) => s.notifications.filter((n) => !n.read).length);
   const companies = useOffice((s) => s.companies);
   const ui = useUI();
@@ -73,12 +75,17 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         </div>
       </div>
       <CompanySwitcher />
+      {liveShopee && (
+        <Badge variant="success" title="Shopee data is live">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> LIVE · Shopee
+        </Badge>
+      )}
       {settings.demoMode ? (
-        <Badge variant="demo" title="Business metrics shown are labelled sample data">
-          DEMO MODE
+        <Badge variant="demo" title={liveShopee ? "Demo mode is on: areas without live data show labelled sample data" : "Business metrics shown are labelled sample data"}>
+          {liveShopee ? "DEMO ON" : "DEMO MODE"}
         </Badge>
       ) : (
-        <Badge variant="outline">LIVE · no integrations</Badge>
+        !liveShopee && <Badge variant="outline">LIVE · no integrations</Badge>
       )}
       {ui.mode === "build" && <Badge variant="warning">BUILD MODE</Badge>}
       <div className="ml-auto flex items-center gap-1">
