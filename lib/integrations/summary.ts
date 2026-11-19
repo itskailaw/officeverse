@@ -80,8 +80,15 @@ const zero = () => ({ revenue: 0, orders: 0 });
  * `sb` should be a user-scoped client (RLS limits rows to the caller's workspace).
  * Returns null when no marketplace is connected.
  */
-export async function liveSummary(sb: SupabaseClient, workspaceId: string): Promise<LiveSummary | null> {
-  const { data: integ } = await sb.from("integration_status").select("*").eq("workspace_id", workspaceId).in("provider", ["shopee", "lazada"]);
+export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts: { serviceRole?: boolean } = {}): Promise<LiveSummary | null> {
+  // The integration_status view filters by the signed-in member (auth.uid()); server jobs
+  // without a user (cron briefing) read the table directly with the service-role client.
+  const { data: integ, error: integErr } = await sb
+    .from(opts.serviceRole ? "integrations" : "integration_status")
+    .select("provider, shop_name, last_success_at, status, last_error, expires_at")
+    .eq("workspace_id", workspaceId)
+    .in("provider", ["shopee", "lazada"]);
+  if (integErr) throw new Error(`Couldn't read marketplace connections: ${integErr.message}`);
   type I = { provider: Platform; shop_name: string | null; last_success_at: string | null; status: string; last_error: string | null; expires_at: string | null };
   const conns = (integ ?? []) as I[];
   if (!conns.length) return null;

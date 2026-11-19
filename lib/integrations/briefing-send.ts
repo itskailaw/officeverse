@@ -29,7 +29,7 @@ export async function sendBriefing(workspaceId: string, opts: { refresh?: boolea
       } catch {}
     }
   }
-  const s = await liveSummary(getAdminSupabase(), workspaceId);
+  const s = await liveSummary(getAdminSupabase(), workspaceId, { serviceRole: true });
   // Sophia's commentary — optional: if the AI is unavailable the plain briefing still goes out
   let notes: string[] = [];
   if (s && aiConfigured()) {
