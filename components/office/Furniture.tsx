@@ -101,23 +101,41 @@ function Workstation({ item }: { item: FurnitureItem }) {
   );
 }
 
+/** CEO "mission-control" desk: curved walnut front, brass trim, 3 screens. */
 function ExecDesk({ frames }: { frames: (THREE.Texture | null)[] }) {
+  const walnut = mat("#5b3a22", { rough: 0.35 });
+  const brass = mat("#d4a017", { metal: 0.85, rough: 0.25 });
+  const segs = [-0.5, -0.25, 0, 0.25, 0.5];
   return (
     <group>
-      <B p={[0, 0.76, 0]} s={[2.2, 0.06, 1.0]} c={P.woodDark} m={mat(P.woodDark, { rough: 0.35 })} />
-      <B p={[-0.85, 0.37, 0]} s={[0.45, 0.74, 0.9]} c={P.navyDark} />
-      <B p={[0.85, 0.37, 0]} s={[0.45, 0.74, 0.9]} c={P.navyDark} />
-      <B p={[0, 0.45, 0.42]} s={[1.3, 0.55, 0.04]} c={P.navyDark} />
-      <Monitor z={0.25} x={-0.35} />
-      <Monitor z={0.25} x={0.35} />
-      <B p={[0, 0.8, -0.2]} s={[0.45, 0.015, 0.14]} c="#1f2937" />
-      {/* desk lamp */}
-      <C p={[0.95, 0.8, 0.3]} s={[0.14, 0.02, 0.14]} c={P.darkGrey} />
-      <C p={[0.95, 1.0, 0.3]} s={[0.02, 0.4, 0.02]} c={P.darkGrey} />
-      <C p={[0.95, 1.2, 0.25]} s={[0.16, 0.1, 0.16]} c="#facc15" m={mat("#fde68a", { emissive: "#fde68a", ei: 0.6 })} />
+      <group position={[0, 0, -0.45]}>
+      {/* curved top made of angled segments */}
+      {segs.map((a, i) => (
+        <group key={i} rotation={[0, a * 0.9, 0]}>
+          <B p={[0, 0.76, 0.55]} s={[0.62, 0.06, 0.95]} m={walnut} />
+          <B p={[0, 0.4, 0.98]} s={[0.62, 0.7, 0.05]} m={walnut} />
+          <B p={[0, 0.08, 0.99]} s={[0.63, 0.04, 0.05]} m={brass} />
+          <B p={[0, 0.79, 1.02]} s={[0.63, 0.02, 0.04]} m={brass} />
+        </group>
+      ))}
+      {/* 3 screens */}
+      {[-0.45, 0, 0.45].map((a, i) => (
+        <group key={i} rotation={[0, a, 0]}>
+          <group position={[0, 0, 0.55]}>
+            <B p={[0, 0.87, 0]} s={[0.12, 0.16, 0.06]} c="#111827" />
+            <B p={[0, 1.12, 0.02]} s={[i === 1 ? 0.78 : 0.62, i === 1 ? 0.44 : 0.38, 0.04]} c="#111827" />
+            <mesh position={[0, 1.12, 0.045]}>
+              <planeGeometry args={[i === 1 ? 0.72 : 0.56, i === 1 ? 0.38 : 0.32]} />
+              <meshStandardMaterial color="#0b1220" emissive={new THREE.Color(i === 1 ? "#fdb927" : "#4f8ff7")} emissiveIntensity={0.55} />
+            </mesh>
+          </group>
+        </group>
+      ))}
+      </group>
+      <B p={[0, 0.8, -0.1]} s={[0.45, 0.015, 0.14]} c="#1f2937" />
       {/* small desk photo frames */}
       {[-0.95, -0.75].map((x, i) => (
-        <group key={x} position={[x, 0.79, 0.3]} rotation={[-0.15, Math.PI + (i ? -0.3 : 0.2), 0]}>
+        <group key={x} position={[x, 0.79, 0.2]} rotation={[-0.15, Math.PI + (i ? -0.3 : 0.2), 0]}>
           <B p={[0, 0.09, 0]} s={[0.16, 0.2, 0.02]} c="#78350f" />
           <Screen p={[0, 0.09, 0.011]} s={[0.12, 0.15]} tex={frames[i] ?? null} />
         </group>

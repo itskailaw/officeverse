@@ -299,7 +299,13 @@ export type FurnitureType =
   | "wall_art"
   | "material_wall"
   | "robot_arm"
-  | "printer_3d";
+  | "printer_3d"
+  | "sneaker_wall"
+  | "jersey_frame"
+  | "kobe_cabinet"
+  | "court_rug"
+  | "mini_hoop"
+  | "aquarium";
 
 export interface FurnitureItem {
   id: ID;
@@ -312,6 +318,8 @@ export interface FurnitureItem {
   /** optional size override [width, depth] */
   size?: [number, number];
   color?: string;
+  /** optional text (e.g. the quote on the CEO's trophy cabinet) */
+  label?: string;
   locked?: boolean;
 }
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LAYOUT, CEO_DESK_ID } from "../lib/office/layout.ts";
+import { BREAK_ROOMS, DEFAULT_LAYOUT, CEO_DESK_ID } from "../lib/office/layout.ts";
 import { OfficeSim } from "../lib/office/sim.ts";
 import { isWalkablePoint } from "../lib/office/navgrid.ts";
 
@@ -64,7 +64,7 @@ test("dropped employee in the corridor walks back to the desk", () => {
   assert.equal(a.pose, "sit");
 });
 
-test("breaks send staff to the fun rooms (pantry, game room, garden, Main Street)", () => {
+test("breaks send staff to the fun rooms (pantry, game room, garden, nook, Main Street)", () => {
   const sim = new OfficeSim(DEFAULT_LAYOUT);
   const ids = Array.from({ length: 12 }, (_, i) => `b${i}`);
   ids.forEach((id, i) => sim.addAgent(id, homes[i % homes.length] ?? null));
@@ -75,5 +75,5 @@ test("breaks send staff to the fun rooms (pantry, game room, garden, Main Street
     if (a.seatId) rooms.add(sim.seat(a.seatId)!.roomId);
   }
   assert.ok(rooms.size > 0);
-  for (const r of rooms) assert.ok(["kopitiam", "game", "garden", "corridor"].includes(r), `unexpected break room ${r}`);
+  for (const r of rooms) assert.ok(BREAK_ROOMS.includes(r), `unexpected break room ${r}`);
 });

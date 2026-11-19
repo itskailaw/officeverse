@@ -191,6 +191,12 @@ export const CATALOG: Record<FurnitureType, CatalogEntry> = {
   material_wall: { label: "Material samples", size: [2.4, 0.35], blocks: true, seats: [], movable: true },
   robot_arm: { label: "Robot arm", size: [0.9, 0.7], blocks: true, seats: [], movable: true },
   printer_3d: { label: "3D printer", size: [0.7, 0.7], blocks: true, seats: [], movable: true },
+  sneaker_wall: { label: "Sneaker wall", size: [3.8, 0.5], blocks: true, seats: [], movable: true },
+  jersey_frame: { label: "Framed jersey", size: [1.1, 0.12], blocks: false, seats: [], movable: true },
+  kobe_cabinet: { label: "Trophy & ring cabinet", size: [3.4, 0.6], blocks: true, seats: [], movable: true },
+  court_rug: { label: "Court-floor rug", size: [5, 3.6], blocks: false, seats: [], movable: true },
+  mini_hoop: { label: "Mini hoop", size: [0.9, 0.3], blocks: false, seats: [], movable: true },
+  aquarium: { label: "Aquarium", size: [3.2, 0.6], blocks: true, seats: [], movable: true },
   bbq: { label: "BBQ grill", size: [1.2, 0.8], blocks: true, seats: [{ lx: 0, lz: -0.85, f: 0, alx: 0, alz: -0.85, kind: "lounge", sit: false }], movable: true },
 };
 

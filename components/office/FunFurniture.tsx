@@ -8,6 +8,8 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import type { FurnitureItem } from "@/lib/data/types";
 import { getSim } from "@/lib/office/runtime";
+import { useOffice } from "@/lib/store/office-store";
+import { WALL_HEIGHT } from "./Building";
 import { mat, makeScreenTexture } from "./materials";
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -517,10 +519,11 @@ function WallArt({ w, color = "#1e3a5f" }: { w: number; color?: string }) {
   );
   useEffect(() => () => tex.dispose(), [tex]);
   const h = color === "map" ? 1.2 : 0.9;
+  const y = useWallY(h, 1.55);
   return (
     <group>
-      <B p={[0, 1.55, 0]} s={[w + 0.08, h + 0.08, 0.04]} c="#111827" />
-      <mesh geometry={PLANE} position={[0, 1.55, 0.025]} scale={[w, h, 1]}>
+      <B p={[0, y, 0]} s={[w + 0.08, h + 0.08, 0.04]} c="#111827" />
+      <mesh geometry={PLANE} position={[0, y, 0.025]} scale={[w, h, 1]}>
         <meshStandardMaterial map={tex} roughness={0.8} />
       </mesh>
     </group>
@@ -584,6 +587,312 @@ function Printer3D({ night }: { night?: boolean }) {
   );
 }
 
+// ---------------------------------------------------------------- CEO suite: Mamba corner
+const GOLD_M = () => mat("#d4a017", { metal: 0.9, rough: 0.22 });
+
+/** Height for wall-mounted items: lower them so they sit on the wall in cut-away mode. */
+function useWallY(h: number, ideal: number) {
+  const walls = useOffice((s) => s.settings.walls);
+  const top = WALL_HEIGHT[walls];
+  return walls === "full" ? ideal : Math.max(h / 2 + 0.12, Math.min(ideal, top - h / 2 - 0.04));
+}
+
+const SNEAKERS: [string, string][] = [
+  ["#552583", "#fdb927"], ["#fdb927", "#552583"], ["#f8fafc", "#552583"], ["#111827", "#fdb927"], ["#dc2626", "#111827"], ["#f8fafc", "#fdb927"],
+  ["#0f766e", "#f8fafc"], ["#111827", "#dc2626"], ["#fdb927", "#111827"], ["#552583", "#f8fafc"], ["#2563eb", "#f8fafc"], ["#f8fafc", "#111827"],
+  ["#111827", "#f8fafc"], ["#fdb927", "#f8fafc"], ["#552583", "#111827"], ["#ea580c", "#111827"], ["#f8fafc", "#dc2626"], ["#22c55e", "#111827"],
+  ["#111827", "#552583"], ["#f8fafc", "#2563eb"], ["#fdb927", "#dc2626"], ["#7c3aed", "#fdb927"], ["#111827", "#111827"], ["#fdb927", "#fdb927"],
+];
+
+/** 24 lit cubbies (6 x 4), one pair of sneakers each. */
+function SneakerWall({ w, night }: { w: number; night?: boolean }) {
+  const cols = 6;
+  const rows = 4;
+  const cw = (w - 0.2) / cols;
+  const ch = 0.46;
+  const glow = mat(night ? "#c4b5fd" : "#ede9fe", { emissive: night ? "#a78bfa" : "#fdb927", ei: night ? 3 : 0.35 });
+  return (
+    <group>
+      <B p={[0, 1.1, -0.05]} s={[w, 2.2, 0.4]} c="#1f1712" />
+      {Array.from({ length: cols * rows }).map((_, i) => {
+        const c = i % cols;
+        const r = Math.floor(i / cols);
+        const x = -w / 2 + 0.1 + cw / 2 + c * cw;
+        const y = 0.28 + r * (ch + 0.04) + ch / 2;
+        const [shoe, accent] = SNEAKERS[i];
+        return (
+          <group key={i} position={[x, y, 0.06]}>
+            <B p={[0, 0, -0.05]} s={[cw - 0.05, ch, 0.28]} c="#2a1f17" shadow={false} />
+            <B p={[0, ch / 2 - 0.02, 0.0]} s={[cw - 0.08, 0.015, 0.2]} m={glow} shadow={false} />
+            {[-0.075, 0.075].map((dx, k) => (
+              <group key={k} position={[dx, -ch / 2 + 0.05, 0]} rotation={[0, k ? -0.15 : 0.15, 0]}>
+                <B p={[0, 0.035, 0]} s={[0.09, 0.07, 0.22]} c={shoe} shadow={false} />
+                <B p={[0, 0.005, 0]} s={[0.095, 0.02, 0.23]} c={accent} shadow={false} />
+                <B p={[0, 0.08, -0.05]} s={[0.085, 0.05, 0.09]} c={shoe} shadow={false} />
+              </group>
+            ))}
+          </group>
+        );
+      })}
+      <B p={[0, 0.12, 0.16]} s={[w, 0.24, 0.12]} c="#1f1712" />
+      <B p={[0, 0.2, 0.225]} s={[w - 0.3, 0.05, 0.01]} c="#fdb927" shadow={false} />
+      <B p={[0, 2.24, -0.05]} s={[w + 0.04, 0.08, 0.44]} m={GOLD_M()} />
+      {night && <pointLight position={[0, 1.4, 1.2]} intensity={3} distance={5} color="#c4b5fd" />}
+    </group>
+  );
+}
+
+/** Framed signed jersey (wall-mounted shadow box). color = the number ("8" or "24"). */
+function JerseyFrame({ number = "24", night }: { number?: string; night?: boolean }) {
+  const tex = useMemo(
+    () =>
+      makeScreenTexture(
+        (g, W, H) => {
+          g.fillStyle = "#111827";
+          g.fillRect(0, 0, W, H);
+          const body = number === "8" ? "#fdb927" : "#552583";
+          const trim = number === "8" ? "#552583" : "#fdb927";
+          // jersey silhouette
+          g.fillStyle = body;
+          g.beginPath();
+          g.moveTo(W * 0.3, H * 0.12);
+          g.lineTo(W * 0.42, H * 0.12);
+          g.quadraticCurveTo(W * 0.5, H * 0.24, W * 0.58, H * 0.12);
+          g.lineTo(W * 0.7, H * 0.12);
+          g.lineTo(W * 0.72, H * 0.3);
+          g.lineTo(W * 0.68, H * 0.32);
+          g.lineTo(W * 0.68, H * 0.9);
+          g.lineTo(W * 0.32, H * 0.9);
+          g.lineTo(W * 0.32, H * 0.32);
+          g.lineTo(W * 0.28, H * 0.3);
+          g.closePath();
+          g.fill();
+          g.strokeStyle = trim;
+          g.lineWidth = 10;
+          g.stroke();
+          g.fillStyle = trim;
+          g.font = `900 ${Math.round(H * 0.32)}px system-ui, sans-serif`;
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          g.fillText(number, W * 0.5, H * 0.56);
+          // signature scribble
+          g.strokeStyle = "#f8fafc";
+          g.lineWidth = 4;
+          g.beginPath();
+          g.moveTo(W * 0.36, H * 0.8);
+          g.bezierCurveTo(W * 0.42, H * 0.7, W * 0.46, H * 0.86, W * 0.52, H * 0.76);
+          g.bezierCurveTo(W * 0.56, H * 0.7, W * 0.6, H * 0.84, W * 0.66, H * 0.74);
+          g.stroke();
+        },
+        384,
+        448,
+      ),
+    [number],
+  );
+  useEffect(() => () => tex.dispose(), [tex]);
+  const h = 1.15;
+  const y = useWallY(h, 1.6);
+  return (
+    <group position={[0, y, 0]}>
+      <B p={[0, 0, 0.02]} s={[1.02, h + 0.1, 0.08]} m={GOLD_M()} />
+      <mesh geometry={PLANE} position={[0, 0, 0.065]} scale={[0.92, h, 1]}>
+        <meshStandardMaterial map={tex} roughness={0.7} />
+      </mesh>
+      <B p={[0, 0, 0.075]} s={[0.92, h, 0.005]} m={mat("#dbeafe", { opacity: 0.15, rough: 0.02 })} shadow={false} />
+      <B p={[0, -h / 2 - 0.12, 0.05]} s={[0.4, 0.07, 0.02]} m={GOLD_M()} />
+      {night && <pointLight position={[0, 0.9, 0.6]} intensity={1.6} distance={2.2} color="#fde68a" />}
+    </group>
+  );
+}
+
+/** Trophy & ring cabinet: 5 championship trophies, an MVP trophy, 5 rings, a game ball, and the quote plaque. */
+function KobeCabinet({ w, quote, night }: { w: number; quote: string; night?: boolean }) {
+  const gold = GOLD_M();
+  const plaque = useMemo(
+    () =>
+      makeScreenTexture(
+        (g, W, H) => {
+          g.fillStyle = "#1f1712";
+          g.fillRect(0, 0, W, H);
+          g.fillStyle = "#e9c46a";
+          g.font = `italic 600 ${Math.round(H * 0.42)}px Georgia, serif`;
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          g.fillText(`“${quote}”`, W / 2, H / 2 + 2, W - 30);
+        },
+        1024,
+        96,
+      ),
+    [quote],
+  );
+  useEffect(() => () => plaque.dispose(), [plaque]);
+  return (
+    <group>
+      <B p={[0, 0.25, 0]} s={[w, 0.5, 0.6]} c="#1f1712" />
+      <mesh geometry={PLANE} position={[0, 0.26, 0.302]} scale={[w - 0.2, 0.22, 1]}>
+        <meshStandardMaterial map={plaque} roughness={0.5} />
+      </mesh>
+      {/* open-front glass cabinet: back, sides, shelf, top */}
+      <B p={[0, 1.15, -0.27]} s={[w, 1.3, 0.04]} c="#552583" />
+      <B p={[-w / 2 + 0.03, 1.15, 0]} s={[0.06, 1.3, 0.56]} c="#2a1f17" />
+      <B p={[w / 2 - 0.03, 1.15, 0]} s={[0.06, 1.3, 0.56]} c="#2a1f17" />
+      <B p={[0, 1.2, -0.02]} s={[w - 0.1, 0.04, 0.5]} m={mat("#dbeafe", { opacity: 0.35, rough: 0.05 })} shadow={false} />
+      <B p={[0, 1.83, 0]} s={[w + 0.05, 0.08, 0.6]} m={gold} />
+      <B p={[0, 0.52, 0.27]} s={[w, 0.03, 0.03]} m={gold} />
+      <B p={[0, 1.15, 0.27]} s={[w - 0.1, 1.24, 0.01]} m={mat("#dbeafe", { opacity: 0.12, rough: 0.03 })} shadow={false} />
+      <B p={[0, 1.77, -0.05]} s={[w - 0.2, 0.02, 0.3]} m={mat("#fde68a", { emissive: "#fde68a", ei: night ? 1.6 : 0.7 })} shadow={false} />
+      {/* 5 championship trophies (gold ball on a net-shaped body) */}
+      {[-1.2, -0.6, 0, 0.6, 1.2].map((x, i) => (
+        <group key={i} position={[x * (w / 3.4), 0.5, 0]}>
+          <C p={[0, 0.04, 0]} s={[0.22, 0.08, 0.22]} c="#111827" />
+          <mesh position={[0, 0.3, 0]} scale={[0.11, 0.42, 0.11]} material={gold} castShadow>
+            <cylinderGeometry args={[0.9, 0.45, 1, 12]} />
+          </mesh>
+          <mesh geometry={SPH} material={gold} position={[0, 0.58, 0]} scale={0.18} castShadow />
+        </group>
+      ))}
+      {/* MVP trophy on top shelf + rings tray + game ball */}
+      <group position={[-w / 2 + 0.45, 1.25, 0.02]}>
+        <B p={[0, 0.05, 0]} s={[0.22, 0.1, 0.16]} c="#111827" />
+        <B p={[0, 0.3, 0]} s={[0.08, 0.4, 0.05]} m={mat("#e5e7eb", { metal: 0.9, rough: 0.2 })} />
+        <mesh geometry={SPH} material={mat("#e5e7eb", { metal: 0.9, rough: 0.2 })} position={[0, 0.55, 0]} scale={0.12} />
+      </group>
+      <group position={[0, 1.22, 0.05]}>
+        <B p={[0, 0.03, 0]} s={[1.0, 0.06, 0.3]} c="#552583" />
+        {[-0.36, -0.18, 0, 0.18, 0.36].map((x, i) => (
+          <mesh key={i} geometry={TORUS} material={gold} position={[x, 0.11, 0]} rotation={[Math.PI / 2.4, 0, 0]} scale={[0.11, 0.11, 0.2]} castShadow />
+        ))}
+      </group>
+      <group position={[w / 2 - 0.45, 1.25, 0.02]}>
+        <C p={[0, 0.04, 0]} s={[0.18, 0.08, 0.18]} c="#111827" />
+        <mesh geometry={SPH} material={mat("#ea580c", { rough: 0.75 })} position={[0, 0.22, 0]} scale={0.26} castShadow />
+      </group>
+    </group>
+  );
+}
+
+/** Court-floor lounge rug with the "24" centre circle and a ball by the sofa. */
+function CourtRug({ w, d }: { w: number; d: number }) {
+  const tex = useMemo(
+    () =>
+      makeScreenTexture(
+        (g, W, H) => {
+          g.fillStyle = "#c98d4f";
+          g.fillRect(0, 0, W, H);
+          g.strokeStyle = "rgba(90,50,20,0.2)";
+          g.lineWidth = 2;
+          for (let y = 0; y < H; y += H / 10) {
+            g.beginPath();
+            g.moveTo(0, y);
+            g.lineTo(W, y);
+            g.stroke();
+          }
+          g.strokeStyle = "#fff";
+          g.lineWidth = 8;
+          g.strokeRect(6, 6, W - 12, H - 12);
+          g.fillStyle = "#552583";
+          g.beginPath();
+          g.arc(W / 2, H / 2, H * 0.3, 0, Math.PI * 2);
+          g.fill();
+          g.stroke();
+          g.fillStyle = "#fdb927";
+          g.font = `900 ${Math.round(H * 0.3)}px system-ui, sans-serif`;
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          g.fillText("24", W / 2, H / 2 + 4);
+        },
+        768,
+        Math.round((768 * d) / w),
+      ),
+    [w, d],
+  );
+  useEffect(() => () => tex.dispose(), [tex]);
+  return (
+    <group>
+      <mesh geometry={PLANE} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.009, 0]} scale={[w, d, 1]} receiveShadow>
+        <meshStandardMaterial map={tex} roughness={0.55} />
+      </mesh>
+      <mesh geometry={SPH} material={mat("#ea580c", { rough: 0.75 })} position={[-w / 2 + 0.5, 0.12, d / 2 - 0.45]} scale={0.24} castShadow />
+    </group>
+  );
+}
+
+// Shots taken at the CEO's mini hoop (clicking it fires one).
+let miniShots = 0;
+export function shootMiniHoop() {
+  miniShots++;
+}
+
+function MiniHoop() {
+  const ball = useRef<THREE.Mesh>(null);
+  const seen = useRef(0);
+  const t = useRef(-1);
+  const y0 = useWallY(0.7, 1.9);
+  useFrame((_, dt) => {
+    const b = ball.current;
+    if (!b) return;
+    if (miniShots !== seen.current) {
+      seen.current = miniShots;
+      t.current = 0;
+    }
+    if (t.current < 0) {
+      b.visible = false;
+      return;
+    }
+    b.visible = true;
+    t.current += dt / 1.1;
+    const k = t.current;
+    if (k >= 1) {
+      t.current = -1;
+      return;
+    }
+    const z = k < 0.7 ? 2.4 - (k / 0.7) * 2.0 : 0.4;
+    const y = k < 0.7 ? 1.0 + Math.sin((k / 0.7) * Math.PI) * 1.0 + (k / 0.7) * (y0 - 0.9) : y0 - 0.1 - ((k - 0.7) / 0.3) * (y0 - 0.2);
+    b.position.set(0, Math.max(0.12, y), z);
+  });
+  return (
+    <group>
+      <B p={[0, y0, 0.03]} s={[0.9, 0.6, 0.04]} m={mat("#f8fafc", { opacity: 0.9, rough: 0.2 })} />
+      <B p={[0, y0 - 0.05, 0.055]} s={[0.34, 0.26, 0.01]} c="#552583" shadow={false} />
+      <mesh geometry={TORUS} material={mat("#fdb927", { metal: 0.5, rough: 0.3 })} position={[0, y0 - 0.25, 0.26]} rotation={[Math.PI / 2, 0, 0]} scale={[0.24, 0.24, 0.4]} />
+      <mesh ref={ball} geometry={SPH} material={mat("#ea580c", { rough: 0.7 })} scale={0.16} visible={false} castShadow />
+    </group>
+  );
+}
+
+const FISH = ["#f97316", "#facc15", "#38bdf8", "#f43f5e", "#a3e635", "#fdb927", "#c084fc"];
+function Aquarium({ w, night }: { w: number; night?: boolean }) {
+  const fish = useRef<(THREE.Group | null)[]>([]);
+  const seeds = useMemo(() => FISH.map((_, i) => ({ sp: 0.25 + (i % 3) * 0.12, y: 0.75 + (i % 4) * 0.17, ph: i * 1.7 })), []);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    seeds.forEach((s, i) => {
+      const g = fish.current[i];
+      if (!g) return;
+      const p = Math.sin(t * s.sp + s.ph);
+      g.position.set(p * (w / 2 - 0.25), s.y + Math.sin(t * 1.3 + s.ph) * 0.04, Math.cos(t * s.sp * 1.3 + s.ph) * 0.12);
+      g.rotation.y = Math.cos(t * s.sp + s.ph) > 0 ? 0 : Math.PI;
+    });
+  });
+  return (
+    <group>
+      <B p={[0, 0.25, 0]} s={[w, 0.5, 0.6]} c="#1f1712" />
+      <B p={[0, 0.95, 0]} s={[w - 0.04, 0.9, 0.52]} m={mat(night ? "#1d4ed8" : "#38bdf8", { opacity: 0.45, emissive: "#0ea5e9", ei: night ? 1.0 : 0.25, rough: 0.05 })} shadow={false} />
+      <B p={[0, 0.53, 0]} s={[w - 0.1, 0.06, 0.48]} c="#e7d7b1" shadow={false} />
+      {[-0.9, -0.3, 0.5, 1.0].map((x, i) => (
+        <B key={i} p={[x * (w / 3), 0.7, -0.12 + (i % 2) * 0.2]} s={[0.04, 0.32 + (i % 2) * 0.15, 0.04]} c="#16a34a" shadow={false} />
+      ))}
+      {FISH.map((c, i) => (
+        <group key={i} ref={(g) => void (fish.current[i] = g)}>
+          <mesh geometry={SPH} material={mat(c, { emissive: c, ei: night ? 0.5 : 0.1 })} scale={[0.1, 0.06, 0.04]} />
+          <mesh geometry={BOX} material={mat(c)} position={[-0.065, 0, 0]} scale={[0.04, 0.06, 0.01]} />
+        </group>
+      ))}
+      <B p={[0, 1.43, 0]} s={[w, 0.06, 0.6]} c="#1f1712" />
+    </group>
+  );
+}
+
 /** Returns a model for the fun furniture types, or null for other types. */
 export function FunVisual({ item, w, d, night }: { item: FurnitureItem; w: number; d: number; night?: boolean }) {
   switch (item.type) {
@@ -635,6 +944,18 @@ export function FunVisual({ item, w, d, night }: { item: FurnitureItem; w: numbe
       return <RobotArm />;
     case "printer_3d":
       return <Printer3D night={night} />;
+    case "sneaker_wall":
+      return <SneakerWall w={w} night={night} />;
+    case "jersey_frame":
+      return <JerseyFrame number={item.color} night={night} />;
+    case "kobe_cabinet":
+      return <KobeCabinet w={w} quote={item.label ?? "Rest at the end, not in the middle."} night={night} />;
+    case "court_rug":
+      return <CourtRug w={w} d={d} />;
+    case "mini_hoop":
+      return <MiniHoop />;
+    case "aquarium":
+      return <Aquarium w={w} night={night} />;
     default:
       return null;
   }

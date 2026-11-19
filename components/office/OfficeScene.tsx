@@ -18,8 +18,11 @@ import { useLive } from "@/lib/integrations/client";
 import { Building, RoomLabels, type Brand } from "./Building";
 import { FurnitureVisual } from "./Furniture";
 import { Character } from "./Character";
+import { shootMiniHoop } from "./FunFurniture";
 import { meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
+/** Display pieces that zoom the camera in when clicked. */
+const SHOWCASE = new Set(["sneaker_wall", "kobe_cabinet", "jersey_frame", "aquarium"]);
 const CENTER = new THREE.Vector3(OFFICE_W / 2, 0, OFFICE_D / 2);
 const pressedKeys = new Set<string>();
 const ISO_OFFSET = new THREE.Vector3(26, 30, 30);
@@ -327,6 +330,13 @@ function FurnitureLayer({ night, brands }: { night: boolean; brands: Record<stri
       e.stopPropagation();
       getSim().goToSeat(CEO_ID, CEO_DESK_ID, "desk");
       ui.set({ dialog: "dashboard", selectedEmployeeId: null });
+    } else if (item.type === "mini_hoop") {
+      e.stopPropagation();
+      shootMiniHoop();
+      ui.toast("success", ["Swish! 🏀", "Nothing but net! 🏀", "Mamba mode 🐍", "Buzzer beater! ⏱️"][Math.floor(Math.random() * 4)]);
+    } else if (SHOWCASE.has(item.type)) {
+      e.stopPropagation();
+      ui.set({ cameraCommand: { kind: "focus", x: item.x, z: item.z, n: Date.now() } });
     } else if (item.id === MEETING_TABLE_ID) {
       e.stopPropagation();
       const live = useOffice.getState().meetings.find((m) => m.status === "in_progress");
@@ -341,7 +351,7 @@ function FurnitureLayer({ night, brands }: { night: boolean; brands: Record<stri
         const x = d ? d.x : item.x;
         const z = d ? d.z : item.z;
         const tex = item.type === "perf_screen" ? perfTex : item.id === "rec-logo" ? recTex : item.id === "meet-screen" ? meetTex : null;
-        const interactive = item.id === CEO_DESK_ID || item.type === "perf_screen" || item.id === MEETING_TABLE_ID || mode === "build";
+        const interactive = item.id === CEO_DESK_ID || item.type === "perf_screen" || item.id === MEETING_TABLE_ID || item.type === "mini_hoop" || SHOWCASE.has(item.type) || mode === "build";
         const [w, dd] = sizeOf(item);
         return (
           <group

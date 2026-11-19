@@ -17,7 +17,7 @@ const HALF = PI / 2;
 export const OFFICE_W = 52;
 export const OFFICE_D = 30;
 /** Bump when the default floor plan changes; saved layouts from older versions are replaced. */
-export const LAYOUT_VERSION = 3;
+export const LAYOUT_VERSION = 4;
 /** Rooms staff go to on breaks. */
 export const BREAK_ROOMS = ["kopitiam", "game", "garden", "corridor", "nook"];
 
@@ -84,9 +84,6 @@ export const DOORS: Door[] = [
   { id: "door-it", x: 48, z: 15, axis: "x", width: 1.6 },
   { id: "door-nook", x: 46, z: 21, axis: "x", width: 1.6 },
   { id: "door-entrance", x: 4.5, z: 25, axis: "x", width: 2.4 },
-  { id: "arch-kopitiam-garden", x: 13.5, z: 25, axis: "x", width: 2, open: true },
-  { id: "door-game-garden", x: 24, z: 25, axis: "x", width: 1.6 },
-  { id: "door-nook-garden", x: 50, z: 25, axis: "x", width: 1.6 },
   { id: "gate-garden", x: 4.5, z: 30, axis: "x", width: 2.4, open: true },
 ];
 
@@ -109,23 +106,27 @@ const f = (id: string, type: FurnitureItem["type"], roomId: string, x: number, z
 });
 
 export const FURNITURE: FurnitureItem[] = [
-  // ── CEO suite ──
+  // ── CEO suite (walnut & brass, Mamba corner) ──
   f("ceo-rug", "rug", "ceo", 6, 4.4, 0, { size: [4.6, 3.4] }),
   f("ceo-desk", "exec_desk", "ceo", 6, 4, 0),
-  f("ceo-trophies", "trophy_cabinet", "ceo", 6, 0.35, 0),
-  f("ceo-books", "bookshelf", "ceo", 9.9, 0.3, 0),
-  f("ceo-frames", "photo_frames", "ceo", 2.3, 0.3, 0),
-  f("ceo-screen", "perf_screen", "ceo", 0.35, 4.8, HALF),
+  f("ceo-jersey-8", "jersey_frame", "ceo", 2.6, 0.12, 0, { color: "8" }),
+  f("ceo-trophies", "kobe_cabinet", "ceo", 6, 0.4, 0, { size: [3.4, 0.6], label: "Rest at the end, not in the middle." }),
+  f("ceo-jersey-24", "jersey_frame", "ceo", 9.4, 0.12, 0, { color: "24" }),
+  f("ceo-screen", "perf_screen", "ceo", 0.35, 3, HALF),
+  f("ceo-sneakers", "sneaker_wall", "ceo", 0.3, 7.1, HALF, { size: [3.8, 0.5] }),
+  f("ceo-aquarium", "aquarium", "ceo", 11.65, 3.2, -HALF, { size: [3.2, 0.6] }),
+  f("ceo-frames", "photo_frames", "ceo", 11.78, 5.6, -HALF),
   f("ceo-visitor-1", "visitor_chair", "ceo", 5.4, 5.4, PI),
   f("ceo-visitor-2", "visitor_chair", "ceo", 6.6, 5.4, PI),
-  f("ceo-sofa", "sofa", "ceo", 11.4, 8.2, -HALF),
+  f("ceo-court", "court_rug", "ceo", 9.2, 8.6, 0, { size: [5, 3.6] }),
+  f("ceo-sofa", "sofa", "ceo", 11.4, 8.2, -HALF, { color: "#3b2a6b" }),
   f("ceo-coffee", "coffee_table", "ceo", 10.25, 8.2, HALF),
   f("ceo-arm", "armchair", "ceo", 8.7, 8.2, HALF),
+  f("ceo-hoop", "mini_hoop", "ceo", 11.82, 10.2, -HALF),
   f("ceo-plant-1", "plant", "ceo", 0.5, 0.5),
   f("ceo-plant-2", "plant", "ceo", 11.5, 0.5),
   f("ceo-plant-3", "plant", "ceo", 0.5, 10.4),
-  f("ceo-plant-4", "plant", "ceo", 11.5, 10.4),
-  f("ceo-lamp", "floor_lamp", "ceo", 0.45, 8.4),
+  f("ceo-pendant", "pendant_light", "ceo", 6, 4),
 
   // ── Boardroom ──
   f("meeting-table", "meeting_table", "boardroom", 16.5, 3, 0),
