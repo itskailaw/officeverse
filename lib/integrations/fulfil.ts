@@ -96,7 +96,7 @@ interface DocResult {
 }
 
 /** Merge several PDFs into one (labels for different couriers come back separately). */
-async function mergePdfs(parts: ArrayBuffer[]): Promise<ArrayBuffer> {
+export async function mergePdfs(parts: ArrayBuffer[]): Promise<ArrayBuffer> {
   if (parts.length === 1) return parts[0];
   const { PDFDocument } = await import("pdf-lib");
   const out = await PDFDocument.create();

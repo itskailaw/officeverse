@@ -171,29 +171,35 @@ export function Fulfilment() {
   const printFor = async (targets: { platform: Plat; id: string }[]) => {
     if (!targets.length) return;
     setBusy("print");
-    for (const p of ["shopee", "lazada"] as Plat[]) {
-      const ids = targets.filter((o) => o.platform === p).map((o) => o.id);
-      if (!ids.length) continue;
-      // open the tab first (popup blockers), then fill it with the PDF
+    const open = async (orders: { platform: Plat; id: string }[]) => {
+      // open the tab first (popup blockers), then fill it with the file
       const tab = window.open("", "_blank");
       try {
-        const r = await fetch("/api/fulfil/labels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform: p, orderIds: ids, paper }) });
+        const r = await fetch("/api/fulfil/labels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orders, paper }) });
         if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `Request failed (${r.status})`);
         let problems: string[] = [];
         try {
           problems = JSON.parse(decodeURIComponent(r.headers.get("X-OV-Problems") ?? "%5B%5D"));
         } catch {}
-        if (problems.length) toast("error", `${NAME[p]}: ${problems.length} label${problems.length > 1 ? "s" : ""} not printed — ${problems.join(" · ")}`);
+        if (problems.length) toast("error", `${problems.length} label${problems.length > 1 ? "s" : ""} not printed — ${problems.join(" · ")}`);
         const blob = await r.blob();
         if (blob.size < 100) throw new Error("the marketplace sent an empty label file — try again in a minute");
         const url = URL.createObjectURL(blob);
         if (tab) tab.location.href = url;
         else window.location.assign(url);
-        useOffice.getState().recordAudit("print_labels", "order", null, `${NAME[p]} labels: ${ids.join(", ")}`);
+        useOffice.getState().recordAudit("print_labels", "order", null, `Airway bills: ${orders.map((o) => `${NAME[o.platform]} ${o.id}`).join(", ")}`);
+        return r.headers.get("X-OV-Separate") as Plat | null;
       } catch (e) {
         tab?.close();
-        toast("error", `${NAME[p]} labels: ${e instanceof Error ? e.message : String(e)}`);
+        toast("error", `Labels: ${e instanceof Error ? e.message : String(e)}`);
+        return null;
       }
+    };
+    // one PDF for everything; if one marketplace only sends web-page labels, open those separately
+    const separate = await open(targets);
+    if (separate) {
+      toast("info", `${NAME[separate]} sent its labels as a web page — opening them in a second tab.`);
+      await open(targets.filter((o) => o.platform === separate));
     }
     setBusy(null);
   };
