@@ -53,6 +53,20 @@ const server = http.createServer((req, res) => {
       assert.ok(ids.length <= 50);
       return send({ code: "0", data: ids.map((id) => ({ order_id: id, order_items: [{ order_id: id, name: "MDBC Water Filter", sku: "F1", paid_price: "129.00", promised_shipping_time: "2026-11-20 23:59:59 +0800" }] })) });
     }
+    const ov = (spend: string, revenue: string) => ({ spend, revenue, roi: (Number(revenue) / Number(spend)).toFixed(2), clicks: "120", impressions: "5000", unitsSold: "9", storeOrder: "8", ctr: "0.024", cpc: "0.30" });
+    if (path === "/sponsor/solutions/report/getReportOverview") {
+      assert.equal(params.bizCode, "sponsoredSearch");
+      assert.match(params.startDate, /^\d{4}-\d{2}-\d{2}$/);
+      assert.ok(params.lastStartDate && params.lastEndDate && params.useRtTable === "true");
+      const month = params.startDate.endsWith("-01") && params.startDate !== params.endDate;
+      return send({ code: "0", success: "true", result: { reportOverview: month ? ov("300.00", "1500.00") : ov("20.00", "90.00"), lastReportOverview: ov("25.00", "100.00") }, request_id: "r" });
+    }
+    if (path === "/sponsor/solution/smax/report/getReportOverview") {
+      return send({ code: "0", success: "true", result: { reportOverview: ov("10.00", "60.00"), lastReportOverview: ov("5.00", "20.00") } });
+    }
+    if (path === "/sponsor/solutions/wallet/getAutoTopUpOptionOneConfig") {
+      return send({ code: "0", success: "false", errorMsg: "seller not signed", result: null });
+    }
     send({ code: "InvalidApi", message: path });
   });
 });
@@ -78,6 +92,19 @@ async function main() {
   const items = await lazadaGet<{ order_id: number; order_items: { promised_shipping_time: string }[] }[]>(cfg, "/orders/items/get", { order_ids: JSON.stringify(got.slice(0, 50).map((o) => o.order_id)) }, "LAT");
   assert.equal(items.length, 50);
   assert.equal(parseLazadaDate(items[0].order_items[0].promised_shipping_time), "2026-11-20T15:59:59.000Z");
+
+  const { fetchLazadaAds } = await import("../lib/integrations/lazada/ads");
+  const ads = await fetchLazadaAds(cfg, "LAT");
+  // today = discovery 20 + smax 10 (spend); 90 + 60 (revenue)
+  assert.equal(ads.today?.spend, 30);
+  assert.equal(ads.today?.revenue, 150);
+  assert.equal(ads.today?.roi, 5);
+  assert.equal(ads.yesterday?.spend, 30);
+  assert.equal(ads.solutions.discovery?.spend, 20);
+  assert.equal(ads.autoTopUp, null);
+  assert.equal(ads.errors.length, 1);
+  assert.match(ads.errors[0], /Auto top-up/);
+  console.log("ads:", JSON.stringify({ today: ads.today, mtd: ads.monthToDate, errors: ads.errors }));
 
   await assert.rejects(() => lazadaGet(cfg, "/nope", {}, "LAT"), (e) => e instanceof LazadaError && e.code === "InvalidApi");
 

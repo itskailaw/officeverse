@@ -67,6 +67,18 @@ async function call<T>(
   return json;
 }
 
+/**
+ * Sponsored Solutions call: these APIs answer with { result, success, errorMsg, code }
+ * instead of { data }. Returns `result`; throws on success === false.
+ */
+export async function lazadaAdsGet<T>(cfg: LazadaConfig, path: string, params: Record<string, string | number | undefined>, accessToken: string) {
+  const j = await call<unknown>(cfg, apiBase(), path, params, accessToken, "GET");
+  if (j.success === false || j.success === "false") {
+    throw new LazadaError(String(j.errorCode ?? j.errorKey ?? "ads_error"), String(j.errorMsg || "Sponsored Solutions request failed"), j.request_id as string | undefined);
+  }
+  return j.result as T;
+}
+
 /** Shop-level API call on the Malaysia gateway. */
 export async function lazadaGet<T>(cfg: LazadaConfig, path: string, params: Record<string, string | number | undefined>, accessToken: string) {
   return (await call<T>(cfg, apiBase(), path, params, accessToken, "GET")).data as T;

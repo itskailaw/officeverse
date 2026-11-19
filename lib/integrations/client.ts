@@ -35,7 +35,25 @@ export interface LiveSummary {
   cancelledToday: number;
   byPlatform?: { shopee?: PlatformFigures; lazada?: PlatformFigures };
   bestSellers30d: { name: string; units: number; revenue: number }[];
-  ads: { shopee: { balance: number; at: string } | null };
+  ads: { shopee: { balance: number; at: string } | null; lazada?: LazadaAds | null };
+}
+export interface AdMetrics {
+  spend: number;
+  revenue: number;
+  roi: number | null;
+  clicks: number;
+  impressions: number;
+  unitsSold: number;
+  orders: number;
+}
+export interface LazadaAds {
+  at: string;
+  today: AdMetrics | null;
+  yesterday: AdMetrics | null;
+  monthToDate: AdMetrics | null;
+  solutions: { discovery: AdMetrics | null; smax: AdMetrics | null };
+  autoTopUp: { enabled: boolean; whenBelow: number | null; amount: number | null } | null;
+  errors: string[];
 }
 
 /** Names of connected marketplaces, e.g. "Shopee + Lazada". */

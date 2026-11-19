@@ -2,6 +2,7 @@ import "server-only";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { readTokens, saveIntegration, updateIntegration, type IntegrationRow } from "../store";
 import { lazadaGet, LazadaError, refreshToken, requireLazadaConfig, type LazadaConfig } from "./api";
+import { fetchLazadaAds, type LazadaAds } from "./ads";
 import { LAZADA_STATUS, lazadaTime, parseLazadaDate } from "./sign";
 
 const DAY = 86400 * 1000;
@@ -129,7 +130,20 @@ export async function syncLazada(row: IntegrationRow) {
     }
     if (unknown.size) warnings.push(`New Lazada order status seen: ${[...unknown].join(", ")}. Counted as sales but not as parcels to ship — tell us so we can classify it.`);
 
-    const summary = { orders: rows.length, from: from.toISOString(), to: new Date(now).toISOString(), warnings };
+    // 4. Sponsored Solutions (read-only); refreshed at most every 10 minutes, never fails the order sync
+    const prevAds = (row.last_sync_summary?.ads ?? null) as LazadaAds | null;
+    let ads = prevAds;
+    if (!prevAds || Date.now() - Date.parse(prevAds.at) > 10 * 60 * 1000) {
+      try {
+        ads = await fetchLazadaAds(cfg, token);
+      } catch (e) {
+        warnings.push(`Lazada ads data couldn't be read: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (ads?.errors.length && !ads.today && !ads.autoTopUp)
+      warnings.push(`Lazada ads data unavailable (${ads.errors[0]}). If you just enabled Sponsor Solution, click Re-connect.`);
+
+    const summary = { orders: rows.length, from: from.toISOString(), to: new Date(now).toISOString(), warnings, ads };
     await updateIntegration(row.id, { last_success_at: new Date().toISOString(), last_error: null, status: "connected", last_sync_summary: summary });
     if (runId) await sb.from("sync_runs").update({ status: "succeeded", records_in: orders.length, records_new: rows.length, finished_at: new Date().toISOString() }).eq("id", runId);
     return summary;

@@ -477,7 +477,7 @@ function SplitKpi({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string | null;
+  value?: string | null;
   sub?: string | null;
   warn?: boolean;
   rows?: Row[];
@@ -502,9 +502,9 @@ function SplitKpi({
       {control}
       {value === null ? (
         <div className="mt-1.5 text-sm font-semibold text-slate-400">Not available</div>
-      ) : (
+      ) : value !== undefined ? (
         <div className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</div>
-      )}
+      ) : null}
       {sub && <div className={cn("mt-0.5 text-[11px]", warn && !rows?.length ? "font-medium text-amber-700" : "text-slate-500")}>{sub}</div>}
       {!!rows?.length && (
         <div className="mt-2.5 space-y-1.5 border-t border-slate-100 pt-2.5">
@@ -525,6 +525,8 @@ function SplitKpi({
 type Period = "today" | "yesterday" | "monthToDate";
 const PERIOD_LABEL: Record<Period, string> = { today: "Today", yesterday: "Yesterday", monthToDate: "Month to date" };
 const PERIODS = Object.keys(PERIOD_LABEL) as Period[];
+
+const hasLz = (s: LiveSummary) => s.platforms.lazada.connected;
 
 function LiveEcommerceSection({ s }: { s: LiveSummary }) {
   const [range, setRange] = useState<7 | 14 | 30>(14);
@@ -551,9 +553,19 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
   const chart = s.days.slice(-range).map((x) => ({ date: x.date.slice(5), Shopee: x.shopee ?? x.revenue, Lazada: x.lazada ?? 0 }));
   const urgent = (n?: number) => ((n ?? 0) > 0 ? `${n} due in 24h` : null);
 
+  const lz = s.ads.lazada ?? null;
+  const lzPeriod = lz ? (period === "monthToDate" ? lz.monthToDate : period === "yesterday" ? lz.yesterday : lz.today) : null;
+  const roi = (m: { roi: number | null } | null | undefined) => (m?.roi != null ? `ROI ${m.roi.toFixed(1)}x` : null);
+  const topUp = lz?.autoTopUp
+    ? lz.autoTopUp.enabled
+      ? `Auto top-up on${lz.autoTopUp.amount ? ` (adds ${formatMYR(lz.autoTopUp.amount)}${lz.autoTopUp.whenBelow ? ` when below ${formatMYR(lz.autoTopUp.whenBelow)}` : ""})` : ""}`
+      : "Auto top-up off"
+    : null;
   const ads: Row[] = [
     { p: "shopee", value: s.ads.shopee ? formatMYR(s.ads.shopee.balance, 2) : "—", note: s.ads.shopee ? null : "no permission", muted: !s.ads.shopee },
-    { p: "lazada", value: "—", note: "not tracked yet", muted: true },
+    lzPeriod
+      ? { p: "lazada", value: formatMYR(lzPeriod.spend, 2), note: roi(lzPeriod) }
+      : { p: "lazada", value: "—", note: hasLz(s) ? "re-connect for ads" : "not connected", muted: true },
   ];
 
   return (
@@ -622,16 +634,34 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
             warn={(pack.urgentToShip ?? 0) > 0}
             rows={rows((p, x) => ({ p, value: String(x.toPack.processed), note: urgent(x.toPack.urgentToShip), warn: (x.toPack.urgentToShip ?? 0) > 0 }))}
           />
-          {one === "lazada" ? (
-            <SplitKpi icon={<Megaphone />} label="Ads balance" accent="lazada" value={null} sub="Lazada Sponsored Solutions isn't linked yet" />
+          {one === "lazada" || (!both && connected[0] === "lazada") ? (
+            <SplitKpi
+              icon={<Megaphone />}
+              label={`Ads spend · ${PERIOD_LABEL[period]}`}
+              accent="lazada"
+              value={lzPeriod ? formatMYR(lzPeriod.spend, 2) : null}
+              sub={
+                lzPeriod
+                  ? [roi(lzPeriod), `${formatMYR(lzPeriod.revenue)} ad sales`, topUp].filter(Boolean).join(" · ")
+                  : "Turn on Sponsor Solution, then Re-connect Lazada"
+              }
+            />
+          ) : one === "shopee" ? (
+            <SplitKpi
+              icon={<Megaphone />}
+              label="Ads balance"
+              accent="shopee"
+              value={s.ads.shopee ? formatMYR(s.ads.shopee.balance, 2) : null}
+              sub={s.ads.shopee ? `Shopee Ads · as of ${timeAgo(s.ads.shopee.at)}` : "Shopee Ads permission not granted"}
+            />
+          ) : both ? (
+            <SplitKpi icon={<Megaphone />} label="Ads" sub={`Shopee: balance left · Lazada: spent ${PERIOD_LABEL[period].toLowerCase()}`} rows={ads} />
           ) : (
             <SplitKpi
               icon={<Megaphone />}
               label="Ads balance"
-              accent={one ?? undefined}
               value={s.ads.shopee ? formatMYR(s.ads.shopee.balance, 2) : null}
               sub={s.ads.shopee ? `Shopee Ads · as of ${timeAgo(s.ads.shopee.at)}` : "Shopee Ads permission not granted"}
-              rows={both && view === "all" ? ads : undefined}
             />
           )}
           <SplitKpi

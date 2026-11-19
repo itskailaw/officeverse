@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LAZADA_STATUS } from "./lazada/sign";
+import type { LazadaAds } from "./lazada/ads";
+import { getAdminSupabase } from "@/lib/supabase/admin";
 
 type Platform = "shopee" | "lazada";
 const up = (s: Set<string>) => new Set([...s].map((x) => x.toUpperCase()));
@@ -53,7 +55,7 @@ export interface LiveSummary {
   cancelledToday: number;
   byPlatform: Partial<Record<Platform, PlatformFigures>>;
   bestSellers30d: { name: string; units: number; revenue: number }[];
-  ads: { shopee: { balance: number; at: string } | null };
+  ads: { shopee: { balance: number; at: string } | null; lazada: LazadaAds | null };
 }
 
 const klDay = (d: Date) =>
@@ -195,6 +197,18 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
     .order("captured_at", { ascending: false })
     .limit(1);
 
+  // Lazada ads figures live in the integration's last sync summary (admin read, scoped to this workspace).
+  let lazadaAds: LazadaAds | null = null;
+  if (platforms.includes("lazada")) {
+    try {
+      const { data: lz } = await getAdminSupabase().from("integrations").select("last_sync_summary").eq("workspace_id", workspaceId).eq("provider", "lazada").limit(1);
+      const a = (lz?.[0]?.last_sync_summary as { ads?: LazadaAds } | null)?.ads ?? null;
+      lazadaAds = a && (a.today || a.monthToDate || a.autoTopUp) ? a : null;
+    } catch {
+      lazadaAds = null;
+    }
+  }
+
   return {
     live: true,
     currency: "MYR",
@@ -216,6 +230,6 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
     cancelledToday: vals.reduce((s, f) => s + f.cancelledToday, 0),
     byPlatform: fig,
     bestSellers30d: top(sellers),
-    ads: { shopee: ads?.[0] ? { balance: Number(ads[0].balance), at: ads[0].captured_at as string } : null },
+    ads: { shopee: ads?.[0] ? { balance: Number(ads[0].balance), at: ads[0].captured_at as string } : null, lazada: lazadaAds },
   };
 }

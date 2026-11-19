@@ -115,7 +115,7 @@ type Live = {
   toPack: unknown;
   cancelledToday: number;
   bestSellers30d: unknown;
-  ads: { shopee: unknown };
+  ads: { shopee: unknown; lazada?: unknown };
 };
 
 function liveData(metric: string, live: Live) {
@@ -143,8 +143,12 @@ function liveData(metric: string, live: Live) {
         ...meta,
         currency: "MYR",
         shopeeAdsBalance: live.ads.shopee ?? "Unavailable (Ads permission not granted on the Shopee app)",
-        lazadaAds: "Not connected yet",
-        dailySpend: "Not tracked yet",
+        lazadaAds:
+          live.ads.lazada ??
+          (live.platforms.lazada.connected ? "Unavailable (Sponsor Solution permission missing or not re-connected)" : "Lazada not connected"),
+        lazadaAdsNote:
+          "Lazada Sponsored Solutions: spend, revenue (ad-attributed sales) and ROI = revenue / spend, for today, yesterday and month to date; combined Sponsored Discovery + Sponsored Max. Lazada exposes no wallet balance, only auto top-up settings.",
+        shopeeDailySpend: "Not tracked yet",
       };
     case "best_sellers":
       return { ...meta, currency: "MYR", last30Days: live.bestSellers30d };
@@ -157,7 +161,7 @@ function metricData(metric: string, ctx: OfficeContext) {
   if (ctx.live) {
     const d = liveData(metric, ctx.live as unknown as Live);
     if (d) return d;
-    return { source: "unavailable", message: `No live data for ${metric} yet (only Shopee orders, revenue and ads balance are connected). Do not estimate.` };
+    return { source: "unavailable", message: `No live data for ${metric} yet (only marketplace orders, revenue and ads figures are connected). Do not estimate.` };
   }
   if (!ctx.demoMode) {
     return {
