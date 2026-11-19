@@ -35,3 +35,16 @@ test("works when the absorbed employee no longer exists (new offices)", () => {
   const r = applyTeamMerges([mk("emp-ba", "Jason", ["a"], [])], []);
   assert.equal(r.employees[0].title, "Business & Strategy Analyst");
 });
+
+test("the receptionist is added to existing offices once, at the lobby desk", async () => {
+  const { SEED_EMPLOYEES } = await import("../lib/data/seed.ts");
+  const recep = SEED_EMPLOYEES.find((e) => e.id === "emp-recep")!;
+  assert.equal(recep.workstationId, "lobby-desk");
+  const old = SEED_EMPLOYEES.filter((e) => e.id !== "emp-recep");
+  const r = applyTeamMerges(old, TEAM_MERGES.map((m) => m.id), SEED_EMPLOYEES);
+  assert.ok(r.employees.some((e) => e.id === "emp-recep"));
+  assert.match(r.changes.join(" "), /Nadia Hassan joined/);
+  const again = applyTeamMerges(r.employees, r.applied, SEED_EMPLOYEES);
+  assert.equal(again.employees.filter((e) => e.id === "emp-recep").length, 1);
+  assert.equal(again.changes.length, 0);
+});

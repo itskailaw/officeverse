@@ -27,11 +27,18 @@ const C = ({ p, s, c, m, r }: { p: V3; s: V3; c?: string; m?: THREE.Material; r?
 const PURPLE = "#552583";
 const GOLD = "#fdb927";
 
-/** How many of this item's seats are occupied right now. */
+/** How many people are actually standing/sitting at this item's spots right now
+ *  (not just walking towards them — a spot is reserved as soon as someone sets off). */
 function occupied(itemId: string, seats: number) {
-  const occ = getSim().occupancy;
+  const sim = getSim();
   let n = 0;
-  for (let i = 0; i < seats; i++) if (occ.has(seats === 1 ? itemId : `${itemId}:${i}`)) n++;
+  for (let i = 0; i < seats; i++) {
+    const seatId = seats === 1 ? itemId : `${itemId}:${i}`;
+    const agentId = sim.occupancy.get(seatId);
+    const a = agentId ? sim.agents.get(agentId) : undefined;
+    const seat = sim.seats.get(seatId);
+    if (a && seat && a.seatId === seatId && a.pose !== "walk" && !a.glide && Math.hypot(a.x - seat.x, a.z - seat.z) < 0.6) n++;
+  }
   return n;
 }
 
@@ -363,6 +370,220 @@ function Bbq({ item, night }: { item: FurnitureItem; night?: boolean }) {
   );
 }
 
+// ---------------------------------------------------------------- work-floor props
+function PhoneBooth({ night }: { night?: boolean }) {
+  return (
+    <group>
+      <B p={[0, 1.1, -0.55]} s={[1.2, 2.2, 0.08]} c="#1e3a5f" />
+      <B p={[-0.56, 1.1, 0]} s={[0.08, 2.2, 1.2]} c="#1e3a5f" />
+      <B p={[0.56, 1.1, 0]} s={[0.08, 2.2, 1.2]} c="#1e3a5f" />
+      <B p={[0, 2.22, 0]} s={[1.2, 0.08, 1.2]} c="#1e3a5f" />
+      <B p={[0, 1.1, 0.56]} s={[1.04, 2.1, 0.03]} m={mat("#bfdbfe", { opacity: 0.35, rough: 0.05 })} />
+      <B p={[0, 0.85, -0.3]} s={[0.8, 0.05, 0.35]} c="#a16207" />
+      <C p={[0, 0.45, 0.05]} s={[0.4, 0.45, 0.4]} c="#f59e0b" />
+      <B p={[0, 2.05, 0]} s={[0.5, 0.03, 0.5]} m={mat("#fef9c3", { emissive: "#fde68a", ei: night ? 1.6 : 0.5 })} shadow={false} />
+    </group>
+  );
+}
+
+function PlanterDivider({ w }: { w: number }) {
+  const n = Math.max(2, Math.round(w / 0.6));
+  return (
+    <group>
+      <B p={[0, 0.3, 0]} s={[w, 0.6, 0.45]} c="#e7e5e4" />
+      {Array.from({ length: n }).map((_, i) => (
+        <mesh key={i} geometry={SPH} material={mat(i % 2 ? "#3f7d3f" : "#4c9150", { rough: 0.9 })} position={[-w / 2 + 0.3 + (i * (w - 0.6)) / (n - 1), 0.85, 0]} scale={[0.55, 0.6, 0.5]} castShadow />
+      ))}
+    </group>
+  );
+}
+
+function Printer() {
+  return (
+    <group>
+      <B p={[0, 0.35, 0]} s={[0.8, 0.7, 0.6]} c="#e5e7eb" />
+      <B p={[0, 0.75, -0.05]} s={[0.7, 0.12, 0.5]} c="#9ca3af" />
+      <B p={[0, 0.62, 0.3]} s={[0.5, 0.02, 0.15]} c="#f8fafc" />
+      <B p={[0.25, 0.72, 0.28]} s={[0.15, 0.04, 0.05]} m={mat("#22c55e", { emissive: "#22c55e", ei: 0.8 })} shadow={false} />
+    </group>
+  );
+}
+
+function ParcelStack() {
+  const boxes: [number, number, number, number][] = [
+    [-0.22, 0.17, -0.1, 0.34],
+    [0.22, 0.15, -0.12, 0.3],
+    [0, 0.15, 0.2, 0.3],
+    [-0.1, 0.48, -0.05, 0.28],
+    [0.18, 0.43, 0.05, 0.22],
+  ];
+  return (
+    <group>
+      {boxes.map(([x, y, z, sz], i) => (
+        <group key={i}>
+          <B p={[x, y, z]} s={[sz * 1.2, sz, sz]} c={i % 2 ? "#c69c6d" : "#b9895a"} />
+          <B p={[x, y + sz / 2 + 0.002, z]} s={[sz * 1.2, 0.004, 0.05]} c="#ee4d2d" shadow={false} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function StandingTable() {
+  return (
+    <group>
+      <B p={[0, 1.05, 0]} s={[1.2, 0.05, 0.7]} c="#f8fafc" />
+      <C p={[0, 0.52, 0]} s={[0.1, 1.05, 0.1]} c="#334155" />
+      <B p={[0, 0.02, 0]} s={[0.6, 0.04, 0.4]} c="#334155" />
+      <C p={[-0.3, 1.12, 0.1]} s={[0.08, 0.1, 0.08]} c="#f59e0b" />
+      <B p={[0.25, 1.09, -0.05]} s={[0.3, 0.02, 0.22]} c="#e2e8f0" />
+    </group>
+  );
+}
+
+function RingLight({ night }: { night?: boolean }) {
+  return (
+    <group>
+      <C p={[0, 0.8, 0]} s={[0.04, 1.6, 0.04]} c="#111827" />
+      <mesh geometry={TORUS} material={mat("#ffffff", { emissive: "#fff7ed", ei: night ? 2.2 : 1.2 })} position={[0, 1.65, 0.05]} scale={[0.36, 0.36, 0.6]} />
+      {[0, 1, 2].map((i) => (
+        <B key={i} p={[Math.sin((i * 2 * Math.PI) / 3) * 0.25, 0.06, Math.cos((i * 2 * Math.PI) / 3) * 0.25]} s={[0.05, 0.12, 0.3]} r={[0, (i * 2 * Math.PI) / 3, 0.5]} c="#111827" />
+      ))}
+    </group>
+  );
+}
+
+function CameraTripod() {
+  return (
+    <group>
+      {[0, 1, 2].map((i) => (
+        <B key={i} p={[Math.sin((i * 2 * Math.PI) / 3) * 0.18, 0.62, Math.cos((i * 2 * Math.PI) / 3) * 0.18]} s={[0.03, 1.3, 0.03]} r={[Math.cos((i * 2 * Math.PI) / 3) * -0.25, 0, Math.sin((i * 2 * Math.PI) / 3) * 0.25]} c="#111827" />
+      ))}
+      <B p={[0, 1.33, 0]} s={[0.28, 0.18, 0.16]} c="#1f2937" />
+      <C p={[0, 1.34, 0.14]} s={[0.12, 0.14, 0.12]} r={[Math.PI / 2, 0, 0]} c="#0f172a" />
+      <B p={[0.08, 1.45, 0]} s={[0.05, 0.03, 0.05]} m={mat("#ef4444", { emissive: "#ef4444", ei: 1 })} shadow={false} />
+    </group>
+  );
+}
+
+/** Framed artwork on a wall. color = accent; "map" draws a world map. */
+function WallArt({ w, color = "#1e3a5f" }: { w: number; color?: string }) {
+  const tex = useMemo(
+    () =>
+      makeScreenTexture(
+        (g, W, H) => {
+          if (color === "map") {
+            g.fillStyle = "#1e3a8a";
+            g.fillRect(0, 0, W, H);
+            g.fillStyle = "#4ade80";
+            const blobs: [number, number, number, number][] = [
+              [0.2, 0.35, 0.12, 0.18], [0.27, 0.68, 0.06, 0.16], [0.48, 0.3, 0.08, 0.1], [0.52, 0.58, 0.07, 0.18],
+              [0.68, 0.33, 0.16, 0.14], [0.77, 0.6, 0.05, 0.08], [0.85, 0.75, 0.07, 0.06],
+            ];
+            for (const [x, y, rx, ry] of blobs) {
+              g.beginPath();
+              g.ellipse(x * W, y * H, rx * W, ry * H, 0, 0, Math.PI * 2);
+              g.fill();
+            }
+            g.fillStyle = "#f43f5e";
+            for (const [x, y] of [[0.74, 0.55], [0.2, 0.33], [0.5, 0.28], [0.8, 0.36], [0.53, 0.62]]) {
+              g.beginPath();
+              g.arc(x * W, y * H, 9, 0, Math.PI * 2);
+              g.fill();
+            }
+            return;
+          }
+          g.fillStyle = "#f8fafc";
+          g.fillRect(0, 0, W, H);
+          g.fillStyle = color;
+          g.beginPath();
+          g.arc(W * 0.35, H * 0.55, H * 0.3, 0, Math.PI * 2);
+          g.fill();
+          g.globalAlpha = 0.6;
+          g.fillStyle = "#f59e0b";
+          g.fillRect(W * 0.5, H * 0.2, W * 0.3, H * 0.55);
+          g.globalAlpha = 1;
+          g.strokeStyle = "#0f172a";
+          g.lineWidth = 6;
+          g.beginPath();
+          g.moveTo(W * 0.1, H * 0.85);
+          g.bezierCurveTo(W * 0.4, H * 0.6, W * 0.6, H * 0.95, W * 0.9, H * 0.7);
+          g.stroke();
+        },
+        512,
+        320,
+      ),
+    [color],
+  );
+  useEffect(() => () => tex.dispose(), [tex]);
+  const h = color === "map" ? 1.2 : 0.9;
+  return (
+    <group>
+      <B p={[0, 1.55, 0]} s={[w + 0.08, h + 0.08, 0.04]} c="#111827" />
+      <mesh geometry={PLANE} position={[0, 1.55, 0.025]} scale={[w, h, 1]}>
+        <meshStandardMaterial map={tex} roughness={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
+const SWATCHES = ["#d6c3a5", "#8b5a2b", "#e7e5e4", "#57534e", "#b45309", "#f5f5f4", "#a8a29e", "#78350f", "#cbd5e1", "#9a3412", "#d4d4d8", "#713f12"];
+function MaterialWall({ w }: { w: number }) {
+  return (
+    <group>
+      <B p={[0, 1.0, 0]} s={[w, 2.0, 0.3]} c="#f5f5f4" />
+      {SWATCHES.map((c, i) => (
+        <B key={i} p={[-w / 2 + 0.3 + (i % 6) * ((w - 0.6) / 5), 0.75 + Math.floor(i / 6) * 0.6, 0.17]} s={[0.32, 0.45, 0.03]} c={c} />
+      ))}
+      <B p={[0, 1.85, 0.16]} s={[w - 0.3, 0.12, 0.02]} c="#b45309" />
+    </group>
+  );
+}
+
+function RobotArm() {
+  const arm = useRef<THREE.Group>(null);
+  const fore = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (arm.current) arm.current.rotation.y = Math.sin(t * 0.6) * 0.9;
+    if (fore.current) fore.current.rotation.z = -0.9 + Math.sin(t * 1.1) * 0.35;
+  });
+  return (
+    <group>
+      <B p={[0, 0.4, 0]} s={[0.9, 0.8, 0.7]} c="#334155" />
+      <group ref={arm} position={[0, 0.85, 0]}>
+        <C p={[0, 0.05, 0]} s={[0.3, 0.1, 0.3]} c="#f97316" />
+        <group rotation={[0, 0, 0.5]}>
+          <B p={[0, 0.3, 0]} s={[0.1, 0.55, 0.1]} c="#f97316" />
+          <group ref={fore} position={[0, 0.58, 0]}>
+            <B p={[0.2, 0, 0]} s={[0.4, 0.08, 0.08]} c="#f97316" />
+            <B p={[0.42, -0.04, 0]} s={[0.06, 0.12, 0.12]} c="#111827" />
+          </group>
+        </group>
+      </group>
+    </group>
+  );
+}
+
+function Printer3D({ night }: { night?: boolean }) {
+  const head = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (head.current) head.current.position.x = Math.sin(clock.elapsedTime * 2.2) * 0.18;
+  });
+  return (
+    <group>
+      <B p={[0, 0.25, 0]} s={[0.7, 0.5, 0.7]} c="#1f2937" />
+      {[-0.3, 0.3].map((x, i) => (
+        <B key={i} p={[x, 0.85, 0]} s={[0.05, 0.7, 0.05]} c="#94a3b8" />
+      ))}
+      <B p={[0, 1.2, 0]} s={[0.66, 0.05, 0.05]} c="#94a3b8" />
+      <mesh ref={head} geometry={BOX} material={mat("#22d3ee", { emissive: "#22d3ee", ei: night ? 1.4 : 0.5 })} position={[0, 1.1, 0]} scale={[0.12, 0.1, 0.12]} />
+      <B p={[0, 0.58, 0]} s={[0.5, 0.04, 0.5]} c="#475569" />
+      <C p={[0, 0.66, 0]} s={[0.16, 0.12, 0.16]} c="#a855f7" />
+    </group>
+  );
+}
+
 /** Returns a model for the fun furniture types, or null for other types. */
 export function FunVisual({ item, w, d, night }: { item: FurnitureItem; w: number; d: number; night?: boolean }) {
   switch (item.type) {
@@ -392,6 +613,28 @@ export function FunVisual({ item, w, d, night }: { item: FurnitureItem; w: numbe
       return <Bench />;
     case "bbq":
       return <Bbq item={item} night={night} />;
+    case "phone_booth":
+      return <PhoneBooth night={night} />;
+    case "planter_divider":
+      return <PlanterDivider w={w} />;
+    case "printer":
+      return <Printer />;
+    case "parcel_stack":
+      return <ParcelStack />;
+    case "standing_table":
+      return <StandingTable />;
+    case "ring_light":
+      return <RingLight night={night} />;
+    case "camera_tripod":
+      return <CameraTripod />;
+    case "wall_art":
+      return <WallArt w={w} color={item.color} />;
+    case "material_wall":
+      return <MaterialWall w={w} />;
+    case "robot_arm":
+      return <RobotArm />;
+    case "printer_3d":
+      return <Printer3D night={night} />;
     default:
       return null;
   }

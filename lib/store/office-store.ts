@@ -421,14 +421,14 @@ export const useOffice = create<OfficeState>()(
             audit("upgrade", "layout", null, `floor plan v${LAYOUT_VERSION}`);
           }
           const st = get();
-          const r = applyTeamMerges(st.employees, st.settings.appliedMigrations ?? []);
+          const r = applyTeamMerges(st.employees, st.settings.appliedMigrations ?? [], SEED_EMPLOYEES);
           if (r.applied.length === (st.settings.appliedMigrations ?? []).length) return;
           set((s) => ({ employees: r.employees, settings: { ...s.settings, appliedMigrations: r.applied } }));
           for (const c of r.changes) audit("merge", "employee", null, c);
           if (r.changes.length)
             get().notify({
               priority: "info",
-              title: "Team update: roles merged",
+              title: "Team update",
               body: r.changes.join(". ") + ". Deactivated employees can be reactivated in Dashboard → Team.",
               demo: false,
             });

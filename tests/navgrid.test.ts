@@ -7,7 +7,7 @@ import { wallSegments } from "../lib/office/layout.ts";
 
 const grid = buildNavGrid(DEFAULT_LAYOUT);
 const seats = DEFAULT_LAYOUT.furniture.flatMap(seatsFor);
-const hub = { x: 30, z: 14 }; // middle of Main Street
+const hub = { x: 26, z: 13 }; // middle of Main Street
 
 test("corridor hub is walkable", () => {
   assert.ok(isWalkablePoint(grid, hub.x, hub.z));

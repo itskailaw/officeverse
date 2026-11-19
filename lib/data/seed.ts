@@ -209,6 +209,13 @@ const DEFS: Def[] = [
     permissions: ["orders:read", "ads:read", "inventory:read", "finance:read", "reports:write"], schedule: "Daily 08:00 CEO briefing",
     look: look(0, "#18181b", "bun", "#1e3a5f", "#0f172a", { outfit: "blazer" }),
   },
+  {
+    id: "emp-recep", name: "Nadia Hassan", gender: "female", title: "Receptionist & Office Coordinator", dept: "dept-exec", company: null, ws: "lobby-desk",
+    personality: "Warm, cheerful and organised. First smile visitors see; never lets a courier or a call slip through.",
+    responsibilities: ["Welcome visitors and guests", "Log courier pickups and incoming deliveries", "Answer and route calls and enquiries", "Book the boardroom and manage the visitor log", "Keep the lobby and pantry stocked", "Remind the team of office events"],
+    permissions: ["orders:read", "drafts:write"], schedule: "Daily 09:00 courier pickup check",
+    look: look(2, "#1c1917", "hijab", "#0f766e", "#1e293b", { outfit: "kurung" }),
+  },
   // ── IT ──
   {
     id: "emp-it", name: "Ethan Koh", gender: "male", title: "IT & Automation Engineer", dept: "dept-it", company: null, ws: "ws-it-1",

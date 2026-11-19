@@ -57,7 +57,7 @@ test("dropped employee in the corridor walks back to the desk", () => {
   sim.ambientLife = false;
   sim.addAgent("e1", "ws-art-3");
   sim.pickUp("e1");
-  sim.drop("e1", 3, 14);
+  sim.drop("e1", 3, 13);
   run(sim, 90);
   const a = sim.agents.get("e1")!;
   assert.equal(a.seatId, "ws-art-3");

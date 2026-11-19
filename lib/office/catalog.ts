@@ -180,6 +180,17 @@ export const CATALOG: Record<FurnitureType, CatalogEntry> = {
     ],
     movable: true,
   },
+  phone_booth: { label: "Phone booth", size: [1.2, 1.2], blocks: true, seats: [], movable: true },
+  planter_divider: { label: "Planter divider", size: [2.4, 0.45], blocks: true, seats: [], movable: true },
+  printer: { label: "Printer", size: [0.8, 0.6], blocks: true, seats: [], movable: true },
+  parcel_stack: { label: "Parcels for pickup", size: [0.9, 0.7], blocks: true, seats: [], movable: true },
+  standing_table: { label: "Huddle table", size: [1.2, 0.7], blocks: true, seats: [], movable: true },
+  ring_light: { label: "Ring light", size: [0.6, 0.6], blocks: true, seats: [], movable: true },
+  camera_tripod: { label: "Camera", size: [0.6, 0.6], blocks: true, seats: [], movable: true },
+  wall_art: { label: "Wall art", size: [1.4, 0.1], blocks: false, seats: [], movable: true },
+  material_wall: { label: "Material samples", size: [2.4, 0.35], blocks: true, seats: [], movable: true },
+  robot_arm: { label: "Robot arm", size: [0.9, 0.7], blocks: true, seats: [], movable: true },
+  printer_3d: { label: "3D printer", size: [0.7, 0.7], blocks: true, seats: [], movable: true },
   bbq: { label: "BBQ grill", size: [1.2, 0.8], blocks: true, seats: [{ lx: 0, lz: -0.85, f: 0, alx: 0, alz: -0.85, kind: "lounge", sit: false }], movable: true },
 };
 

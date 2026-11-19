@@ -288,7 +288,18 @@ export type FurnitureType =
   | "hammock"
   | "nap_pod"
   | "bench"
-  | "bbq";
+  | "bbq"
+  | "phone_booth"
+  | "planter_divider"
+  | "printer"
+  | "parcel_stack"
+  | "standing_table"
+  | "ring_light"
+  | "camera_tripod"
+  | "wall_art"
+  | "material_wall"
+  | "robot_arm"
+  | "printer_3d";
 
 export interface FurnitureItem {
   id: ID;
