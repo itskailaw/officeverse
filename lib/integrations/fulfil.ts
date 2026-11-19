@@ -78,14 +78,49 @@ export async function shipShopee(ws: string, orderSns: string[]): Promise<ShipRe
   return out;
 }
 
-/** Shopee: air waybill PDF for orders that are already arranged (create → poll → download). */
-export async function labelsShopee(ws: string, orderSns: string[]): Promise<ArrayBuffer> {
+export interface LabelResult {
+  pdf: ArrayBuffer;
+  /** orders that couldn't be printed, with Shopee's reason */
+  problems: string[];
+}
+
+interface DocResult {
+  order_sn: string;
+  status?: string;
+  fail_error?: string;
+  fail_message?: string;
+  suggest_shipping_document_type?: string;
+  selectable_shipping_document_type?: string[];
+}
+
+/** Merge several PDFs into one (labels for different couriers come back separately). */
+async function mergePdfs(parts: ArrayBuffer[]): Promise<ArrayBuffer> {
+  if (parts.length === 1) return parts[0];
+  const { PDFDocument } = await import("pdf-lib");
+  const out = await PDFDocument.create();
+  for (const p of parts) {
+    const doc = await PDFDocument.load(p);
+    for (const page of await out.copyPages(doc, doc.getPageIndices())) out.addPage(page);
+  }
+  const bytes = await out.save();
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+/**
+ * Shopee: air waybill PDF for arranged orders.
+ * Flow: tracking number → which label type the courier allows (get_shipping_document_parameter)
+ * → create_shipping_document → wait until READY → download_shipping_document, per label type.
+ */
+export async function labelsShopee(ws: string, orderSns: string[]): Promise<LabelResult> {
   const cfg = requireShopeeConfig();
   const row = await connection(ws, "shopee");
   const shopId = Number(row.shop_id);
   const token = await shopeeToken(cfg, row);
-  const list: { order_sn: string; tracking_number: string }[] = [];
   const problems: string[] = [];
+  const reason = (r: DocResult) => `${r.order_sn}: ${r.fail_message || r.fail_error || "not ready"}`;
+
+  // 1. tracking numbers (only exist once the shipment is arranged)
+  const list: { order_sn: string; tracking_number: string }[] = [];
   for (const sn of orderSns.slice(0, 50)) {
     let tn = "";
     for (let i = 0; i < 3 && !tn; i++) {
@@ -94,26 +129,79 @@ export async function labelsShopee(ws: string, orderSns: string[]): Promise<Arra
       if (!tn) await sleep(1500);
     }
     if (tn) list.push({ order_sn: sn, tracking_number: tn });
-    else problems.push(sn);
+    else problems.push(`${sn}: no tracking number yet — arrange the shipment first, or try again in a minute`);
   }
-  if (!list.length) throw new HttpError(409, `No tracking number yet for ${problems.join(", ")} — arrange the shipment first, or wait a minute and try again.`);
-  const type = "NORMAL_AIR_WAYBILL";
-  await shopPost(cfg, "/api/v2/logistics/create_shipping_document", { order_list: list, shipping_document_type: type }, token, shopId);
-  for (let i = 0; i < 8; i++) {
-    const r = await shopPost<{ response?: { result_list?: { order_sn: string; status: string; fail_message?: string }[] } }>(
+  if (!list.length) throw new HttpError(409, problems.join(" · "));
+
+  // 2. label type each order's courier supports
+  const typeOf = new Map<string, string>();
+  try {
+    const r = await shopPost<{ response?: { result_list?: DocResult[] } }>(
       cfg,
-      "/api/v2/logistics/get_shipping_document_result",
-      { order_list: list.map((o) => ({ order_sn: o.order_sn })), shipping_document_type: type },
+      "/api/v2/logistics/get_shipping_document_parameter",
+      { order_list: list.map((o) => ({ order_sn: o.order_sn })) },
       token,
       shopId,
     );
-    const res = r.response?.result_list ?? [];
-    const failed = res.find((x) => x.status === "FAILED");
-    if (failed) throw new HttpError(502, `Shopee couldn't create the label for ${failed.order_sn}: ${failed.fail_message ?? "unknown reason"}`);
-    if (res.length && res.every((x) => x.status === "READY")) break;
-    await sleep(1500);
+    for (const x of r.response?.result_list ?? []) {
+      const t = x.suggest_shipping_document_type || x.selectable_shipping_document_type?.[0];
+      if (t) typeOf.set(x.order_sn, t);
+    }
+  } catch {
+    // older shops: fall back to the standard label
   }
-  return shopPostFile(cfg, "/api/v2/logistics/download_shipping_document", { shipping_document_type: type, order_list: list.map((o) => ({ order_sn: o.order_sn })) }, token, shopId);
+
+  // 3. create → wait → download, one batch per label type
+  const groups = new Map<string, typeof list>();
+  for (const o of list) {
+    const t = typeOf.get(o.order_sn) ?? "NORMAL_AIR_WAYBILL";
+    groups.set(t, [...(groups.get(t) ?? []), o]);
+  }
+  const parts: ArrayBuffer[] = [];
+  for (const [type, batch] of groups) {
+    const created = await shopPost<{ response?: { result_list?: DocResult[] } }>(
+      cfg,
+      "/api/v2/logistics/create_shipping_document",
+      { order_list: batch, shipping_document_type: type },
+      token,
+      shopId,
+    );
+    // a label that was created before is fine — anything else is a real failure
+    const failed = new Set(
+      (created.response?.result_list ?? [])
+        .filter((x) => x.fail_error && !/already|exist|created/i.test(`${x.fail_error} ${x.fail_message}`))
+        .map((x) => {
+          problems.push(reason(x));
+          return x.order_sn;
+        }),
+    );
+    let pending = batch.filter((o) => !failed.has(o.order_sn));
+    const ready: string[] = [];
+    for (let i = 0; i < 20 && pending.length; i++) {
+      const r = await shopPost<{ response?: { result_list?: DocResult[] } }>(
+        cfg,
+        "/api/v2/logistics/get_shipping_document_result",
+        { order_list: pending.map((o) => ({ order_sn: o.order_sn })), shipping_document_type: type },
+        token,
+        shopId,
+      );
+      for (const x of r.response?.result_list ?? []) {
+        if (x.status === "READY") ready.push(x.order_sn);
+        else if (x.status === "FAILED") problems.push(reason(x));
+      }
+      const done = new Set((r.response?.result_list ?? []).filter((x) => x.status === "READY" || x.status === "FAILED").map((x) => x.order_sn));
+      pending = pending.filter((o) => !done.has(o.order_sn));
+      if (pending.length) await sleep(1500);
+    }
+    for (const o of pending) problems.push(`${o.order_sn}: Shopee is still preparing the label — try again in a minute`);
+    if (ready.length) {
+      parts.push(
+        await shopPostFile(cfg, "/api/v2/logistics/download_shipping_document", { shipping_document_type: type, order_list: ready.map((sn) => ({ order_sn: sn })) }, token, shopId),
+      );
+    }
+  }
+  if (!parts.length) throw new HttpError(502, `Shopee couldn't create the labels: ${problems.join(" · ")}`);
+  return { pdf: await mergePdfs(parts), problems };
 }
 
 // ───────────────────────────── Lazada
@@ -184,7 +272,7 @@ export async function shipLazada(ws: string, orderIds: string[]): Promise<ShipRe
 }
 
 /** Lazada: AWB / shipping label PDF for packed orders. */
-export async function labelsLazada(ws: string, orderIds: string[]): Promise<ArrayBuffer> {
+export async function labelsLazada(ws: string, orderIds: string[]): Promise<LabelResult> {
   const cfg = requireLazadaConfig();
   const row = await connection(ws, "lazada");
   const token = await lazadaToken(cfg, row);
@@ -210,14 +298,14 @@ export async function labelsLazada(ws: string, orderIds: string[]): Promise<Arra
     const link = r.data?.pdf_url ?? r.data?.url;
     if (link) {
       const res = await fetch(link, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
-      if (res.ok) return res.arrayBuffer();
+      if (res.ok) return { pdf: await res.arrayBuffer(), problems: [] };
     }
-    if (r.data?.file) return new Uint8Array(Buffer.from(r.data.file, "base64")).buffer;
+    if (r.data?.file) return { pdf: new Uint8Array(Buffer.from(r.data.file, "base64")).buffer, problems: [] };
   } catch (e) {
     if (!(e instanceof LazadaError)) throw e;
   }
   // older API: AWB PDF by order item ids
   const d = await lazadaGet<{ document?: { file?: string } }>(cfg, "/order/document/awb/pdf/get", { order_item_ids: JSON.stringify(itemIds) }, token);
   if (!d?.document?.file) throw new HttpError(502, "Lazada didn't return a label file.");
-  return new Uint8Array(Buffer.from(d.document.file, "base64")).buffer;
+  return { pdf: new Uint8Array(Buffer.from(d.document.file, "base64")).buffer, problems: [] };
 }

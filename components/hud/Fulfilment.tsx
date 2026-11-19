@@ -66,6 +66,7 @@ export function Fulfilment() {
   const [busy, setBusy] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, { ok: boolean; message: string }>>({});
   const [sort, setSort] = useState<Sort>(readSort);
+  const [justArranged, setJustArranged] = useState<{ platform: Plat; id: string }[]>([]);
   const chooseSort = (v: Sort) => {
     setSort(v);
     try {
@@ -88,6 +89,7 @@ export function Fulfilment() {
     if (open) {
       setSel(new Set());
       setResults({});
+      setJustArranged([]);
       void load();
     }
   }, [open, load]);
@@ -133,6 +135,7 @@ export function Fulfilment() {
     }
     setResults(res);
     const ok = Object.entries(res).filter(([, v]) => v.ok);
+    setJustArranged(ok.map(([k]) => ({ platform: k.split(":")[0] as Plat, id: k.split(":").slice(1).join(":") })));
     if (ok.length) useOffice.getState().recordAudit("arrange_shipment", "order", null, `Drop-off arranged: ${ok.map(([k]) => k).join(", ")}`);
     toast(ok.length === Object.keys(res).length ? "success" : "error", `${ok.length} of ${Object.keys(res).length} arranged${ok.length ? " — print the labels under To ship" : ""}`);
     setBusy(null);
@@ -141,17 +144,23 @@ export function Fulfilment() {
     void useLive.getState().loadSummary();
   };
 
-  const print = async () => {
-    if (!chosen.length) return;
+  const print = () => printFor(chosen.map((o) => ({ platform: o.platform, id: o.id })));
+  const printFor = async (targets: { platform: Plat; id: string }[]) => {
+    if (!targets.length) return;
     setBusy("print");
     for (const p of ["shopee", "lazada"] as Plat[]) {
-      const ids = chosen.filter((o) => o.platform === p).map((o) => o.id);
+      const ids = targets.filter((o) => o.platform === p).map((o) => o.id);
       if (!ids.length) continue;
       // open the tab first (popup blockers), then fill it with the PDF
       const tab = window.open("", "_blank");
       try {
         const r = await fetch("/api/fulfil/labels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform: p, orderIds: ids }) });
         if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `Request failed (${r.status})`);
+        let problems: string[] = [];
+        try {
+          problems = JSON.parse(decodeURIComponent(r.headers.get("X-OV-Problems") ?? "%5B%5D"));
+        } catch {}
+        if (problems.length) toast("error", `${NAME[p]}: ${problems.length} label${problems.length > 1 ? "s" : ""} not printed — ${problems.join(" · ")}`);
         const url = URL.createObjectURL(await r.blob());
         if (tab) tab.location.href = url;
         else window.location.assign(url);
@@ -225,6 +234,17 @@ export function Fulfilment() {
               </div>
             </div>
             <div className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
+              {justArranged.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="font-medium">
+                    {justArranged.length} order{justArranged.length > 1 ? "s" : ""} arranged for drop-off.
+                  </span>
+                  <Button size="sm" className="ml-auto" onClick={() => void printFor(justArranged)} disabled={busy !== null}>
+                    {busy === "print" ? <Loader2 className="animate-spin" /> : <Printer />} Print airway bills now
+                  </Button>
+                </div>
+              )}
               {err && <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">{err}</div>}
               {!orders && !err && <Loader2 className="h-5 w-5 animate-spin text-slate-400" />}
               {orders && !list.length && <p className="text-sm text-slate-500">{stage === "process" ? "No new orders to process. 🎉" : "Nothing waiting for pickup."}</p>}
