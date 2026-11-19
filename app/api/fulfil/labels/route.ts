@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const m = await getMembership();
     requireRole(m, ["owner"]);
     const body = (await req.json().catch(() => null)) as { platform?: string; orderIds?: unknown; paper?: string } | null;
-    const paper: Paper = body?.paper === "a4" || body?.paper === "a5" || body?.paper === "a6" ? body.paper : "original";
+    const paper: Paper = ["a4", "a5", "a6", "thermal"].includes(String(body?.paper)) ? (body!.paper as Paper) : "original";
     const ids = Array.isArray(body?.orderIds) ? body!.orderIds.map(String).filter((x) => /^[\w-]{4,40}$/.test(x)).slice(0, 50) : [];
     if (!ids.length) throw new HttpError(400, "Pick at least one order.");
     const res = body?.platform === "shopee" ? await labelsShopee(m.workspaceId, ids) : body?.platform === "lazada" ? await labelsLazada(m.workspaceId, ids) : null;

@@ -11,7 +11,7 @@ test("labels are fitted onto A5 / A6 / A4 pages", async () => {
   }
   const b = await d.save();
   const src = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
-  for (const paper of ["a5", "a6", "a4"] as const) {
+  for (const paper of ["thermal", "a6", "a5", "a4"] as const) {
     const out = await PDFDocument.load(await fitToPaper(src, paper));
     assert.equal(out.getPageCount(), 3);
     for (const p of out.getPages()) {

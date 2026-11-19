@@ -43,19 +43,20 @@ function readSort(): Sort {
     return "paid";
   }
 }
-type Paper = "original" | "a5" | "a6" | "a4";
+type Paper = "original" | "a5" | "a6" | "a4" | "thermal";
 const PAPERS: { v: Paper; label: string }[] = [
+  { v: "thermal", label: "A6 thermal label (100×150 mm)" },
+  { v: "a6", label: "A6 paper (105×148 mm)" },
   { v: "a5", label: "A5" },
-  { v: "a6", label: "A6 / thermal 100×150" },
   { v: "a4", label: "A4" },
   { v: "original", label: "As sent by marketplace" },
 ];
 function readPaper(): Paper {
   try {
-    const v = localStorage.getItem("ov:label-paper") as Paper | null;
-    return v && PAPERS.some((x) => x.v === v) ? v : "a5";
+    const v = localStorage.getItem("ov:label-paper-v2") as Paper | null;
+    return v && PAPERS.some((x) => x.v === v) ? v : "thermal";
   } catch {
-    return "a5";
+    return "thermal";
   }
 }
 const t = (iso: string | null) => (iso ? Date.parse(iso) : Number.POSITIVE_INFINITY);
@@ -85,7 +86,7 @@ export function Fulfilment() {
   const choosePaper = (v: Paper) => {
     setPaper(v);
     try {
-      localStorage.setItem("ov:label-paper", v);
+      localStorage.setItem("ov:label-paper-v2", v);
     } catch {}
   };
   const [justArranged, setJustArranged] = useState<{ platform: Plat; id: string }[]>([]);
