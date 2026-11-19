@@ -36,8 +36,6 @@ import type { LightingMode, WallMode } from "@/lib/data/types";
 import { PriorityDot } from "./ExecutiveDashboard";
 import { CompanySwitcher, Logo } from "./Extras";
 import { liveSources, useLive } from "@/lib/integrations/client";
-import { useInbox } from "@/lib/integrations/inbox";
-import { MessageSquareText } from "lucide-react";
 
 function Clock24() {
   const [now, setNow] = useState<Date | null>(null);
@@ -115,7 +113,6 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         >
           <Tag />
         </Button>
-        <InboxButton />
         <ApprovalsButton />
         <div className="relative">
           <Button variant="ghost" size="icon" title="Notifications" onClick={() => ui.set({ notificationsOpen: !ui.notificationsOpen })}>
@@ -137,19 +134,6 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         {authLabel}
       </div>
     </header>
-  );
-}
-
-function InboxButton() {
-  const n = useInbox((s) => s.unread);
-  const lazada = useLive((s) => s.status?.integrations.some((i) => i.provider === "lazada" && i.status !== "expired"));
-  const set = useUI((s) => s.set);
-  if (!lazada) return null;
-  return (
-    <Button variant="ghost" size="sm" title="Customer inbox" className={n ? "bg-sky-100 text-sky-800 hover:bg-sky-200" : ""} onClick={() => set({ dialog: "inbox" })}>
-      <MessageSquareText />
-      {n ? `${n} chat${n > 1 ? "s" : ""}` : <span className="hidden lg:inline">Inbox</span>}
-    </Button>
   );
 }
 

@@ -181,19 +181,9 @@ export function watchLiveData(intervalMs = 30_000): () => void {
     if (!live.status?.integrations.length || live.syncing) return;
     void Promise.all([live.loadSummary(), live.loadStatus()]);
   };
-  // unread buyer chats (Lazada), every 2 minutes while visible
-  const chats = () => {
-    if (document.visibilityState !== "visible") return;
-    const hasLazada = useLive.getState().status?.integrations.some((i) => i.provider === "lazada" && i.status !== "expired");
-    if (hasLazada) void import("./inbox").then((m) => m.useInbox.getState().loadChats());
-  };
-  const first = window.setTimeout(chats, 4000);
-  const chatId = window.setInterval(chats, 120_000);
   const id = window.setInterval(refresh, intervalMs);
   document.addEventListener("visibilitychange", refresh);
   return () => {
-    window.clearTimeout(first);
-    window.clearInterval(chatId);
     window.clearInterval(id);
     document.removeEventListener("visibilitychange", refresh);
   };

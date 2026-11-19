@@ -28,8 +28,7 @@ interface LzItem {
   promised_shipping_time?: string;
 }
 
-/** Access token for this connection, refreshed when it's within 12 hours of expiry. */
-export async function validToken(cfg: LazadaConfig, row: IntegrationRow): Promise<string> {
+async function validToken(cfg: LazadaConfig, row: IntegrationRow): Promise<string> {
   const tokens = readTokens(row);
   const exp = row.token_expires_at ? Date.parse(row.token_expires_at) : 0;
   if (exp - Date.now() > 12 * 3600 * 1000) return tokens.access_token;

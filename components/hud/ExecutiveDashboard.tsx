@@ -35,7 +35,6 @@ import { CompaniesManager } from "./CompaniesManager";
 import { TeamTable } from "./TeamTable";
 import { StatusBadge, TaskRow } from "./EmployeePanel";
 import { ApprovalCard } from "./AIWork";
-import { useInbox } from "@/lib/integrations/inbox";
 import { liveSources, useLive, type LiveSummary, type PlatformFigures } from "@/lib/integrations/client";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
@@ -330,8 +329,6 @@ function Hero() {
   if (live) items.push({ label: `Meeting in progress: ${live.topic}`, tone: "sky", onClick: () => set({ dialog: null }) });
   const queued = tasks.filter((t) => t.status === "queued").length;
   if (queued) items.push({ label: `${queued} task${queued > 1 ? "s" : ""} queued for the AI engine`, tone: "sky", onClick: () => set({ dashboardTab: "tasks" }) });
-  const unreadChats = useInbox((x) => x.unread);
-  if (unreadChats) items.push({ label: `${unreadChats} unread Lazada chat${unreadChats > 1 ? "s" : ""}`, tone: "red", onClick: () => set({ dialog: "inbox" }) });
   if (shopeeLive) {
     if (shopeeLive.toPack.urgent) items.push({ label: `${shopeeLive.toPack.urgent} parcel${shopeeLive.toPack.urgent > 1 ? "s" : ""} due to ship within 24h`, tone: "red" });
     if (shopeeLive.toPack.readyToShip) items.push({ label: `${shopeeLive.toPack.readyToShip} new orders to process`, tone: "amber" });

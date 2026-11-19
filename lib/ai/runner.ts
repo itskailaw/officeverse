@@ -90,12 +90,6 @@ async function postJSON<T>(url: string, body: unknown): Promise<T> {
   return json as T;
 }
 
-/** Brief for one employee (for server calls such as reply drafts). */
-export function employeeBrief(employeeId: string) {
-  const emp = useOffice.getState().employees.find((e) => e.id === employeeId);
-  return emp ? briefFrom(emp, deptName(emp), companyName(emp)) : null;
-}
-
 /** Queue a task (with optional files) and start it when the employee is free. */
 export function enqueueTask(taskId: string, files: UploadedFile[] = []) {
   if (files.length) pendingFiles.set(taskId, files);
