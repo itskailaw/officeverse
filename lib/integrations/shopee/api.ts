@@ -82,6 +82,46 @@ export async function shopGet<T>(
   return parse<T>(res);
 }
 
+function signedShopUrl(cfg: ShopeeConfig, path: string, accessToken: string, shopId: number) {
+  const ts = now();
+  const url = new URL(apiBase(cfg) + path);
+  url.searchParams.set("partner_id", String(cfg.partnerId));
+  url.searchParams.set("timestamp", String(ts));
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("shop_id", String(shopId));
+  url.searchParams.set("sign", shopSign(cfg.partnerKey, cfg.partnerId, path, ts, accessToken, shopId));
+  return url;
+}
+
+/** Shop-level POST (JSON body) — used for actions such as ship_order. */
+export async function shopPost<T>(cfg: ShopeeConfig, path: string, body: Record<string, unknown>, accessToken: string, shopId: number): Promise<T> {
+  const res = await fetch(signedShopUrl(cfg, path, accessToken, shopId), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+    signal: AbortSignal.timeout(30_000),
+  });
+  return parse<T>(res);
+}
+
+/** Shop-level POST that returns a file (shipping labels). Throws with Shopee's error if JSON comes back instead. */
+export async function shopPostFile(cfg: ShopeeConfig, path: string, body: Record<string, unknown>, accessToken: string, shopId: number): Promise<ArrayBuffer> {
+  const res = await fetch(signedShopUrl(cfg, path, accessToken, shopId), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+    signal: AbortSignal.timeout(30_000),
+  });
+  const type = res.headers.get("content-type") ?? "";
+  if (!res.ok || type.includes("json")) {
+    await parse(res);
+    throw new ShopeeError("no_file", "Shopee didn't return a label file.");
+  }
+  return res.arrayBuffer();
+}
+
 export interface TokenResponse {
   access_token: string;
   refresh_token: string;

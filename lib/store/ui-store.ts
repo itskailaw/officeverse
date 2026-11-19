@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 export type Mode = "live" | "build";
-export type Dialog = null | "dashboard" | "meeting-call" | "hire" | "settings" | "team" | "edit-employee";
+export type Dialog = null | "dashboard" | "meeting-call" | "hire" | "settings" | "team" | "edit-employee" | "fulfil";
 
 export interface Toast {
   id: number;
@@ -23,6 +23,7 @@ interface UIState {
   editEmployeeId: string | null;
   dashboardTab: string;
   settingsTab: string;
+  fulfilStage: "process" | "ship";
   notificationsOpen: boolean;
   companyFilter: string | "all";
   cameraCommand: { kind: "rotate"; dir: 1 | -1; n: number } | { kind: "zoom"; dir: 1 | -1; n: number } | { kind: "reset"; n: number } | { kind: "focus"; x: number; z: number; zoom?: number; n: number } | null;
@@ -45,6 +46,7 @@ export const useUI = create<UIState>()((set) => ({
   draggingFurniture: false,
   furnitureDrag: null,
   dialog: null,
+  fulfilStage: "process",
   editEmployeeId: null,
   dashboardTab: "overview",
   settingsTab: "office",

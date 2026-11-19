@@ -81,6 +81,7 @@ interface Actions {
   markAllRead(): void;
   clearNotifications(): void;
   logActivity(employeeId: string | null, text: string): void;
+  recordAudit(action: string, entity: string, entityId: string | null, detail?: string): void;
   // settings & layout
   updateSettings(patch: Partial<OfficeSettings>): void;
   moveFurniture(id: string, x: number, z: number, rot: number): void;
@@ -377,6 +378,10 @@ export const useOffice = create<OfficeState>()(
         },
         logActivity(employeeId, text) {
           set((s) => ({ activity: [{ id: uid("act"), employeeId, text, at: now() }, ...s.activity].slice(0, 300) }));
+        },
+
+        recordAudit(action, entity, entityId, detail) {
+          audit(action, entity, entityId, detail);
         },
 
         // ── settings & layout ──

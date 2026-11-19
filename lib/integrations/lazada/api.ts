@@ -79,6 +79,11 @@ export async function lazadaAdsGet<T>(cfg: LazadaConfig, path: string, params: R
   return j.result as T;
 }
 
+/** Shop-level POST (form-encoded, signed) — used for actions such as pack / ready-to-ship. Returns the whole envelope. */
+export async function lazadaPost<T>(cfg: LazadaConfig, path: string, params: Record<string, string | number | undefined>, accessToken: string) {
+  return (await call<T>(cfg, apiBase(), path, params, accessToken, "POST")) as Envelope<T> & Record<string, unknown>;
+}
+
 /** Shop-level API call on the Malaysia gateway. */
 export async function lazadaGet<T>(cfg: LazadaConfig, path: string, params: Record<string, string | number | undefined>, accessToken: string) {
   return (await call<T>(cfg, apiBase(), path, params, accessToken, "GET")).data as T;

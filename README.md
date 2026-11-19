@@ -47,6 +47,10 @@ Deploy to Vercel as a standard Next.js app with the same env vars.
 - **Chat from Telegram:** any message goes to Sophia; "ask Daniel …" / "Priya, …" picks someone else. Replies use the same live data and permissions, and appear in the app's chat. `/approvals`, `/briefing`, `/team`, `/help`.
 - **Approvals in Telegram:** new approval requests are posted with ✅ / ❌ buttons; a decision there updates the app live.
 
+### Arrange shipment & print labels (owner only)
+
+Dashboard → **To process** → *Arrange drop-off*: tick packed orders and confirm. Shopee uses `logistics.get_shipping_parameter` + `logistics.ship_order` (drop-off); Lazada `/order/fulfill/pack` (dropship) + `/order/package/rts`. **To ship** → *Print labels* opens the AWB PDF (Shopee `create/get_result/download_shipping_document`; Lazada package document / AWB). Labels are streamed from the marketplace and never stored. Every action is written to the audit log.
+
 ### Office extras
 
 - Quick-jump camera buttons (Work · Fun · CEO) next to the camera controls.

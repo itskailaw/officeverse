@@ -49,7 +49,7 @@ export interface SyncResult {
 const iso = (sec?: number | null) => (sec ? new Date(sec * 1000).toISOString() : null);
 
 /** Return a valid access token, refreshing (and persisting) it when it is about to expire. */
-async function validToken(cfg: ShopeeConfig, row: IntegrationRow): Promise<string> {
+export async function validToken(cfg: ShopeeConfig, row: IntegrationRow): Promise<string> {
   const tokens = readTokens(row);
   const exp = row.token_expires_at ? Date.parse(row.token_expires_at) : 0;
   if (exp - Date.now() > 10 * 60 * 1000) return tokens.access_token;

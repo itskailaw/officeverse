@@ -477,6 +477,8 @@ function SplitKpi({
   rows,
   control,
   accent,
+  onOpen,
+  openLabel,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -486,6 +488,8 @@ function SplitKpi({
   rows?: Row[];
   control?: React.ReactNode;
   accent?: Plat;
+  onOpen?: () => void;
+  openLabel?: string;
 }) {
   return (
     <div className={cn("flex flex-col rounded-xl border bg-panel p-3.5 shadow-sm", warn ? "border-amber-300" : "border-slate-200")}>
@@ -521,6 +525,11 @@ function SplitKpi({
           ))}
         </div>
       )}
+      {onOpen && (
+        <button onClick={onOpen} className="mt-auto pt-2.5 text-left text-[11px] font-semibold text-sky-700 hover:underline">
+          {openLabel ?? "Open"} →
+        </button>
+      )}
     </div>
   );
 }
@@ -536,6 +545,8 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
   const syncing = useLive((x) => x.syncing);
   const syncAll = useLive((x) => x.syncAll);
   const toast = useUI((x) => x.toast);
+  const setUI = useUI((x) => x.set);
+  const isOwner = useLive((x) => x.status?.role === "owner");
   const [period, setPeriod] = usePersisted<Period>("ov:revenue-period", "today", PERIODS);
   const [viewPref, setView] = usePersisted<View>("ov:platform-view", "all", ["all", "shopee", "lazada"]);
   const connected = (["shopee", "lazada"] as Plat[]).filter((p) => s.platforms[p].connected);
@@ -623,6 +634,8 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
             icon={<ClipboardList />}
             label="To process"
             accent={one ?? undefined}
+            onOpen={isOwner ? () => setUI({ dialog: "fulfil", fulfilStage: "process" }) : undefined}
+            openLabel="Arrange drop-off"
             value={String(pack.readyToShip)}
             sub={["Not accepted yet", urgent(pack.urgentToProcess)].filter(Boolean).join(" · ")}
             warn={(pack.urgentToProcess ?? 0) > 0}
@@ -632,6 +645,8 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
             icon={<Package />}
             label="To ship"
             accent={one ?? undefined}
+            onOpen={isOwner ? () => setUI({ dialog: "fulfil", fulfilStage: "ship" }) : undefined}
+            openLabel="Print labels"
             value={String(pack.processed)}
             sub={["Accepted, awaiting pickup", urgent(pack.urgentToShip)].filter(Boolean).join(" · ")}
             warn={(pack.urgentToShip ?? 0) > 0}
