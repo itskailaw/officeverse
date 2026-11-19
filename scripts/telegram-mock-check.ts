@@ -48,8 +48,20 @@ async function main() {
       bestSellers30d: [{ name: "MDBC <Filter> & Tap", units: 40, revenue: 5160 }],
       ads: { shopee: { balance: 117.47, at: "" }, lazada: { at: "", today: null, yesterday: { spend: 25, revenue: 80, roi: 3.2, clicks: 0, impressions: 0, unitsSold: 0, orders: 0 }, monthToDate: null, solutions: { discovery: null, smax: null }, autoTopUp: null, errors: [] } },
     },
-    { appUrl: "https://officeverse-ten.vercel.app/office" },
+    { appUrl: "https://officeverse-ten.vercel.app/office", from: "Sophia", notes: ["Lazada <up> 12%", "Ship 2 parcels before noon."] },
   );
+  const { briefingFacts } = await import("../lib/integrations/briefing");
+  const days = Array.from({ length: 30 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, revenue: i < 22 ? 100 : 200, orders: 1, shopee: i < 22 ? 60 : 120, lazada: 40 }));
+  const facts = briefingFacts({ days, platforms: { shopee: { connected: true }, lazada: { connected: true } }, toPack: {}, ads: { shopee: null, lazada: null }, bestSellers30d: [], monthToDate: {}, cancelledToday: 0 } as never);
+  // complete days = index 0..28; last7 = 22..28 (all 200), previous7 = 15..21 (all 100)
+  assert.equal(facts.last7Days.total, 1400);
+  assert.equal(facts.last7Days.previous7, 700);
+  assert.equal(facts.last7Days.changePct, 100);
+  assert.equal(facts.yesterday.revenue, 200);
+  const withNotes = briefingText(null, {});
+  assert.match(withNotes, /No marketplace is connected/);
+  assert.match(text, /Sophia here/);
+  assert.match(text, /Sophia's notes<\/b>\n• Lazada &lt;up&gt; 12%/);
   assert.match(text, /Yesterday: RM 852/);
   assert.match(text, /Shopee: RM 600/);
   assert.match(text, /2 parcels must ship within 24 hours/);

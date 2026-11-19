@@ -2,7 +2,9 @@ import "server-only";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { listIntegrations, updateIntegration } from "./store";
 import { liveSummary } from "./summary";
-import { briefingText } from "./briefing";
+import { briefingFacts, briefingText } from "./briefing";
+import { aiConfigured } from "@/lib/ai/server/guard";
+import { briefingNotes } from "@/lib/ai/server/engine";
 import { sendTelegram } from "./telegram";
 import { syncShopee } from "./shopee/sync";
 import { syncLazada } from "./lazada/sync";
@@ -28,8 +30,17 @@ export async function sendBriefing(workspaceId: string, opts: { refresh?: boolea
     }
   }
   const s = await liveSummary(getAdminSupabase(), workspaceId);
+  // Sophia's commentary — optional: if the AI is unavailable the plain briefing still goes out
+  let notes: string[] = [];
+  if (s && aiConfigured()) {
+    try {
+      notes = await Promise.race([briefingNotes(briefingFacts(s)), new Promise<string[]>((r) => setTimeout(() => r([]), 60_000))]);
+    } catch (e) {
+      console.error("[briefing] notes failed", e instanceof Error ? e.message : e);
+    }
+  }
   try {
-    await sendTelegram(chat.shop_id, briefingText(s, { appUrl: appUrl() }));
+    await sendTelegram(chat.shop_id, briefingText(s, { appUrl: appUrl(), from: "Sophia", notes }));
     await updateIntegration(chat.id, { last_success_at: new Date().toISOString(), last_error: null });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

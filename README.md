@@ -76,7 +76,7 @@ Both marketplaces can notify OfficeVerse the moment an order changes. Each push 
 3. Supabase → SQL Editor: run `supabase/migrations/0004_telegram.sql`.
 4. OfficeVerse → Settings → Integrations → Telegram → **Connect Telegram** → press **Start** in Telegram.
 
-The briefing (yesterday's sales per platform, orders to process/ship, urgent parcels, ads, best seller) is sent daily around 8:30am Malaysia time by Vercel Cron (`/api/cron/briefing`); **Send briefing now** sends it on demand. Linking uses a signed 30-minute `/start` code; the webhook checks Telegram's secret token header.
+Sophia (Executive Assistant) sends the briefing — the figures come straight from the data, followed by 2–4 short AI notes on what stands out (skipped if the AI isn't configured). It covers (yesterday's sales per platform, orders to process/ship, urgent parcels, ads, best seller) is sent daily around 8:30am Malaysia time by Vercel Cron (`/api/cron/briefing`); **Send briefing now** sends it on demand. Linking uses a signed 30-minute `/start` code; the webhook checks Telegram's secret token header.
 
 ## Scripts
 

@@ -85,7 +85,7 @@ async function loop(opts: {
         max_tokens: Math.min(16000, remaining),
         system: opts.system,
         messages: opts.messages,
-        tools: opts.tools,
+        ...(opts.tools.length ? { tools: opts.tools } : {}),
         output_config: { effort: opts.effort },
         ...fallbackParams(opts.model),
       });
@@ -192,4 +192,36 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
   });
   if (out.refused) return { reply: "Sorry, I can't help with that request.", usage: out.usage, model: out.model };
   return { reply: (out.text || "…") + (out.note ? `\n\n_${out.note}_` : ""), usage: out.usage, model: out.model };
+}
+
+/**
+ * 2-4 short commentary lines for the CEO's morning briefing, written by the
+ * Executive Assistant from pre-computed facts. Returns [] when nothing useful.
+ */
+export async function briefingNotes(facts: unknown, assistant = { name: "Sophia Chen", title: "Executive Assistant" }): Promise<string[]> {
+  const system = `You are ${assistant.name}, ${assistant.title} to the CEO of Water Guardian Solution (MDBC water filters, sold on Shopee and Lazada Malaysia).
+Each morning the CEO receives the raw figures; you add 2 to 4 short notes on what matters today.
+Rules:
+- Use ONLY the facts given. Never invent numbers, causes, products or events. Quote figures exactly as given (RM, percentages).
+- Prioritise: urgent parcels / deadlines, big changes week-over-week (say which platform), ad efficiency or a low balance, cancellations. Skip anything unremarkable.
+- If a comparison is null or a figure is missing, don't mention it.
+- Each note: one sentence, max 25 words, practical, can suggest a next step ("worth checking…"). Friendly but professional, English.
+- Output only the notes, one per line, no bullets, no numbering, no greeting.`;
+  const out = await loop({
+    model: resolveModel("default"),
+    system: [{ type: "text", text: system }],
+    messages: [{ role: "user", content: `<facts>${JSON.stringify(facts).slice(0, 8000)}</facts>` }],
+    tools: [],
+    effort: "low",
+    maxIterations: 1,
+    outputBudget: 3000,
+    exec: () => ({ content: "", isError: true }),
+  });
+  if (out.refused || !out.text) return [];
+  return out.text
+    .split("\n")
+    .map((l) => l.replace(/^\s*(?:[-*•]|\d{1,2}[.)])\s+/, "").trim())
+    .filter((l) => l.length > 3)
+    .slice(0, 4)
+    .map((l) => l.slice(0, 240));
 }
