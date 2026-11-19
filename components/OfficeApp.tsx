@@ -94,7 +94,10 @@ export default function OfficeApp() {
       if (!useOffice.persist.hasHydrated()) await new Promise<void>((r) => useOffice.persist.onFinishHydration(() => r()));
       const sb = getSupabase();
       recoverInterruptedTasks();
-      if (!sb) return setPhase("ready");
+      if (!sb) {
+        useOffice.getState().applyTeamUpdates();
+        return setPhase("ready");
+      }
       const { data } = await sb.auth.getSession();
       if (!data.session) {
         setPhase("auth-required");
@@ -106,6 +109,7 @@ export default function OfficeApp() {
         const ws = await ensureWorkspace(sb);
         if (cancelled) return;
         stop = await startSync(sb, ws);
+        useOffice.getState().applyTeamUpdates(); // after cloud data is loaded, so the update syncs back up
         setPhase("ready");
         // returning from Shopee's authorisation page?
         const params = new URLSearchParams(window.location.search);

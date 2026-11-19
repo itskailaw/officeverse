@@ -1,6 +1,7 @@
 // Default companies, departments and AI employee roster.
 
 import type { AIConfig, Appearance, Company, Department, Employee, OfficeSettings, Permission } from "./types.ts";
+import { applyTeamMerges } from "./team-migrations.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 
@@ -233,7 +234,7 @@ const DEFS: Def[] = [
   },
 ];
 
-export const SEED_EMPLOYEES: Employee[] = DEFS.map((d) => ({
+const RAW_EMPLOYEES: Employee[] = DEFS.map((d) => ({
   id: d.id,
   name: d.name,
   gender: d.gender,
@@ -252,6 +253,9 @@ export const SEED_EMPLOYEES: Employee[] = DEFS.map((d) => ({
   active: true,
   createdAt: T0,
 }));
+
+/** New offices start with the merged roles (absorbed roles are left out). */
+export const SEED_EMPLOYEES: Employee[] = applyTeamMerges(RAW_EMPLOYEES, []).employees.filter((e) => e.active);
 
 export const CEO_ID = "ceo";
 

@@ -23,6 +23,7 @@ import type {
   Task,
 } from "@/lib/data/types";
 import { DEFAULT_SETTINGS, SEED_COMPANIES, SEED_DEPARTMENTS, SEED_EMPLOYEES } from "@/lib/data/seed";
+import { applyTeamMerges } from "@/lib/data/team-migrations";
 import { DEFAULT_LAYOUT } from "@/lib/office/layout";
 
 export const uid = (p = "id") =>
@@ -87,6 +88,7 @@ interface Actions {
   resetAppearance(): void;
   resetAll(): void;
   hydrate(data: Partial<OfficeData>): void;
+  applyTeamUpdates(): void;
 }
 
 export type OfficeState = OfficeData & Actions;
@@ -411,6 +413,20 @@ export const useOffice = create<OfficeState>()(
         },
         resetAll() {
           set(initialData());
+        },
+        applyTeamUpdates() {
+          const st = get();
+          const r = applyTeamMerges(st.employees, st.settings.appliedMigrations ?? []);
+          if (r.applied.length === (st.settings.appliedMigrations ?? []).length) return;
+          set((s) => ({ employees: r.employees, settings: { ...s.settings, appliedMigrations: r.applied } }));
+          for (const c of r.changes) audit("merge", "employee", null, c);
+          if (r.changes.length)
+            get().notify({
+              priority: "info",
+              title: "Team update: roles merged",
+              body: r.changes.join(". ") + ". Deactivated employees can be reactivated in Dashboard → Team.",
+              demo: false,
+            });
         },
         hydrate(data) {
           set((s) => ({ ...s, ...data }));

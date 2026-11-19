@@ -232,6 +232,8 @@ export interface OfficeSettings {
   briefingTime: string;
   showNameTags: boolean;
   ambientLife: boolean;
+  /** one-time data updates already applied to this office */
+  appliedMigrations?: string[];
   /** UI panels theme; "auto" follows the office lighting */
   uiTheme: UITheme;
   /** floating activity bubbles above employees */
