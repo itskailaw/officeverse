@@ -35,6 +35,7 @@ export interface PlatformFigures {
   monthToDate: { revenue: number; orders: number };
   toPack: { total: number; readyToShip: number; processed: number; urgent: number; urgentToProcess: number; urgentToShip: number };
   cancelledToday: number;
+  bestSellers30d: { name: string; units: number; revenue: number }[];
 }
 
 export interface LiveSummary {
@@ -116,8 +117,9 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
   const byDay = new Map<string, { revenue: number; orders: number; shopee: number; lazada: number }>();
   for (let i = 29; i >= 0; i--) byDay.set(klDay(new Date(now.getTime() - i * 86400 * 1000)), { revenue: 0, orders: 0, shopee: 0, lazada: 0 });
   const fig: Partial<Record<Platform, PlatformFigures>> = {};
-  for (const p of platforms) fig[p] = { today: zero(), yesterday: zero(), monthToDate: zero(), toPack: { total: 0, readyToShip: 0, processed: 0, urgent: 0, urgentToProcess: 0, urgentToShip: 0 }, cancelledToday: 0 };
+  for (const p of platforms) fig[p] = { today: zero(), yesterday: zero(), monthToDate: zero(), toPack: { total: 0, readyToShip: 0, processed: 0, urgent: 0, urgentToProcess: 0, urgentToShip: 0 }, cancelledToday: 0, bestSellers30d: [] };
   const sellers = new Map<string, { units: number; revenue: number }>();
+  const sellersBy: Record<Platform, Map<string, { units: number; revenue: number }>> = { shopee: new Map(), lazada: new Map() };
 
   for (const o of orders) {
     const f = fig[o.platform];
@@ -141,10 +143,12 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
     if (day === yesterday) add(f.yesterday);
     if (day.startsWith(month)) add(f.monthToDate);
     for (const it of o.items ?? []) {
-      const s = sellers.get(it.name) ?? { units: 0, revenue: 0 };
-      s.units += it.qty || 0;
-      s.revenue += (it.qty || 0) * (it.price || 0);
-      sellers.set(it.name, s);
+      for (const m of [sellers, sellersBy[o.platform]]) {
+        const s = m.get(it.name) ?? { units: 0, revenue: 0 };
+        s.units += it.qty || 0;
+        s.revenue += (it.qty || 0) * (it.price || 0);
+        m.set(it.name, s);
+      }
     }
   }
   for (const p of pending) {
@@ -175,6 +179,12 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
   for (const f of Object.values(fig)) {
     for (const k of ["today", "yesterday", "monthToDate"] as const) f![k].revenue = round(f![k].revenue);
   }
+  const top = (m: Map<string, { units: number; revenue: number }>) =>
+    [...m.entries()]
+      .map(([name, v]) => ({ name, units: v.units, revenue: round(v.revenue) }))
+      .sort((a, b) => b.units - a.units)
+      .slice(0, 8);
+  for (const p of platforms) fig[p]!.bestSellers30d = top(sellersBy[p]);
   const vals = Object.values(fig) as PlatformFigures[];
 
   const { data: ads } = await sb
@@ -205,10 +215,7 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
     },
     cancelledToday: vals.reduce((s, f) => s + f.cancelledToday, 0),
     byPlatform: fig,
-    bestSellers30d: [...sellers.entries()]
-      .map(([name, v]) => ({ name, units: v.units, revenue: round(v.revenue) }))
-      .sort((a, b) => b.units - a.units)
-      .slice(0, 8),
+    bestSellers30d: top(sellers),
     ads: { shopee: ads?.[0] ? { balance: Number(ads[0].balance), at: ads[0].captured_at as string } : null },
   };
 }

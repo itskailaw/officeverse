@@ -19,6 +19,7 @@ export interface PlatformFigures {
   monthToDate: { revenue: number; orders: number };
   toPack: { total: number; readyToShip: number; processed: number; urgent: number; urgentToProcess?: number; urgentToShip?: number };
   cancelledToday: number;
+  bestSellers30d?: { name: string; units: number; revenue: number }[];
 }
 
 export interface LiveSummary {

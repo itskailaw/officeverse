@@ -402,80 +402,252 @@ function Kpi({ icon, label, value, sub, warn, demo }: { icon: React.ReactNode; l
   );
 }
 
+type View = "all" | "shopee" | "lazada";
+type Plat = "shopee" | "lazada";
+const PLAT_NAME: Record<Plat, string> = { shopee: "Shopee", lazada: "Lazada" };
+
+function usePersisted<T extends string>(key: string, initial: T, allowed: readonly T[]) {
+  const [v, setV] = useState<T>(() => {
+    try {
+      const x = localStorage.getItem(key) as T | null;
+      return x && allowed.includes(x) ? x : initial;
+    } catch {
+      return initial;
+    }
+  });
+  const set = (x: T) => {
+    setV(x);
+    try {
+      localStorage.setItem(key, x);
+    } catch {}
+  };
+  return [v, set] as const;
+}
+
+function Dot({ p }: { p: Plat }) {
+  return <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: SERIES[p] }} />;
+}
+
+/** All / Shopee / Lazada switch. */
+function PlatformSwitch({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+  const opts: { v: View; label: string }[] = [
+    { v: "all", label: "All" },
+    { v: "shopee", label: "Shopee" },
+    { v: "lazada", label: "Lazada" },
+  ];
+  return (
+    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5" role="tablist" aria-label="Marketplace">
+      {opts.map((o) => (
+        <button
+          key={o.v}
+          role="tab"
+          aria-selected={view === o.v}
+          onClick={() => onChange(o.v)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition",
+            view === o.v ? "bg-panel text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800",
+          )}
+        >
+          {o.v !== "all" && <Dot p={o.v} />}
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+interface Row {
+  p: Plat;
+  value: string;
+  note?: string | null;
+  warn?: boolean;
+  muted?: boolean;
+}
+
+/** KPI card: headline figure, optionally followed by one row per marketplace. */
+function SplitKpi({
+  icon,
+  label,
+  value,
+  sub,
+  warn,
+  rows,
+  control,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | null;
+  sub?: string | null;
+  warn?: boolean;
+  rows?: Row[];
+  control?: React.ReactNode;
+  accent?: Plat;
+}) {
+  return (
+    <div className={cn("flex flex-col rounded-xl border bg-panel p-3.5 shadow-sm", warn ? "border-amber-300" : "border-slate-200")}>
+      <div className="flex items-center justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-500 [&_svg]:h-3.5 [&_svg]:w-3.5">
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          {icon}
+          {label}
+        </span>
+        {accent ? (
+          <span className="flex items-center gap-1 normal-case tracking-normal text-slate-500">
+            <Dot p={accent} /> {PLAT_NAME[accent]}
+          </span>
+        ) : (
+          <span className="rounded bg-emerald-100 px-1 text-[9px] font-bold text-emerald-800">LIVE</span>
+        )}
+      </div>
+      {control}
+      {value === null ? (
+        <div className="mt-1.5 text-sm font-semibold text-slate-400">Not available</div>
+      ) : (
+        <div className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</div>
+      )}
+      {sub && <div className={cn("mt-0.5 text-[11px]", warn && !rows?.length ? "font-medium text-amber-700" : "text-slate-500")}>{sub}</div>}
+      {!!rows?.length && (
+        <div className="mt-2.5 space-y-1.5 border-t border-slate-100 pt-2.5">
+          {rows.map((r) => (
+            <div key={r.p} className="flex items-center gap-2 text-xs">
+              <Dot p={r.p} />
+              <span className="text-slate-600">{PLAT_NAME[r.p]}</span>
+              {r.note && <span className={cn("truncate text-[10px]", r.warn ? "font-medium text-amber-700" : "text-slate-400")}>{r.note}</span>}
+              <span className={cn("ml-auto font-semibold tabular-nums", r.muted ? "text-slate-400" : "text-slate-800")}>{r.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type Period = "today" | "yesterday" | "monthToDate";
+const PERIOD_LABEL: Record<Period, string> = { today: "Today", yesterday: "Yesterday", monthToDate: "Month to date" };
+const PERIODS = Object.keys(PERIOD_LABEL) as Period[];
+
 function LiveEcommerceSection({ s }: { s: LiveSummary }) {
   const [range, setRange] = useState<7 | 14 | 30>(14);
   const syncing = useLive((x) => x.syncing);
   const syncAll = useLive((x) => x.syncAll);
   const toast = useUI((x) => x.toast);
-  const hasShopee = s.platforms.shopee.connected;
-  const hasLazada = s.platforms.lazada.connected;
-  const chart = s.days.slice(-range).map((x) => ({ date: x.date.slice(5), Shopee: x.shopee ?? x.revenue, Lazada: x.lazada ?? 0 }));
+  const [period, setPeriod] = usePersisted<Period>("ov:revenue-period", "today", PERIODS);
+  const [viewPref, setView] = usePersisted<View>("ov:platform-view", "all", ["all", "shopee", "lazada"]);
+  const connected = (["shopee", "lazada"] as Plat[]).filter((p) => s.platforms[p].connected);
+  const both = connected.length > 1;
+  const view: View = both ? viewPref : "all";
   const bp = s.byPlatform ?? {};
-  /** "Shopee RM 1,200 · Lazada RM 300" style split for a KPI */
-  const split = (pick: (f: NonNullable<typeof bp.shopee>) => string) =>
-    [hasShopee && bp.shopee && `Shopee ${pick(bp.shopee)}`, hasLazada && bp.lazada && `Lazada ${pick(bp.lazada)}`].filter(Boolean).join(" · ");
+  const one = view === "all" ? null : view;
+  const f = one ? bp[one] : null;
+  /** per-platform rows only in the combined view with both marketplaces */
+  const rows = (make: (p: Plat, fig: PlatformFigures) => Row) =>
+    both && view === "all" ? connected.filter((p) => bp[p]).map((p) => make(p, bp[p]!)) : undefined;
+
+  const rev = f ? f[period] : s[period];
+  const pack = f ? f.toPack : s.toPack;
+  const cancelled = f ? f.cancelledToday : s.cancelledToday;
+  const sellers = (f ? f.bestSellers30d : s.bestSellers30d) ?? [];
+  const series = (one ? [one] : connected) as Plat[];
+  const chart = s.days.slice(-range).map((x) => ({ date: x.date.slice(5), Shopee: x.shopee ?? x.revenue, Lazada: x.lazada ?? 0 }));
+  const urgent = (n?: number) => ((n ?? 0) > 0 ? `${n} due in 24h` : null);
+
+  const ads: Row[] = [
+    { p: "shopee", value: s.ads.shopee ? formatMYR(s.ads.shopee.balance, 2) : "—", note: s.ads.shopee ? null : "no permission", muted: !s.ads.shopee },
+    { p: "lazada", value: "—", note: "not tracked yet", muted: true },
+  ];
+
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div>
+      <CardHeader className="flex-wrap gap-3 pb-3">
+        <div className="min-w-0">
           <CardTitle>Water Guardian Solution — E-commerce</CardTitle>
           <p className="text-[11px] text-slate-500" title={s.definition}>
-            Live from {liveSources(s)} · gross order value in MYR (before fees, refunds and payouts) · Malaysia time
+            Gross order value in MYR (before fees, refunds and payouts) · Malaysia time
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={syncing}
-          onClick={async () => {
-            const r = await syncAll();
-            toast(r.ok ? "success" : "error", r.message);
-          }}
-        >
-          {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync now
-        </Button>
+        <div className="flex items-center gap-2">
+          {both && <PlatformSwitch view={view} onChange={setView} />}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={syncing}
+            onClick={async () => {
+              const r = await syncAll();
+              toast(r.ok ? "success" : "error", r.message);
+            }}
+          >
+            {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync now
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-          <RevenueKpi s={s} split={split} both={hasShopee && hasLazada} />
-          <LiveKpi
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <SplitKpi
+            icon={<Wallet />}
+            label="Revenue"
+            accent={one ?? undefined}
+            control={
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value as Period)}
+                className="mt-1 h-6 w-fit rounded-md border border-slate-200 bg-panel px-1 text-[11px] font-medium text-slate-700"
+                aria-label="Revenue period"
+              >
+                {PERIODS.map((p) => (
+                  <option key={p} value={p}>
+                    {PERIOD_LABEL[p]}
+                  </option>
+                ))}
+              </select>
+            }
+            value={formatMYR(rev.revenue)}
+            sub={`${rev.orders} order${rev.orders === 1 ? "" : "s"} · AOV ${formatMYR(rev.orders ? rev.revenue / rev.orders : 0, 2)}`}
+            rows={rows((p, x) => ({ p, value: formatMYR(x[period].revenue), note: `${x[period].orders} orders` }))}
+          />
+          <SplitKpi
             icon={<ClipboardList />}
             label="To process"
-            value={String(s.toPack.readyToShip)}
-            sub={[
-              "Not accepted yet",
-              hasShopee && hasLazada ? split((f) => String(f.toPack.readyToShip)) : null,
-              (s.toPack.urgentToProcess ?? 0) > 0 ? `${s.toPack.urgentToProcess} due within 24h` : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            warn={(s.toPack.urgentToProcess ?? 0) > 0}
+            accent={one ?? undefined}
+            value={String(pack.readyToShip)}
+            sub={["Not accepted yet", urgent(pack.urgentToProcess)].filter(Boolean).join(" · ")}
+            warn={(pack.urgentToProcess ?? 0) > 0}
+            rows={rows((p, x) => ({ p, value: String(x.toPack.readyToShip), note: urgent(x.toPack.urgentToProcess), warn: (x.toPack.urgentToProcess ?? 0) > 0 }))}
           />
-          <LiveKpi
+          <SplitKpi
             icon={<Package />}
             label="To ship"
-            value={String(s.toPack.processed)}
-            sub={[
-              "Accepted, awaiting pickup",
-              hasShopee && hasLazada ? split((f) => String(f.toPack.processed)) : null,
-              (s.toPack.urgentToShip ?? 0) > 0 ? `${s.toPack.urgentToShip} due within 24h` : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            warn={(s.toPack.urgentToShip ?? 0) > 0}
+            accent={one ?? undefined}
+            value={String(pack.processed)}
+            sub={["Accepted, awaiting pickup", urgent(pack.urgentToShip)].filter(Boolean).join(" · ")}
+            warn={(pack.urgentToShip ?? 0) > 0}
+            rows={rows((p, x) => ({ p, value: String(x.toPack.processed), note: urgent(x.toPack.urgentToShip), warn: (x.toPack.urgentToShip ?? 0) > 0 }))}
           />
-          <LiveKpi
-            icon={<Megaphone />}
-            label="Shopee Ads balance"
-            value={s.ads.shopee ? formatMYR(s.ads.shopee.balance, 2) : null}
-            sub={s.ads.shopee ? `as of ${timeAgo(s.ads.shopee.at)} · daily spend not yet tracked` : hasShopee ? "Ads permission not granted" : "Shopee not connected"}
+          {one === "lazada" ? (
+            <SplitKpi icon={<Megaphone />} label="Ads balance" accent="lazada" value={null} sub="Lazada Sponsored Solutions isn't linked yet" />
+          ) : (
+            <SplitKpi
+              icon={<Megaphone />}
+              label="Ads balance"
+              accent={one ?? undefined}
+              value={s.ads.shopee ? formatMYR(s.ads.shopee.balance, 2) : null}
+              sub={s.ads.shopee ? `Shopee Ads · as of ${timeAgo(s.ads.shopee.at)}` : "Shopee Ads permission not granted"}
+              rows={both && view === "all" ? ads : undefined}
+            />
+          )}
+          <SplitKpi
+            icon={<AlertTriangle />}
+            label="Cancelled today"
+            accent={one ?? undefined}
+            value={String(cancelled)}
+            sub={cancelled ? "Check the reason in Seller Centre" : "No cancellations"}
+            warn={cancelled > 0}
+            rows={rows((p, x) => ({ p, value: String(x.cancelledToday), warn: x.cancelledToday > 0 }))}
           />
-          <LiveKpi icon={<AlertTriangle />} label="Cancelled today" value={String(s.cancelledToday)} sub={liveSources(s)} warn={s.cancelledToday > 0} />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-panel p-3 lg:col-span-2">
             <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs font-semibold text-slate-700">Revenue by day (MYR)</div>
+              <div className="text-xs font-semibold text-slate-700">Revenue by day (MYR){one ? ` — ${PLAT_NAME[one]}` : ""}</div>
               <div className="flex gap-1">
                 {[7, 14, 30].map((r) => (
                   <button
@@ -488,14 +660,13 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
                 ))}
               </div>
             </div>
-            {hasShopee && hasLazada && (
+            {series.length > 1 && (
               <div className="mb-1 flex gap-3 text-[11px] text-slate-600">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-sm" style={{ background: SERIES.shopee }} /> Shopee
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-sm" style={{ background: SERIES.lazada }} /> Lazada
-                </span>
+                {series.map((p) => (
+                  <span key={p} className="flex items-center gap-1">
+                    <Dot p={p} /> {PLAT_NAME[p]}
+                  </span>
+                ))}
               </div>
             )}
             <div className="h-56">
@@ -505,15 +676,15 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} />
                   <YAxis domain={[0, "auto"]} tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
                   <Tooltip formatter={(v) => formatMYR(Number(v))} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} cursor={{ stroke: "#94a3b8", strokeDasharray: "3 3" }} />
-                  {hasLazada && <Area type="monotone" dataKey="Lazada" stackId="1" stroke={SERIES.lazada} strokeWidth={2} fill={SERIES.lazada} fillOpacity={0.18} isAnimationActive={false} />}
-                  {hasShopee && <Area type="monotone" dataKey="Shopee" stackId="1" stroke={SERIES.shopee} strokeWidth={2} fill={SERIES.shopee} fillOpacity={0.18} isAnimationActive={false} />}
+                  {series.includes("lazada") && <Area type="monotone" dataKey="Lazada" stackId="1" stroke={SERIES.lazada} strokeWidth={2} fill={SERIES.lazada} fillOpacity={0.18} isAnimationActive={false} />}
+                  {series.includes("shopee") && <Area type="monotone" dataKey="Shopee" stackId="1" stroke={SERIES.shopee} strokeWidth={2} fill={SERIES.shopee} fillOpacity={0.18} isAnimationActive={false} />}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-panel p-3">
-            <div className="mb-2 text-xs font-semibold text-slate-700">Best sellers — last 30 days</div>
-            {s.bestSellers30d.length ? (
+            <div className="mb-2 text-xs font-semibold text-slate-700">Best sellers — last 30 days{one ? ` · ${PLAT_NAME[one]}` : ""}</div>
+            {sellers.length ? (
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-left text-[10px] uppercase tracking-wide text-slate-400">
@@ -523,7 +694,7 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {s.bestSellers30d.map((p) => (
+                  {sellers.map((p) => (
                     <tr key={p.name} className="border-t border-slate-100">
                       <td className="py-1.5 pr-2 text-slate-700">{p.name}</td>
                       <td className="py-1.5 text-right tabular-nums">{p.units}</td>
@@ -540,72 +711,6 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-type Period = "today" | "yesterday" | "monthToDate";
-const PERIOD_LABEL: Record<Period, string> = { today: "Today", yesterday: "Yesterday", monthToDate: "Month to date" };
-
-/** One revenue card with a period dropdown (remembers the choice in this browser). */
-function RevenueKpi({ s, split, both }: { s: LiveSummary; split: (pick: (f: PlatformFigures) => string) => string; both: boolean }) {
-  const [period, setPeriod] = useState<Period>(() => {
-    try {
-      const v = localStorage.getItem("ov:revenue-period");
-      return v === "yesterday" || v === "monthToDate" ? v : "today";
-    } catch {
-      return "today";
-    }
-  });
-  const choose = (p: Period) => {
-    setPeriod(p);
-    try {
-      localStorage.setItem("ov:revenue-period", p);
-    } catch {}
-  };
-  const v = s[period];
-  const aov = v.orders ? v.revenue / v.orders : 0;
-  return (
-    <div className="rounded-xl border border-slate-200 bg-panel p-3.5 shadow-sm">
-      <div className="flex items-center justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-500 [&_svg]:h-3.5 [&_svg]:w-3.5">
-        <span className="flex items-center gap-1.5">
-          <Wallet /> Revenue
-        </span>
-        <span className="rounded bg-emerald-100 px-1 text-[9px] font-bold text-emerald-800">LIVE</span>
-      </div>
-      <select
-        value={period}
-        onChange={(e) => choose(e.target.value as Period)}
-        className="mt-1 h-6 rounded-md border border-slate-200 bg-panel px-1 text-[11px] font-medium text-slate-700"
-        aria-label="Revenue period"
-      >
-        {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => (
-          <option key={p} value={p}>
-            {PERIOD_LABEL[p]}
-          </option>
-        ))}
-      </select>
-      <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{formatMYR(v.revenue)}</div>
-      <div className="mt-0.5 text-[11px] text-slate-500">
-        {v.orders} orders · AOV {formatMYR(aov, 2)}
-        {both && <span className="block">{split((f) => formatMYR(f[period].revenue))}</span>}
-      </div>
-    </div>
-  );
-}
-
-function LiveKpi({ icon, label, value, sub, warn }: { icon: React.ReactNode; label: string; value: string | null; sub?: string; warn?: boolean }) {
-  return (
-    <div className={cn("rounded-xl border bg-panel p-3.5 shadow-sm", warn ? "border-amber-300" : "border-slate-200")}>
-      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-slate-500 [&_svg]:h-3.5 [&_svg]:w-3.5">
-        <span className="flex items-center gap-1.5">
-          {icon}
-          {label}
-        </span>
-        <span className="rounded bg-emerald-100 px-1 text-[9px] font-bold text-emerald-800">LIVE</span>
-      </div>
-      {value === null ? <div className="mt-1.5 text-sm font-semibold text-slate-400">Data Unavailable</div> : <div className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{value}</div>}
-      <div className={cn("mt-0.5 text-[11px]", warn ? "font-medium text-amber-700" : "text-slate-500")}>{sub}</div>
-    </div>
   );
 }
 
