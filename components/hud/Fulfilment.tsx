@@ -27,7 +27,7 @@ const NAME: Record<Plat, string> = { shopee: "Shopee", lazada: "Lazada" };
 
 type Sort = "paid" | "paid-new" | "oldest" | "newest" | "deadline" | "amount";
 const SORTS: { v: Sort; label: string }[] = [
-  { v: "paid", label: "Paid — oldest first (like Shopee)" },
+  { v: "paid", label: "Paid — oldest first" },
   { v: "paid-new", label: "Paid — newest first" },
   { v: "oldest", label: "Order time — oldest first" },
   { v: "newest", label: "Order time — newest first" },
@@ -223,9 +223,36 @@ export function Fulfilment() {
                   </button>
                 ))}
               </div>
-              <button className="text-[11px] text-sky-700 hover:underline" onClick={() => setSel(new Set(list.map(key)))} disabled={!list.length}>
-                Select all
-              </button>
+              <div className="flex items-center gap-1 text-[11px]">
+                <span className="text-slate-500">Select</span>
+                {(
+                  [
+                    ["All", (o: Order) => !!o],
+                    ["Shopee", (o: Order) => o.platform === "shopee"],
+                    ["Lazada", (o: Order) => o.platform === "lazada"],
+                  ] as [string, (o: Order) => boolean][]
+                ).map(([label, pick]) => {
+                  const n = list.filter(pick).length;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => setSel(new Set(list.filter(pick).map(key)))}
+                      disabled={!n}
+                      className="flex items-center gap-1 rounded-md border border-slate-200 px-2 py-0.5 font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                    >
+                      {label !== "All" && <span className="h-1.5 w-1.5 rounded-full" style={{ background: DOT[label.toLowerCase() as Plat] }} />}
+                      {label} ({n})
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setSel(new Set())}
+                  disabled={!sel.size}
+                  className="rounded-md px-2 py-0.5 font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40"
+                >
+                  Clear
+                </button>
+              </div>
               <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
                 Sort
                 <select
