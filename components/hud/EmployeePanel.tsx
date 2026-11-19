@@ -30,6 +30,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, timeAgo } from "@/lib/utils";
 import { departmentColor } from "@/lib/data/brand";
 import { Avatar } from "./Avatar";
+import { useInbox } from "@/lib/integrations/inbox";
+import { MessageSquareText } from "lucide-react";
 import { AINotConfigured, ApprovalCard, ChatPanel, TaskComposer, TaskRow, useAIEnabled } from "./AIWork";
 import { acknowledge } from "@/lib/ai/runner";
 
@@ -214,6 +216,7 @@ export function EmployeePanel() {
 
           <TabsContent value="tasks" className="space-y-3">
             {ai === false && <AINotConfigured />}
+            {emp.permissions.includes("customers:read") && <InboxShortcut />}
             <TaskComposer emp={emp} />
             <Section title="Pending approvals">
               {pendingApprovals.length ? (
@@ -297,5 +300,23 @@ function Info({ icon, label, value }: { icon: React.ReactNode; label: string; va
         {value}
       </div>
     </div>
+  );
+}
+
+function InboxShortcut() {
+  const unread = useInbox((s) => s.unread);
+  const set = useUI((s) => s.set);
+  return (
+    <button
+      onClick={() => set({ dialog: "inbox" })}
+      className="flex w-full items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-left text-xs hover:bg-sky-100"
+    >
+      <MessageSquareText className="h-5 w-5 text-sky-700" />
+      <div className="flex-1">
+        <div className="font-semibold text-sky-900">Customer inbox (Lazada)</div>
+        <div className="text-sky-800/80">Open buyer chats — I draft replies, you approve before sending.</div>
+      </div>
+      {unread > 0 && <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">{unread} unread</span>}
+    </button>
   );
 }

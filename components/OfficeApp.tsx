@@ -9,6 +9,7 @@ import { useUI } from "@/lib/store/ui-store";
 import { useSimBridge } from "@/lib/office/useSimBridge";
 import { resolveLighting } from "@/lib/office/lighting";
 import { recoverInterruptedTasks } from "@/lib/ai/runner";
+import { CustomerInbox } from "@/components/hud/CustomerInbox";
 import { bootLiveData, watchLiveData } from "@/lib/integrations/client";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { ensureWorkspace, startSync } from "@/lib/data/sync";
@@ -172,6 +173,7 @@ export default function OfficeApp() {
       <EmployeeEditor />
       <MeetingCallDialog />
       <SettingsDialog />
+      <CustomerInbox />
       <Toasts />
     </>
   );

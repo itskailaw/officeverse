@@ -69,6 +69,10 @@ Both marketplaces can notify OfficeVerse the moment an order changes. Each push 
 - Lazada: App Console → **Push Mechanism** → Push URL `https://<your-domain>/api/integrations/lazada/push`, enable the Trade Order message, Verify.
 - Shopee: Open Platform → App → **Push Mechanism** → Live Call Back URL `https://<your-domain>/api/integrations/shopee/push`, tick order status / tracking number pushes. Set `SHOPEE_PUSH_URL` if the signed URL differs from the deployed one.
 
+### Customer inbox (Lazada chat)
+
+Top bar → **Inbox** (or Mei Ling → Tasks → Customer inbox). Buyer chats are read live from Lazada's Instant Messaging API and are not stored. Mei Ling drafts a reply from the chat and the synced order data; the owner/admin edits and clicks **Approve & send** — nothing is sent otherwise. Needs the Instant Messaging permission group on the Lazada app (re-connect after enabling). Shopee chat (SellerChat) isn't available to this app.
+
 ## Scripts
 
 | | |

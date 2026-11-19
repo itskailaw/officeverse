@@ -67,6 +67,27 @@ const server = http.createServer((req, res) => {
     if (path === "/sponsor/solutions/wallet/getAutoTopUpOptionOneConfig") {
       return send({ code: "0", success: "false", errorMsg: "seller not signed", result: null });
     }
+    if (path === "/im/session/list") {
+      assert.ok(/^\d{13}$/.test(params.start_time) && params.page_size);
+      return send({ code: "0", success: true, err_code: "0", data: { session_list: [{ session_id: "S1", buyer_id: "77", title: "Ahmad", summary: "Bila sampai?", unread_count: 1, last_message_time: Date.now() }], has_more: false } });
+    }
+    if (path === "/im/session/get") return send({ code: "0", success: true, err_code: "0", data: { session_id: params.session_id, buyer_id: "77", title: "Ahmad" } });
+    if (path === "/im/message/list") {
+      return send({ code: "0", success: true, err_code: "0", data: { message_list: [
+        { message_id: "m2", from_account_id: "900", template_id: 1, content: '{"txt":"Hi boss"}', send_time: Date.now() - 1000 },
+        { message_id: "m1", from_account_id: "77", template_id: 1, content: '{"txt":"Bila sampai?"}', send_time: Date.now() - 5000 },
+      ], has_more: false } });
+    }
+    if (path === "/im/message/send") {
+      assert.equal(req.method, "POST");
+      assert.equal(params.template_id, "1");
+      assert.equal(params.txt, "Parcel dah dihantar hari ini 😊");
+      return send({ code: "0", success: true, err_code: "0", data: { message_id: "m9", template_id: 1 } });
+    }
+    if (path === "/im/session/read") {
+      assert.equal(req.method, "POST");
+      return send({ code: "0", success: false, err_code: "IM_ERR", err_message: "denied" });
+    }
     send({ code: "InvalidApi", message: path });
   });
 });
@@ -105,6 +126,18 @@ async function main() {
   assert.equal(ads.errors.length, 1);
   assert.match(ads.errors[0], /Auto top-up/);
   console.log("ads:", JSON.stringify({ today: ads.today, mtd: ads.monthToDate, errors: ads.errors }));
+
+  const { lazadaIm } = await import("../lib/integrations/lazada/api");
+  const { normaliseMessage, normaliseSession } = await import("../lib/integrations/lazada/im");
+  const sl = await lazadaIm<{ session_list: Record<string, unknown>[] }>(cfg, "/im/session/list", { start_time: Date.now(), page_size: 30 }, "LAT");
+  const sess = normaliseSession(sl.session_list[0]);
+  assert.equal(sess.title, "Ahmad");
+  const ml = await lazadaIm<{ message_list: Record<string, unknown>[] }>(cfg, "/im/message/list", { session_id: "S1", start_time: Date.now(), page_size: 40 }, "LAT");
+  const msgs = ml.message_list.map((m) => normaliseMessage(m, sess.buyerId)).sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
+  assert.deepEqual(msgs.map((m) => [m.fromBuyer, m.text]), [[true, "Bila sampai?"], [false, "Hi boss"]]);
+  const sent = await lazadaIm<{ message_id: string }>(cfg, "/im/message/send", { session_id: "S1", template_id: "1", txt: "Parcel dah dihantar hari ini 😊" }, "LAT", "POST");
+  assert.equal(sent.message_id, "m9");
+  await assert.rejects(() => lazadaIm(cfg, "/im/session/read", { session_id: "S1", last_read_message_id: "m9" }, "LAT", "POST"), (e) => e instanceof LazadaError && e.code === "IM_ERR");
 
   await assert.rejects(() => lazadaGet(cfg, "/nope", {}, "LAT"), (e) => e instanceof LazadaError && e.code === "InvalidApi");
 

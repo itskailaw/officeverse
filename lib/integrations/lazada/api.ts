@@ -79,6 +79,15 @@ export async function lazadaAdsGet<T>(cfg: LazadaConfig, path: string, params: R
   return j.result as T;
 }
 
+/** Instant Messaging call: { code, data, success, err_code, err_message }. GET for reads, POST for writes. */
+export async function lazadaIm<T>(cfg: LazadaConfig, path: string, params: Record<string, string | number | undefined>, accessToken: string, method: "GET" | "POST" = "GET") {
+  const j = await call<T>(cfg, apiBase(), path, params, accessToken, method);
+  if (j.success === false || j.success === "false" || (j.err_code !== undefined && String(j.err_code) !== "0" && String(j.err_code) !== "")) {
+    throw new LazadaError(String(j.err_code ?? "im_error"), String(j.err_message || "Lazada chat request failed"), j.request_id as string | undefined);
+  }
+  return j.data as T;
+}
+
 /** Shop-level API call on the Malaysia gateway. */
 export async function lazadaGet<T>(cfg: LazadaConfig, path: string, params: Record<string, string | number | undefined>, accessToken: string) {
   return (await call<T>(cfg, apiBase(), path, params, accessToken, "GET")).data as T;
