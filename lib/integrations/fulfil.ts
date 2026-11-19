@@ -195,9 +195,21 @@ export async function labelsShopee(ws: string, orderSns: string[]): Promise<Labe
     }
     for (const o of pending) problems.push(`${o.order_sn}: Shopee is still preparing the label — try again in a minute`);
     if (ready.length) {
-      parts.push(
-        await shopPostFile(cfg, "/api/v2/logistics/download_shipping_document", { shipping_document_type: type, order_list: ready.map((sn) => ({ order_sn: sn })) }, token, shopId),
-      );
+      const download = (sns: string[]) =>
+        shopPostFile(cfg, "/api/v2/logistics/download_shipping_document", { shipping_document_type: type, order_list: sns.map((sn) => ({ order_sn: sn })) }, token, shopId);
+      try {
+        parts.push(await download(ready));
+      } catch (e) {
+        // Shopee refuses to bundle some packages (different courier / channel): fetch each one and merge ourselves
+        if (!(e instanceof ShopeeError) || ready.length === 1) throw e;
+        for (const sn of ready) {
+          try {
+            parts.push(await download([sn]));
+          } catch (one) {
+            problems.push(`${sn}: ${one instanceof ShopeeError ? one.message : String(one)}`);
+          }
+        }
+      }
     }
   }
   if (!parts.length) throw new HttpError(502, `Shopee couldn't create the labels: ${problems.join(" · ")}`);
