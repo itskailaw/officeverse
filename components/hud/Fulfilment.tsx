@@ -69,6 +69,40 @@ function due(shipBy: string | null) {
   return { label, urgent: h < 24, late: h < 0 };
 }
 
+/** Loading screen shown in the new tab while the airway bills are fetched (water drip). */
+function loadingPage(count: number) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preparing airway bills…</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; font-family: -apple-system, system-ui, sans-serif;
+         background: linear-gradient(180deg,#eff6ff,#dbeafe); color:#1e3a5f; }
+  @media (prefers-color-scheme: dark) { body { background: linear-gradient(180deg,#0b1220,#13263f); color:#dbeafe; } }
+  .wrap { text-align:center; }
+  .tap { width:46px; height:18px; margin:0 auto; border-radius:6px 6px 3px 3px; background:#64748b; position:relative; }
+  .tap:before { content:""; position:absolute; left:-26px; top:4px; width:30px; height:10px; border-radius:4px; background:#94a3b8; }
+  .stage { position:relative; height:150px; width:120px; margin:0 auto; }
+  .drop { position:absolute; left:50%; top:0; width:16px; height:16px; margin-left:-8px; background:#38bdf8;
+          border-radius:0 50% 50% 50%; transform:rotate(45deg); animation: fall 1.4s cubic-bezier(.55,0,1,.45) infinite; opacity:0; }
+  .drop:nth-child(2){ animation-delay:.47s } .drop:nth-child(3){ animation-delay:.94s }
+  @keyframes fall { 0%{ top:0; opacity:0; transform:rotate(45deg) scale(.4) } 12%{ opacity:1; transform:rotate(45deg) scale(1) }
+                    85%{ top:112px; opacity:1 } 100%{ top:118px; opacity:0; transform:rotate(45deg) scale(.6,.3) } }
+  .pool { position:absolute; left:50%; bottom:0; width:96px; height:18px; margin-left:-48px; border-radius:50%;
+          background: radial-gradient(ellipse at center,#38bdf8 0%,#0ea5e9 55%,transparent 70%); opacity:.85; }
+  .ring { position:absolute; left:50%; bottom:4px; width:20px; height:8px; margin-left:-10px; border:2px solid #7dd3fc; border-radius:50%;
+          animation: ripple 1.4s ease-out infinite; opacity:0; }
+  .ring:nth-of-type(5){ animation-delay:.47s } .ring:nth-of-type(6){ animation-delay:.94s }
+  @keyframes ripple { 0%{ opacity:0; transform:scale(.3) } 8%{ opacity:.9 } 100%{ opacity:0; transform:scale(4.2,3) } }
+  h1 { font-size:18px; margin:22px 0 6px; } p { margin:0; font-size:13px; opacity:.75; }
+  .err { color:#b91c1c; } @media (prefers-color-scheme: dark) { .err { color:#fca5a5; } }
+</style></head><body><div class="wrap">
+  <div class="tap"></div>
+  <div class="stage"><div class="drop"></div><div class="drop"></div><div class="drop"></div><div class="pool"></div><div class="ring"></div><div class="ring"></div></div>
+  <h1 id="t">Preparing ${count} airway bill${count === 1 ? "" : "s"}…</h1>
+  <p id="s">Fetching labels from Shopee &amp; Lazada — usually 5–20 seconds.</p>
+</div></body></html>`;
+}
+
 /** To process → arrange drop-off; To ship → print shipping labels. Owner only. */
 export function Fulfilment() {
   const open = useUI((s) => s.dialog === "fulfil");
@@ -172,8 +206,13 @@ export function Fulfilment() {
     if (!targets.length) return;
     setBusy("print");
     const open = async (orders: { platform: Plat; id: string }[]) => {
-      // open the tab first (popup blockers), then fill it with the file
+      // open the tab first (popup blockers), show the loading screen, then swap in the file
       const tab = window.open("", "_blank");
+      try {
+        tab?.document.open();
+        tab?.document.write(loadingPage(orders.length));
+        tab?.document.close();
+      } catch {}
       try {
         const r = await fetch("/api/fulfil/labels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orders, paper }) });
         if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `Request failed (${r.status})`);
@@ -190,8 +229,22 @@ export function Fulfilment() {
         useOffice.getState().recordAudit("print_labels", "order", null, `Airway bills: ${orders.map((o) => `${NAME[o.platform]} ${o.id}`).join(", ")}`);
         return r.headers.get("X-OV-Separate") as Plat | null;
       } catch (e) {
-        tab?.close();
-        toast("error", `Labels: ${e instanceof Error ? e.message : String(e)}`);
+        const msg = e instanceof Error ? e.message : String(e);
+        toast("error", `Labels: ${msg}`);
+        // keep the tab, but tell the CEO what happened instead of leaving it blank
+        try {
+          const d = tab?.document;
+          const t = d?.getElementById("t");
+          const sub = d?.getElementById("s");
+          if (t && sub) {
+            t.textContent = "Couldn't get the airway bills";
+            t.className = "err";
+            sub.textContent = `${msg} — you can close this tab and try again.`;
+            d?.querySelectorAll(".drop,.ring").forEach((el) => ((el as HTMLElement).style.animationPlayState = "paused"));
+          } else tab?.close();
+        } catch {
+          tab?.close();
+        }
         return null;
       }
     };
