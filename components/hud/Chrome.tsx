@@ -35,7 +35,7 @@ import { cn, klTime, timeAgo } from "@/lib/utils";
 import type { LightingMode, WallMode } from "@/lib/data/types";
 import { PriorityDot } from "./ExecutiveDashboard";
 import { CompanySwitcher, Logo } from "./Extras";
-import { useLive } from "@/lib/integrations/client";
+import { liveSources, useLive } from "@/lib/integrations/client";
 
 function Clock24() {
   const [now, setNow] = useState<Date | null>(null);
@@ -61,7 +61,8 @@ const WALL_LABEL = { cutaway: "Cut-away", full: "Walls up", hidden: "Walls down"
 export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
   const settings = useOffice((s) => s.settings);
   const update = useOffice((s) => s.updateSettings);
-  const liveShopee = useLive((s) => !!s.summary?.platforms.shopee.connected);
+  const liveSummary = useLive((s) => s.summary);
+  const liveShopee = !!liveSummary && (liveSummary.platforms.shopee.connected || liveSummary.platforms.lazada.connected);
   const unread = useOffice((s) => s.notifications.filter((n) => !n.read).length);
   const companies = useOffice((s) => s.companies);
   const ui = useUI();
@@ -77,7 +78,7 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
       <CompanySwitcher />
       {liveShopee && (
         <Badge variant="success" title="Shopee data is live">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> LIVE · Shopee
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> LIVE · {liveSources(liveSummary)}
         </Badge>
       )}
       {settings.demoMode ? (

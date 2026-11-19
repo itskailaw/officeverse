@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/ai/server/guard";
 import { getMembership, listIntegrations } from "@/lib/integrations/store";
 import { shopeeConfig } from "@/lib/integrations/shopee/api";
+import { lazadaConfig } from "@/lib/integrations/lazada/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export async function GET() {
     encryptionKey: Boolean(process.env.INTEGRATION_ENCRYPTION_KEY && process.env.INTEGRATION_ENCRYPTION_KEY.length >= 24),
     shopeeApp: Boolean(shopeeConfig()),
     shopeeEnv: shopeeConfig()?.env ?? null,
+    lazadaApp: Boolean(lazadaConfig()),
   };
   if (!setup.supabase || !setup.serviceRole) return NextResponse.json({ setup, integrations: [] });
   try {

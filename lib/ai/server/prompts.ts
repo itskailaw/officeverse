@@ -52,7 +52,7 @@ CEO: ${ctx.ceoName}
 Companies: ${ctx.companies.map((c) => `${c.name}${c.active ? "" : " (inactive)"} — ${c.description}`).join("; ")}
 Data mode: ${
     ctx.live
-      ? "LIVE — Shopee Malaysia is connected; business tools return real Shopee data (Lazada not connected). Always mention the last sync time when quoting figures."
+      ? "LIVE — business tools return real marketplace data for the connected marketplaces (see each result for which are connected). Always mention which marketplace and the last sync time when quoting figures."
       : ctx.demoMode
         ? "DEMO MODE is on — business tools return clearly labelled sample data."
         : "Live mode — no integrations are connected yet, so business data tools return 'unavailable'."

@@ -58,6 +58,10 @@ Vercel environment variables (all **Secret**): `SHOPEE_PARTNER_ID`, `SHOPEE_PART
 
 `npm run check:shopee` verifies request signing against a local mock.
 
+### Lazada Malaysia (live)
+
+Same model as Shopee: Settings → Integrations → **Connect Lazada store**. Vercel environment variables (Secret): `LAZADA_APP_KEY`, `LAZADA_APP_SECRET`. In the Lazada Open Platform console set the app's Callback URL to `https://<your-domain>/api/integrations/lazada/callback`. Orders sync incrementally (`/orders/get` by update time, items via `/orders/items/get`), de-duplicated by order number; the dashboard shows Shopee and Lazada side by side. `npm run check:lazada` verifies signing against a mock that re-implements Lazada's official SDK signature.
+
 ## Scripts
 
 | | |

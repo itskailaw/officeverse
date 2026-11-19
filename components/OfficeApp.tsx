@@ -113,11 +113,12 @@ export default function OfficeApp() {
         setPhase("ready");
         // returning from Shopee's authorisation page?
         const params = new URLSearchParams(window.location.search);
-        const shopee = params.get("shopee");
-        if (shopee) {
+        const back = params.get("shopee") ? "Shopee" : params.get("lazada") ? "Lazada" : null;
+        const result = params.get("shopee") ?? params.get("lazada");
+        if (back) {
           const ui = useUI.getState();
-          if (shopee === "connected") ui.toast("success", "Shopee connected — syncing your orders…");
-          else ui.toast("error", params.get("message") ?? "Couldn't connect Shopee.");
+          if (result === "connected") ui.toast("success", `${back} connected — syncing your orders…`);
+          else ui.toast("error", params.get("message") ?? `Couldn't connect ${back}.`);
           ui.set({ dialog: "settings", settingsTab: "integrations" });
           window.history.replaceState(null, "", "/office");
         }

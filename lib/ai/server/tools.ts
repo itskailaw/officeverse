@@ -103,8 +103,10 @@ export function buildTools(e: EmployeeBrief, mode: "task" | "chat"): Tool[] {
   return tools;
 }
 
+type PInfo = { connected: boolean; shopName?: string | null; lastSync?: string | null };
 type Live = {
-  platforms: { shopee: { shopName: string | null; lastSync: string | null } };
+  platforms: { shopee: PInfo; lazada: PInfo };
+  byPlatform?: unknown;
   definition: string;
   today: unknown;
   yesterday: unknown;
@@ -117,11 +119,13 @@ type Live = {
 };
 
 function liveData(metric: string, live: Live) {
+  const desc = (name: string, p: PInfo) =>
+    p.connected ? { connected: true, shop: p.shopName ?? null, lastSuccessfulSync: p.lastSync ?? null } : { connected: false, note: `${name} not connected — no data available.` };
   const meta = {
     source: "LIVE",
-    platform: "Shopee Malaysia" + (live.platforms.shopee.shopName ? ` (${live.platforms.shopee.shopName})` : ""),
-    lastSuccessfulSync: live.platforms.shopee.lastSync,
-    lazada: "Not connected — no Lazada data available.",
+    marketplaces: { shopee: desc("Shopee", live.platforms.shopee), lazada: desc("Lazada", live.platforms.lazada) },
+    note: "Totals combine all connected marketplaces; byPlatform gives the split.",
+    byPlatform: live.byPlatform ?? null,
   };
   switch (metric) {
     case "revenue":
@@ -130,11 +134,18 @@ function liveData(metric: string, live: Live) {
       return {
         ...meta,
         toPack: live.toPack,
-        note: "total = Shopee Seller Centre 'To Ship' count (To Process + Processed). readyToShip = 'To Process' (shipment not arranged yet); processed = shipment arranged, parcel awaiting pickup; urgent = ship-by deadline within 24h.",
+        parcelsNote:
+          "total = Seller Centre 'To Ship' (orders still to process + packed/processed awaiting pickup). readyToShip = still to process; processed = arranged/packed, awaiting courier pickup; urgent = ship-by deadline within 24h.",
         cancelledToday: live.cancelledToday,
       };
     case "advertising":
-      return { ...meta, currency: "MYR", shopeeAdsBalance: live.ads.shopee ?? "Unavailable (Ads permission not granted on the Shopee app)", dailySpend: "Not tracked yet" };
+      return {
+        ...meta,
+        currency: "MYR",
+        shopeeAdsBalance: live.ads.shopee ?? "Unavailable (Ads permission not granted on the Shopee app)",
+        lazadaAds: "Not connected yet",
+        dailySpend: "Not tracked yet",
+      };
     case "best_sellers":
       return { ...meta, currency: "MYR", last30Days: live.bestSellers30d };
     default:

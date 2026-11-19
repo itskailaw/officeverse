@@ -3,7 +3,7 @@
 import type { Company } from "@/lib/data/types";
 import { demoEcommerce, formatMYR } from "@/lib/data/demo";
 import { makeScreenTexture } from "./materials";
-import type { LiveSummary } from "@/lib/integrations/client";
+import { liveSources, type LiveSummary } from "@/lib/integrations/client";
 
 const NAVY = "#0f1f36";
 
@@ -86,14 +86,16 @@ export function perfScreenTexture(demoMode: boolean, live?: LiveSummary | null) 
   return makeScreenTexture((g, w) => {
     header(g, w, "Business Performance", "Water Guardian Solution · MYR · Asia/Kuala_Lumpur");
     if (live) {
-      pill(g, w - 40, 44, "LIVE · SHOPEE", "#10b981", "#ffffff");
+      const sources = liveSources(live).toUpperCase();
+      pill(g, w - 40, 44, `LIVE · ${sources}`, "#10b981", "#ffffff");
       const toShip = live.toPack.total ?? live.toPack.readyToShip + live.toPack.processed;
       drawKpis(g, [
         ["Today", formatMYR(live.today.revenue)],
         ["Month to date", formatMYR(live.monthToDate.revenue)],
         ["To ship", `${toShip}${live.toPack.urgent ? `  (${live.toPack.urgent} urgent)` : ""}`],
       ]);
-      drawTrend(g, w, live.days.map((d) => d.revenue), `Shopee revenue, last 30 days · synced ${ago(live.platforms.shopee.lastSync)}`, "#eb6834");
+      const syncs = [live.platforms.shopee.lastSync, live.platforms.lazada.lastSync].filter((x): x is string => !!x).sort();
+      drawTrend(g, w, live.days.map((d) => d.revenue), `${liveSources(live)} revenue, last 30 days · synced ${ago(syncs[0] ?? null)}`, "#eb6834");
       return;
     }
     if (!demoMode) {

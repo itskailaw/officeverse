@@ -35,7 +35,7 @@ import { CompaniesManager } from "./CompaniesManager";
 import { TeamTable } from "./TeamTable";
 import { StatusBadge, TaskRow } from "./EmployeePanel";
 import { ApprovalCard } from "./AIWork";
-import { useLive, type LiveSummary } from "@/lib/integrations/client";
+import { liveSources, useLive, type LiveSummary } from "@/lib/integrations/client";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
 
@@ -165,9 +165,15 @@ function Overview() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
           </span>
-          <b>Live data</b> from Shopee{liveData.platforms.shopee.shopName ? ` (${liveData.platforms.shopee.shopName})` : ""}. Lazada isn&apos;t connected yet.
+          <b>Live data</b> from {liveSources(liveData)}.
+          {!liveData.platforms.lazada.connected && " Lazada isn't connected yet."}
+          {!liveData.platforms.shopee.connected && " Shopee isn't connected."}
           <span className="ml-auto whitespace-nowrap text-emerald-700">
-            Last successful sync: {liveData.platforms.shopee.lastSync ? timeAgo(liveData.platforms.shopee.lastSync) : "never"}
+            Last sync:{" "}
+            {(["shopee", "lazada"] as const)
+              .filter((p) => liveData.platforms[p].connected)
+              .map((p) => `${p === "shopee" ? "Shopee" : "Lazada"} ${liveData.platforms[p].lastSync ? timeAgo(liveData.platforms[p].lastSync!) : "never"}`)
+              .join(" · ")}
           </span>
         </div>
       ) : demo ? (
@@ -324,9 +330,9 @@ function Hero() {
   const queued = tasks.filter((t) => t.status === "queued").length;
   if (queued) items.push({ label: `${queued} task${queued > 1 ? "s" : ""} queued for the AI engine`, tone: "sky", onClick: () => set({ dashboardTab: "tasks" }) });
   if (shopeeLive) {
-    if (shopeeLive.toPack.urgent) items.push({ label: `${shopeeLive.toPack.urgent} Shopee parcel${shopeeLive.toPack.urgent > 1 ? "s" : ""} due to ship within 24h`, tone: "red" });
+    if (shopeeLive.toPack.urgent) items.push({ label: `${shopeeLive.toPack.urgent} parcel${shopeeLive.toPack.urgent > 1 ? "s" : ""} due to ship within 24h`, tone: "red" });
     const toShip = shopeeLive.toPack.total ?? shopeeLive.toPack.readyToShip + shopeeLive.toPack.processed;
-    if (toShip) items.push({ label: `${toShip} Shopee orders to ship`, tone: "amber" });
+    if (toShip) items.push({ label: `${toShip} orders to ship (${liveSources(shopeeLive)})`, tone: "amber" });
   } else if (d) {
     if (d.parcels.priority) items.push({ label: `${d.parcels.priority} priority parcels to ship`, tone: "amber", demo: true });
     const low = d.ads.find((a) => a.daysLeft < 4);
@@ -399,17 +405,24 @@ function Kpi({ icon, label, value, sub, warn, demo }: { icon: React.ReactNode; l
 function LiveEcommerceSection({ s }: { s: LiveSummary }) {
   const [range, setRange] = useState<7 | 14 | 30>(14);
   const syncing = useLive((x) => x.syncing);
-  const sync = useLive((x) => x.syncShopee);
+  const syncAll = useLive((x) => x.syncAll);
   const toast = useUI((x) => x.toast);
-  const chart = s.days.slice(-range).map((x) => ({ date: x.date.slice(5), Shopee: x.revenue }));
+  const hasShopee = s.platforms.shopee.connected;
+  const hasLazada = s.platforms.lazada.connected;
+  const chart = s.days.slice(-range).map((x) => ({ date: x.date.slice(5), Shopee: x.shopee ?? x.revenue, Lazada: x.lazada ?? 0 }));
   const aov = s.yesterday.orders ? s.yesterday.revenue / s.yesterday.orders : 0;
+  const bp = s.byPlatform ?? {};
+  /** "Shopee RM 1,200 · Lazada RM 300" style split for a KPI */
+  const split = (pick: (f: NonNullable<typeof bp.shopee>) => string) =>
+    [hasShopee && bp.shopee && `Shopee ${pick(bp.shopee)}`, hasLazada && bp.lazada && `Lazada ${pick(bp.lazada)}`].filter(Boolean).join(" · ");
+  const toShip = s.toPack.total ?? s.toPack.readyToShip + s.toPack.processed;
   return (
     <Card>
       <CardHeader className="pb-3">
         <div>
           <CardTitle>Water Guardian Solution — E-commerce</CardTitle>
           <p className="text-[11px] text-slate-500" title={s.definition}>
-            Live from Shopee · gross order value in MYR (before fees, refunds and payouts) · Malaysia time
+            Live from {liveSources(s)} · gross order value in MYR (before fees, refunds and payouts) · Malaysia time
           </p>
         </div>
         <Button
@@ -417,7 +430,7 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
           variant="outline"
           disabled={syncing}
           onClick={async () => {
-            const r = await sync();
+            const r = await syncAll();
             toast(r.ok ? "success" : "error", r.message);
           }}
         >
@@ -426,28 +439,32 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <LiveKpi icon={<Wallet />} label="Today" value={formatMYR(s.today.revenue)} sub={`${s.today.orders} orders`} />
-          <LiveKpi icon={<Wallet />} label="Yesterday" value={formatMYR(s.yesterday.revenue)} sub={`AOV ${formatMYR(aov, 2)}`} />
-          <LiveKpi icon={<Wallet />} label="Month to date" value={formatMYR(s.monthToDate.revenue)} sub={`${s.monthToDate.orders} orders`} />
+          <LiveKpi icon={<Wallet />} label="Today" value={formatMYR(s.today.revenue)} sub={`${s.today.orders} orders${hasShopee && hasLazada ? ` · ${split((f) => formatMYR(f.today.revenue))}` : ""}`} />
+          <LiveKpi icon={<Wallet />} label="Yesterday" value={formatMYR(s.yesterday.revenue)} sub={hasShopee && hasLazada ? split((f) => formatMYR(f.yesterday.revenue)) : `AOV ${formatMYR(aov, 2)}`} />
+          <LiveKpi icon={<Wallet />} label="Month to date" value={formatMYR(s.monthToDate.revenue)} sub={hasShopee && hasLazada ? split((f) => formatMYR(f.monthToDate.revenue)) : `${s.monthToDate.orders} orders`} />
           <LiveKpi
             icon={<Package />}
             label="To ship"
-            value={String(s.toPack.total ?? s.toPack.readyToShip + s.toPack.processed)}
-            sub={`${s.toPack.readyToShip} to process · ${s.toPack.processed} awaiting pickup · ${s.toPack.urgent} due within 24h`}
+            value={String(toShip)}
+            sub={
+              hasShopee && hasLazada
+                ? `${split((f) => String(f.toPack.total))} · ${s.toPack.urgent} due within 24h`
+                : `${s.toPack.readyToShip} to process · ${s.toPack.processed} awaiting pickup · ${s.toPack.urgent} due within 24h`
+            }
             warn={s.toPack.urgent > 0}
           />
           <LiveKpi
             icon={<Megaphone />}
             label="Shopee Ads balance"
             value={s.ads.shopee ? formatMYR(s.ads.shopee.balance, 2) : null}
-            sub={s.ads.shopee ? `as of ${timeAgo(s.ads.shopee.at)} · daily spend not yet tracked` : "Ads permission not granted"}
+            sub={s.ads.shopee ? `as of ${timeAgo(s.ads.shopee.at)} · daily spend not yet tracked` : hasShopee ? "Ads permission not granted" : "Shopee not connected"}
           />
-          <LiveKpi icon={<AlertTriangle />} label="Cancelled today" value={String(s.cancelledToday)} sub="Shopee" warn={s.cancelledToday > 0} />
+          <LiveKpi icon={<AlertTriangle />} label="Cancelled today" value={String(s.cancelledToday)} sub={liveSources(s)} warn={s.cancelledToday > 0} />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-panel p-3 lg:col-span-2">
             <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs font-semibold text-slate-700">Shopee revenue by day (MYR)</div>
+              <div className="text-xs font-semibold text-slate-700">Revenue by day (MYR)</div>
               <div className="flex gap-1">
                 {[7, 14, 30].map((r) => (
                   <button
@@ -460,6 +477,16 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
                 ))}
               </div>
             </div>
+            {hasShopee && hasLazada && (
+              <div className="mb-1 flex gap-3 text-[11px] text-slate-600">
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-sm" style={{ background: SERIES.shopee }} /> Shopee
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-sm" style={{ background: SERIES.lazada }} /> Lazada
+                </span>
+              </div>
+            )}
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chart} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
@@ -467,7 +494,8 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} />
                   <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
                   <Tooltip formatter={(v) => formatMYR(Number(v))} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} cursor={{ stroke: "#94a3b8", strokeDasharray: "3 3" }} />
-                  <Area type="monotone" dataKey="Shopee" stroke={SERIES.shopee} strokeWidth={2} fill={SERIES.shopee} fillOpacity={0.18} isAnimationActive={false} />
+                  {hasLazada && <Area type="monotone" dataKey="Lazada" stackId="1" stroke={SERIES.lazada} strokeWidth={2} fill={SERIES.lazada} fillOpacity={0.18} isAnimationActive={false} />}
+                  {hasShopee && <Area type="monotone" dataKey="Shopee" stackId="1" stroke={SERIES.shopee} strokeWidth={2} fill={SERIES.shopee} fillOpacity={0.18} isAnimationActive={false} />}
                 </AreaChart>
               </ResponsiveContainer>
             </div>

@@ -1,24 +1,56 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { LAZADA_STATUS } from "./lazada/sign";
 
-/** Orders that never became real sales. */
-const NOT_SALES = new Set(["UNPAID", "CANCELLED", "IN_CANCEL", "INVOICE_PENDING"]);
+type Platform = "shopee" | "lazada";
+const up = (s: Set<string>) => new Set([...s].map((x) => x.toUpperCase()));
+
+/** Per-platform status meaning (stored statuses are upper-case). */
+const STATUS: Record<Platform, { toProcess: Set<string>; awaitingPickup: Set<string>; notSales: Set<string>; cancelled: Set<string> }> = {
+  shopee: {
+    toProcess: new Set(["READY_TO_SHIP"]),
+    awaitingPickup: new Set(["PROCESSED"]),
+    notSales: new Set(["UNPAID", "CANCELLED", "IN_CANCEL", "INVOICE_PENDING"]),
+    cancelled: new Set(["CANCELLED", "IN_CANCEL"]),
+  },
+  lazada: {
+    toProcess: up(LAZADA_STATUS.toProcess),
+    awaitingPickup: up(LAZADA_STATUS.awaitingPickup),
+    notSales: up(LAZADA_STATUS.notSales),
+    cancelled: new Set(["CANCELED", "CANCELLED"]),
+  },
+};
+
+export interface PlatformInfo {
+  connected: boolean;
+  shopName: string | null;
+  lastSync: string | null;
+  status: string | null;
+  lastError: string | null;
+  expiresAt: string | null;
+}
+export interface PlatformFigures {
+  today: { revenue: number; orders: number };
+  yesterday: { revenue: number; orders: number };
+  monthToDate: { revenue: number; orders: number };
+  toPack: { total: number; readyToShip: number; processed: number; urgent: number };
+  cancelledToday: number;
+}
 
 export interface LiveSummary {
   live: true;
   currency: "MYR";
   definition: string;
-  platforms: {
-    shopee: { connected: boolean; shopName: string | null; lastSync: string | null; status: string | null; lastError: string | null; expiresAt: string | null };
-    lazada: { connected: false };
-  };
+  platforms: { shopee: PlatformInfo | { connected: false }; lazada: PlatformInfo | { connected: false } };
+  /** totals across connected platforms */
   today: { revenue: number; orders: number };
   yesterday: { revenue: number; orders: number };
   monthToDate: { revenue: number; orders: number };
-  days: { date: string; revenue: number; orders: number }[];
-  /** total = Shopee Seller Centre "To Ship" (To Process + Processed) */
+  days: { date: string; revenue: number; orders: number; shopee: number; lazada: number }[];
+  /** total = Seller Centre "To Ship" (To Process + Processed / Packed, awaiting pickup) */
   toPack: { total: number; readyToShip: number; processed: number; urgent: number };
   cancelledToday: number;
+  byPlatform: Partial<Record<Platform, PlatformFigures>>;
   bestSellers30d: { name: string; units: number; revenue: number }[];
   ads: { shopee: { balance: number; at: string } | null };
 }
@@ -37,65 +69,108 @@ async function fetchAll<T>(q: (from: number, to: number) => PromiseLike<{ data: 
   return out;
 }
 
+const round = (n: number) => Math.round(n * 100) / 100;
+const zero = () => ({ revenue: 0, orders: 0 });
+
 /**
- * Live e-commerce summary for a workspace, from synced marketplace orders.
+ * Live e-commerce summary from synced marketplace orders (Shopee and/or Lazada).
  * `sb` should be a user-scoped client (RLS limits rows to the caller's workspace).
- * Returns null when no live integration is connected.
+ * Returns null when no marketplace is connected.
  */
 export async function liveSummary(sb: SupabaseClient, workspaceId: string): Promise<LiveSummary | null> {
-  const { data: integ } = await sb.from("integration_status").select("*").eq("workspace_id", workspaceId).eq("provider", "shopee").limit(1);
-  const shop = integ?.[0] as
-    | { shop_name: string | null; last_success_at: string | null; status: string; last_error: string | null; expires_at: string | null }
-    | undefined;
-  if (!shop) return null;
+  const { data: integ } = await sb.from("integration_status").select("*").eq("workspace_id", workspaceId).in("provider", ["shopee", "lazada"]);
+  type I = { provider: Platform; shop_name: string | null; last_success_at: string | null; status: string; last_error: string | null; expires_at: string | null };
+  const conns = (integ ?? []) as I[];
+  if (!conns.length) return null;
+  const info = (p: Platform): PlatformInfo | { connected: false } => {
+    const c = conns.find((x) => x.provider === p);
+    return c
+      ? { connected: c.status === "connected", shopName: c.shop_name, lastSync: c.last_success_at, status: c.status, lastError: c.last_error, expiresAt: c.expires_at }
+      : { connected: false };
+  };
+  const platforms = [...new Set(conns.map((c) => c.provider))];
 
   const now = new Date();
   const since = new Date(now.getTime() - 32 * 86400 * 1000).toISOString();
-  type Row = { status: string; gross_amount: number; ordered_at: string; ship_by: string | null; items: { name: string; model: string | null; qty: number; price: number }[] | null };
+  type Row = { platform: Platform; status: string; gross_amount: number; ordered_at: string; items: { name: string; qty: number; price: number }[] | null };
   const orders = await fetchAll<Row>((a, b) =>
     sb
       .from("marketplace_orders")
-      .select("status, gross_amount, ordered_at, ship_by, items")
+      .select("platform, status, gross_amount, ordered_at, items")
       .eq("workspace_id", workspaceId)
-      .eq("platform", "shopee")
+      .in("platform", platforms)
       .gte("ordered_at", since)
       .order("ordered_at", { ascending: false })
       .range(a, b),
   );
-  const pending = await fetchAll<{ status: string; ship_by: string | null }>((a, b) =>
-    sb.from("marketplace_orders").select("status, ship_by").eq("workspace_id", workspaceId).eq("platform", "shopee").in("status", ["READY_TO_SHIP", "PROCESSED"]).range(a, b),
+  const openStatuses = platforms.flatMap((p) => [...STATUS[p].toProcess, ...STATUS[p].awaitingPickup]);
+  const pending = await fetchAll<{ platform: Platform; status: string; ship_by: string | null }>((a, b) =>
+    sb.from("marketplace_orders").select("platform, status, ship_by").eq("workspace_id", workspaceId).in("platform", platforms).in("status", openStatuses).range(a, b),
   );
 
   const today = klDay(now);
   const yesterday = klDay(new Date(now.getTime() - 86400 * 1000));
   const month = today.slice(0, 7);
-  const byDay = new Map<string, { revenue: number; orders: number }>();
-  for (let i = 29; i >= 0; i--) byDay.set(klDay(new Date(now.getTime() - i * 86400 * 1000)), { revenue: 0, orders: 0 });
-  let mtd = { revenue: 0, orders: 0 };
-  let cancelledToday = 0;
+  const soon = now.getTime() + 24 * 3600 * 1000;
+
+  const byDay = new Map<string, { revenue: number; orders: number; shopee: number; lazada: number }>();
+  for (let i = 29; i >= 0; i--) byDay.set(klDay(new Date(now.getTime() - i * 86400 * 1000)), { revenue: 0, orders: 0, shopee: 0, lazada: 0 });
+  const fig: Partial<Record<Platform, PlatformFigures>> = {};
+  for (const p of platforms) fig[p] = { today: zero(), yesterday: zero(), monthToDate: zero(), toPack: { total: 0, readyToShip: 0, processed: 0, urgent: 0 }, cancelledToday: 0 };
   const sellers = new Map<string, { units: number; revenue: number }>();
+
   for (const o of orders) {
+    const f = fig[o.platform];
+    if (!f) continue;
+    const st = STATUS[o.platform];
     const day = klDay(new Date(o.ordered_at));
-    if (o.status === "CANCELLED" || o.status === "IN_CANCEL") {
-      if (day === today) cancelledToday++;
-    }
-    if (NOT_SALES.has(o.status)) continue;
+    if (st.cancelled.has(o.status) && day === today) f.cancelledToday++;
+    if (st.notSales.has(o.status)) continue;
     const amt = Number(o.gross_amount) || 0;
     const d = byDay.get(day);
     if (d) {
       d.revenue += amt;
       d.orders++;
+      d[o.platform] += amt;
     }
-    if (day.startsWith(month)) mtd = { revenue: mtd.revenue + amt, orders: mtd.orders + 1 };
+    const add = (x: { revenue: number; orders: number }) => {
+      x.revenue += amt;
+      x.orders++;
+    };
+    if (day === today) add(f.today);
+    if (day === yesterday) add(f.yesterday);
+    if (day.startsWith(month)) add(f.monthToDate);
     for (const it of o.items ?? []) {
-      const key = it.name;
-      const s = sellers.get(key) ?? { units: 0, revenue: 0 };
+      const s = sellers.get(it.name) ?? { units: 0, revenue: 0 };
       s.units += it.qty || 0;
       s.revenue += (it.qty || 0) * (it.price || 0);
-      sellers.set(key, s);
+      sellers.set(it.name, s);
     }
   }
-  const soon = now.getTime() + 24 * 3600 * 1000;
+  for (const p of pending) {
+    const f = fig[p.platform];
+    if (!f) continue;
+    const st = STATUS[p.platform];
+    f.toPack.total++;
+    if (st.toProcess.has(p.status)) f.toPack.readyToShip++;
+    else f.toPack.processed++;
+    if (p.ship_by && Date.parse(p.ship_by) < soon) f.toPack.urgent++;
+  }
+
+  const sum = (pick: (f: PlatformFigures) => { revenue: number; orders: number }) => {
+    const t = zero();
+    for (const f of Object.values(fig)) {
+      const x = pick(f!);
+      t.revenue += x.revenue;
+      t.orders += x.orders;
+    }
+    return { revenue: round(t.revenue), orders: t.orders };
+  };
+  for (const f of Object.values(fig)) {
+    for (const k of ["today", "yesterday", "monthToDate"] as const) f![k].revenue = round(f![k].revenue);
+  }
+  const vals = Object.values(fig) as PlatformFigures[];
+
   const { data: ads } = await sb
     .from("ad_balance_snapshots")
     .select("balance, captured_at")
@@ -104,35 +179,24 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string): Prom
     .order("captured_at", { ascending: false })
     .limit(1);
 
-  const round = (n: number) => Math.round(n * 100) / 100;
-  const days = [...byDay.entries()].map(([date, v]) => ({ date, revenue: round(v.revenue), orders: v.orders }));
   return {
     live: true,
     currency: "MYR",
-    definition: "Gross order value from Shopee (order total paid by buyers incl. buyer-paid shipping, after Shopee promotions; before fees, refunds and payouts). Unpaid and cancelled orders excluded. Dates in Malaysia time.",
-    platforms: {
-      shopee: {
-        connected: shop.status === "connected",
-        shopName: shop.shop_name,
-        lastSync: shop.last_success_at,
-        status: shop.status,
-        lastError: shop.last_error,
-        expiresAt: shop.expires_at,
-      },
-      lazada: { connected: false },
-    },
-    today: byDay.get(today) ? { revenue: round(byDay.get(today)!.revenue), orders: byDay.get(today)!.orders } : { revenue: 0, orders: 0 },
-    yesterday: byDay.get(yesterday) ? { revenue: round(byDay.get(yesterday)!.revenue), orders: byDay.get(yesterday)!.orders } : { revenue: 0, orders: 0 },
-    monthToDate: { revenue: round(mtd.revenue), orders: mtd.orders },
-    days,
+    definition:
+      "Gross order value per marketplace (what buyers paid for the order, before marketplace fees, refunds and payouts). Unpaid, cancelled and failed orders excluded. Dates in Malaysia time.",
+    platforms: { shopee: info("shopee"), lazada: info("lazada") },
+    today: sum((f) => f.today),
+    yesterday: sum((f) => f.yesterday),
+    monthToDate: sum((f) => f.monthToDate),
+    days: [...byDay.entries()].map(([date, v]) => ({ date, revenue: round(v.revenue), orders: v.orders, shopee: round(v.shopee), lazada: round(v.lazada) })),
     toPack: {
-      total: pending.length,
-      readyToShip: pending.filter((p) => p.status === "READY_TO_SHIP").length,
-      processed: pending.filter((p) => p.status === "PROCESSED").length,
-      // both statuses still have to leave the warehouse before the ship-by deadline
-      urgent: pending.filter((p) => p.ship_by && Date.parse(p.ship_by) < soon).length,
+      total: vals.reduce((s, f) => s + f.toPack.total, 0),
+      readyToShip: vals.reduce((s, f) => s + f.toPack.readyToShip, 0),
+      processed: vals.reduce((s, f) => s + f.toPack.processed, 0),
+      urgent: vals.reduce((s, f) => s + f.toPack.urgent, 0),
     },
-    cancelledToday,
+    cancelledToday: vals.reduce((s, f) => s + f.cancelledToday, 0),
+    byPlatform: fig,
     bestSellers30d: [...sellers.entries()]
       .map(([name, v]) => ({ name, units: v.units, revenue: round(v.revenue) }))
       .sort((a, b) => b.units - a.units)
