@@ -39,6 +39,11 @@ interface Props {
   role?: string;
   /** company / department colour for the ID lanyard */
   lanyard?: string;
+  /** bigger head, shorter legs (friendlier at a distance) */
+  chibi?: boolean;
+  /** festive / theme-day outfit */
+  theme?: Theme | null;
+  gender?: string;
   selected?: boolean;
   hovered?: boolean;
   showTag?: boolean;
@@ -61,9 +66,10 @@ function Hair({ a }: { a: Appearance }) {
     case "hijab":
       return (
         <group>
-          <mesh geometry={SPH} material={m} position={[0, 0.01, -0.01]} scale={[0.3, 0.31, 0.3]} castShadow />
-          <mesh geometry={CAP} material={m} position={[0, -0.14, -0.02]} scale={[0.3, 0.07, 0.27]} castShadow />
-          <mesh geometry={SKIRT} material={m} position={[0, -0.2, -0.01]} scale={[0.3, 0.12, 0.26]} castShadow />
+          {/* wrapped behind the face so the face stays visible, framed by the scarf */}
+          <mesh geometry={SPH} material={m} position={[0, 0.02, -0.05]} scale={[0.3, 0.31, 0.27]} castShadow />
+          <mesh geometry={TORUS} material={m} position={[0, -0.005, 0.07]} scale={[0.68, 0.82, 0.9]} castShadow />
+          <mesh geometry={SKIRT} material={m} position={[0, -0.2, -0.02]} scale={[0.3, 0.13, 0.26]} castShadow />
         </group>
       );
     case "long":
@@ -74,7 +80,15 @@ function Hair({ a }: { a: Appearance }) {
         </group>
       );
     case "bob":
-      return <mesh geometry={SPH} material={m} position={[0, 0.0, -0.02]} scale={[0.3, 0.3, 0.29]} castShadow />;
+      return (
+        <group>
+          <mesh geometry={SPH} material={m} position={[0, 0.03, -0.045]} scale={[0.3, 0.29, 0.26]} castShadow />
+          {/* side pieces + fringe, leaving the face open */}
+          <mesh geometry={BOX} material={m} position={[-0.125, -0.04, 0.0]} scale={[0.05, 0.16, 0.16]} castShadow />
+          <mesh geometry={BOX} material={m} position={[0.125, -0.04, 0.0]} scale={[0.05, 0.16, 0.16]} castShadow />
+          <mesh geometry={SPH} material={m} position={[0, 0.1, 0.05]} scale={[0.24, 0.09, 0.17]} castShadow />
+        </group>
+      );
     case "bun":
       return (
         <group>
@@ -157,6 +171,45 @@ function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: s
   return null;
 }
 
+export type Theme = "raya" | "cny" | "deepavali" | "kobe";
+
+/** Festive outfits: recolour the base look; extra pieces (songkok, sampin, sash, jersey number) are added in the model. */
+function themed(a: Appearance, theme: Theme | null | undefined, female: boolean): Appearance {
+  if (!theme) return a;
+  const pick = <T,>(list: T[]) => list[(a.skin.charCodeAt(2) + a.hair.charCodeAt(3)) % list.length];
+  switch (theme) {
+    case "raya":
+      return female
+        ? { ...a, outfit: "kurung", shirt: pick(["#f9a8d4", "#5eead4", "#c4b5fd", "#fcd34d"]), pants: "#1e293b" }
+        : { ...a, outfit: "shirt", shirt: pick(["#6ee7b7", "#93c5fd", "#fde68a", "#e9d5ff"]), pants: pick(["#6ee7b7", "#93c5fd", "#fde68a", "#e9d5ff"]) };
+    case "cny":
+      return female ? { ...a, outfit: "dress", shirt: "#dc2626", pants: "#1f2937" } : { ...a, outfit: "polo", shirt: "#dc2626", pants: "#1f2937" };
+    case "deepavali":
+      return female ? { ...a, outfit: "dress", shirt: pick(["#be185d", "#7c3aed", "#ea580c"]), pants: "#1f2937" } : { ...a, outfit: "shirt", shirt: pick(["#f59e0b", "#fbbf24", "#f97316"]), pants: "#fef3c7" };
+    case "kobe":
+      return { ...a, outfit: "shirt", shirt: "#552583", pants: "#fdb927" };
+  }
+}
+
+let jerseyTex: THREE.CanvasTexture | null = null;
+function jerseyNumber() {
+  if (jerseyTex || typeof document === "undefined") return jerseyTex;
+  const c = document.createElement("canvas");
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#552583";
+  g.fillRect(0, 0, 128, 128);
+  g.fillStyle = "#fdb927";
+  g.font = "900 86px system-ui, sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText("24", 64, 70);
+  jerseyTex = new THREE.CanvasTexture(c);
+  jerseyTex.colorSpace = THREE.SRGBColorSpace;
+  return jerseyTex;
+}
+
 /** Things people carry or wear because of their job. */
 const ROLE: Record<string, { headset?: boolean; headphones?: boolean; vest?: boolean; camera?: boolean; glasses?: boolean; badge?: boolean; carry?: "parcel" | "laptop" | "clipboard" }> = {
   "emp-cs": { headset: true },
@@ -176,7 +229,11 @@ const REST = new Set(["nap_pod", "hammock"]);
 const LOUNGE = new Set(["bench", "bean_bag", "sofa", "armchair"]);
 
 export const Character = memo(function Character(props: Props) {
-  const { id, appearance: a, status, isCEO, selected, hovered, showTag, showBubble, dimmed } = props;
+  const { id, appearance: a0, status, isCEO, selected, hovered, showTag, showBubble, dimmed, chibi, theme } = props;
+  const female = props.gender === "female" || a0.outfit === "kurung" || a0.outfit === "dress" || a0.hairStyle === "hijab";
+  const a = useMemo(() => themed(a0, theme, female), [a0, theme, female]);
+  const LEG = chibi ? 0.84 : 1;
+  const DROP = chibi ? -(1 - LEG) * (UPPER_LEG + LOWER_LEG) : 0;
   const outfit = a.outfit ?? "shirt";
   const root = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
@@ -292,7 +349,7 @@ export const Character = memo(function Character(props: Props) {
     const crouch = shot >= 0 && shot < 0.3 ? Math.sin((shot / 0.3) * Math.PI) * 0.12 : 0;
     const jump = shot >= 0.3 && shot < 0.6 ? Math.sin(((shot - 0.3) / 0.3) * Math.PI) * 0.28 : 0;
     if (hips.current) hips.current.position.y = THREE.MathUtils.lerp(HIP_Y, SEAT_HIP_Y, sm.sit) + bob - crouch;
-    if (body.current) body.current.position.y = ag.y + jump;
+    if (body.current) body.current.position.y = ag.y + jump + DROP;
 
     // legs
     const sitUp = (-Math.PI / 2) * sm.sit;
@@ -510,14 +567,14 @@ export const Character = memo(function Character(props: Props) {
         <mesh ref={ringRef} geometry={RING} material={ringMat} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} scale={selected ? 1 : 0.85} />
       )}
       <mesh position={[0, 0.9, 0]} scale={[0.6, 1.8, 0.6]} geometry={BOX} material={HIT_MAT} />
-      <group ref={body}>
+      <group ref={body} position={[0, DROP, 0]}>
         <group ref={hips} position={[0, HIP_Y, 0]}>
           {/* legs */}
           {[
             [lUp, lLow, -0.1],
             [rUp, rLow, 0.1],
           ].map(([up, low, x], i) => (
-            <group key={i} ref={up as React.RefObject<THREE.Group>} position={[x as number, 0, 0]}>
+            <group key={i} ref={up as React.RefObject<THREE.Group>} position={[x as number, 0, 0]} scale={[1, LEG, 1]}>
               <Limb len={UPPER_LEG} w={0.145} m={m.pants} />
               <group ref={low as React.RefObject<THREE.Group>} position={[0, -UPPER_LEG + 0.04, 0]}>
                 <Limb len={LOWER_LEG} w={skirt ? 0.1 : 0.125} m={skirt ? m.skin : m.pants} />
@@ -551,6 +608,29 @@ export const Character = memo(function Character(props: Props) {
               </>
             )}
             {longTop && <mesh geometry={SKIRT} material={m.shirt} position={[0, 0.0, 0]} scale={[0.39, 0.2, 0.25]} castShadow />}
+            {theme === "raya" && !female && (
+              <>
+                {/* baju Melayu: long top + songket sampin */}
+                <mesh geometry={SKIRT} material={m.shirt} position={[0, 0.02, 0]} scale={[0.39, 0.22, 0.25]} castShadow />
+                <mesh geometry={SKIRT} material={mat("#7c2d12", { rough: 0.5 })} position={[0, -0.1, 0]} scale={[0.4, 0.18, 0.27]} castShadow />
+                <mesh geometry={BOX} material={mat("#d4a017", { metal: 0.5 })} position={[0, -0.02, 0.13]} scale={[0.3, 0.02, 0.01]} />
+              </>
+            )}
+            {theme === "deepavali" && !female && <mesh geometry={SKIRT} material={m.shirt} position={[0, -0.04, 0]} scale={[0.39, 0.3, 0.25]} castShadow />}
+            {theme === "deepavali" && female && (
+              <mesh geometry={BOX} material={mat("#d4a017", { metal: 0.4 })} position={[0.02, 0.3, 0.115]} rotation={[0, 0, 0.75]} scale={[0.08, 0.52, 0.01]} />
+            )}
+            {theme === "cny" && <mesh geometry={BOX} material={mat("#d4a017", { metal: 0.5 })} position={[0, 0.5, 0.06]} scale={[0.2, 0.03, 0.12]} />}
+            {theme === "kobe" && (
+              <>
+                <mesh position={[0, 0.27, 0.112]} scale={[0.17, 0.17, 1]}>
+                  <planeGeometry />
+                  <meshStandardMaterial map={jerseyNumber()} roughness={0.8} />
+                </mesh>
+                <mesh geometry={BOX} material={mat("#fdb927")} position={[0, 0.49, 0.06]} scale={[0.24, 0.025, 0.14]} />
+              </>
+            )}
+            {isCEO && !theme && <mesh geometry={BOX} material={mat("#d4a017", { metal: 0.8, rough: 0.2 })} position={[0, 0.34, 0.118]} scale={[0.06, 0.012, 0.006]} />}
             {/* ID lanyard in the company colour */}
             {!isCEO && props.lanyard && (
               <group>
@@ -585,7 +665,7 @@ export const Character = memo(function Character(props: Props) {
                 <mesh geometry={BOX} material={mat("#94a3b8", { metal: 0.6, rough: 0.3 })} scale={[0.02, 0.2, 0.28]} castShadow />
               </group>
             </group>
-            {isCEO && outfit !== "blazer" && <mesh geometry={BOX} material={mat("#b91c1c")} position={[0, 0.3, 0.11]} scale={[0.05, 0.3, 0.02]} />}
+            {isCEO && outfit !== "blazer" && !theme && <mesh geometry={BOX} material={mat("#b91c1c")} position={[0, 0.3, 0.11]} scale={[0.05, 0.3, 0.02]} />}
             {/* arms */}
             {[
               [lArm, lFore, -0.23],
@@ -597,6 +677,7 @@ export const Character = memo(function Character(props: Props) {
                   <Limb len={0.26} w={0.09} m={outfit === "kurung" || outfit === "blazer" || outfit === "hoodie" ? m.shirt : m.skin} />
                   {/* hand */}
                   <mesh geometry={SPH} material={m.skin} position={[0, -0.28, 0]} scale={[0.085, 0.1, 0.075]} castShadow />
+                  {isCEO && i === 0 && <mesh geometry={CYL} material={mat("#d4a017", { metal: 0.9, rough: 0.2 })} position={[0, -0.22, 0]} scale={[0.1, 0.03, 0.1]} />}
                   {i === 1 && (
                     <group ref={paddle} position={[0, -0.33, 0.04]} visible={false}>
                       <mesh geometry={CYL} material={mat("#7c2d12")} scale={[0.025, 0.08, 0.025]} />
@@ -620,7 +701,7 @@ export const Character = memo(function Character(props: Props) {
             ))}
             {/* neck + head */}
             <mesh geometry={CAP} material={m.skin} position={[0, 0.55, 0]} scale={[0.09, 0.06, 0.09]} />
-            <group ref={head} position={[0, 0.74, 0]}>
+            <group ref={head} position={[0, chibi ? 0.79 : 0.74, 0]} scale={chibi ? 1.38 : 1}>
               <mesh geometry={SPH} material={m.skin} scale={[0.26, 0.28, 0.255]} castShadow />
               {/* ears */}
               {a.hairStyle !== "hijab" &&
@@ -639,6 +720,9 @@ export const Character = memo(function Character(props: Props) {
               <mesh ref={smile} geometry={MOUTH} material={m.mouth} position={[0, -0.055, 0.118]} rotation={[0, 0, Math.PI]} />
               <mesh ref={frown} geometry={MOUTH} material={m.mouth} position={[0, -0.07, 0.118]} visible={false} />
               <mesh ref={oMouth} geometry={SPH} material={m.mouth} position={[0, -0.058, 0.118]} scale={[0.026, 0.03, 0.012]} visible={false} />
+              {theme === "raya" && !female && a.hairStyle !== "hijab" && (
+                <mesh geometry={CYL} material={mat("#111827", { rough: 0.6 })} position={[0, 0.11, -0.005]} scale={[0.25, 0.1, 0.24]} castShadow />
+              )}
               {/* role accessories on the head */}
               {role.headset && (
                 <group>
