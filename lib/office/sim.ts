@@ -384,7 +384,7 @@ export class OfficeSim {
     if (!a) return false;
     const visitor = this.freeSeats("visitor", "ceo")[0];
     if (visitor) return this.goToSeat(id, visitor.id, "summoned");
-    return this.goToPoint(id, 7, 6.6, "summoned", Math.PI);
+    return this.goToPoint(id, 45, 6.6, "summoned", Math.PI);
   }
 
   pickUp(id: string) {

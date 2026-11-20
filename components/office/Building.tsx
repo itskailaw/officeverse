@@ -525,7 +525,6 @@ const Exterior = memo(function Exterior({ night }: { night: boolean }) {
       ))}
       <mesh geometry={BOX} material={yellow} position={[lotX, -0.065, D / 2 - 1]} scale={[0.12, 0.01, D - 6]} />
       {[
-        [lotX - 3.9, 2.7, 0],
         [lotX - 3.9, 8.7, 3],
         [lotX - 3.9, 17.7, 1],
         [lotX + 3.9, 5.7, 2],
@@ -536,16 +535,15 @@ const Exterior = memo(function Exterior({ night }: { night: boolean }) {
         <Car key={i} x={x} z={z} rot={x < lotX ? Math.PI / 2 : -Math.PI / 2} color={CAR_COLORS[c]} />
       ))}
 
-      {/* private CEO driveway (west) with the purple & gold sports car */}
-      <mesh geometry={BOX} material={asphalt} position={[-6, -0.1, (6 + roadZ) / 2]} scale={[3.6, 0.06, roadZ - 6]} receiveShadow />
-      <mesh geometry={BOX} material={mat("#2b2f38", { rough: 0.9 })} position={[-6, -0.09, 6]} scale={[6, 0.06, 7]} receiveShadow />
-      <mesh geometry={BOX} material={gold} position={[-6, -0.06, 2.6]} scale={[5.4, 0.01, 0.12]} />
-      <mesh geometry={BOX} material={gold} position={[-8.7, -0.06, 6]} scale={[0.12, 0.01, 6.8]} />
-      <mesh geometry={BOX} material={gold} position={[-3.3, -0.06, 6]} scale={[0.12, 0.01, 6.8]} />
-      <group position={[-6, 0, 5.6]} rotation={[0, Math.PI, 0]}>
+      {/* reserved CEO bay (gold) at the corner of the car park, right outside the CEO suite */}
+      <mesh geometry={BOX} material={mat("#2b2f38", { rough: 0.9 })} position={[lotX - 3.9, -0.085, 2.7]} scale={[4.6, 0.04, 2.9]} receiveShadow />
+      <mesh geometry={BOX} material={gold} position={[lotX - 3.9, -0.06, 1.25]} scale={[4.7, 0.01, 0.12]} />
+      <mesh geometry={BOX} material={gold} position={[lotX - 3.9, -0.06, 4.15]} scale={[4.7, 0.01, 0.12]} />
+      <mesh geometry={BOX} material={gold} position={[lotX - 6.2, -0.06, 2.7]} scale={[0.12, 0.01, 2.95]} />
+      <group position={[lotX - 3.7, 0, 2.7]} rotation={[0, Math.PI / 2, 0]}>
         <SportsCar night={night} />
       </group>
-      <group position={[-6, 0, 2.2]}>
+      <group position={[lotX - 6.35, 0, 2.7]} rotation={[0, Math.PI / 2, 0]}>
         <mesh geometry={CYL} material={mat("#334155", { metal: 0.6 })} position={[0, 0.6, 0]} scale={[0.08, 1.2, 0.08]} />
         <mesh geometry={BOX} material={mat("#552583")} position={[0, 1.35, 0]} scale={[1.1, 0.5, 0.06]} />
         <Html center transform position={[0, 1.35, 0.04]} scale={0.25} occlude={false} style={{ pointerEvents: "none" }}>
@@ -560,12 +558,12 @@ const Exterior = memo(function Exterior({ night }: { night: boolean }) {
       {/* hedges + flower beds along the garden fence (gap at the gate) */}
       <Hedge x={1.6} z={D + 0.75} w={2.6} d={0.7} />
       <Hedge x={(6.6 + W) / 2} z={D + 0.75} w={W - 6.6} d={0.7} />
-      <Hedge x={-1.0} z={(10 + D) / 2} w={0.7} d={D - 10} />
+      <Hedge x={-1.0} z={D / 2} w={0.7} d={D - 2} />
       <Hedge x={W + 1.2} z={D / 2} w={0.7} d={D - 2} />
       <FlowerBed x={18} z={D + 1.75} w={10} />
       <FlowerBed x={42} z={D + 1.75} w={10} />
       {/* trees */}
-      <Tree x={-11} z={1} s={1.1} />
+      <Tree x={-6} z={3} s={1.1} />
       <Tree x={-12} z={12} tone={1} />
       <Tree x={-11} z={22} s={1.15} />
       <Tree x={-11} z={31} s={0.9} tone={1} />

@@ -247,9 +247,9 @@ export function Toolbar() {
 
 /** Quick-jump camera spots (world coordinates of the v3 floor plan). */
 const JUMPS = [
-  { label: "Work", title: "Open work floor", x: 36.5, z: 5.5, zoom: 26 },
+  { label: "Work", title: "Open work floor", x: 15.5, z: 5.5, zoom: 26 },
   { label: "Fun", title: "Pantry, game room & garden", x: 19, z: 21, zoom: 26 },
-  { label: "CEO", title: "Your CEO suite", x: 6, z: 5.5, zoom: 40 },
+  { label: "CEO", title: "Your CEO suite", x: 46, z: 5.5, zoom: 40 },
 ] as const;
 
 export function CameraControls() {

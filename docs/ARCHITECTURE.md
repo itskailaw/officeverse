@@ -84,7 +84,7 @@ tests/                     node:test suites for nav grid and simulation
 
 ## 4. 3D office layout plan
 
-52 m × 30 m (floor plan v3: CEO suite, boardroom, open work floor for WGS · Finance · Marketing, Main Street, Kopitiam pantry, game room, Artides & Amare glass studios, IT Lab, library nook, garden), metres, x east and z south. An orthographic isometric camera looks from the south-east.
+52 m × 30 m (floor plan v5: open work floor for Marketing · Finance · WGS, boardroom, CEO suite in the far corner diagonal to the entrance, Main Street, Kopitiam pantry, game room, Artides & Amare glass studios, IT Lab, library nook, garden), metres, x east and z south. An orthographic isometric camera looks from the south-east.
 
 ```
 z 0 ┌──────────┬───────────────┬────────────┬───────────────┐
