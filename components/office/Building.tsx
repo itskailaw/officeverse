@@ -483,13 +483,34 @@ function Traffic({ z1, z2, x0, x1, night }: { z1: number; z2: number; x0: number
     [],
   );
   const refs = useRef<(THREE.Group | null)[]>([]);
-  const t0 = useRef(0);
+  // distance travelled along the lane and current speed, per car
+  const pos = useRef<number[]>(cars.map((c) => c.off * span));
+  const vel = useRef<number[]>(cars.map((c) => c.speed));
   useFrame((_, dt) => {
-    t0.current += Math.min(dt, 0.1);
+    const step = Math.min(dt, 0.1);
+    const CAR = 4.6; // car length incl. a little bumper room
+    const SAFE = 2.4; // gap kept to the car in front
+    const next = pos.current.map((p, i) => {
+      const c = cars[i];
+      // nearest car ahead in the same lane (lanes loop around)
+      let gap = Infinity;
+      cars.forEach((o, j) => {
+        if (j === i || o.lane !== c.lane) return;
+        const d = (((pos.current[j] - p) % span) + span) % span;
+        if (d > 0 && d < gap) gap = d;
+      });
+      const room = gap - CAR - SAFE;
+      // ease off as the gap closes, stop before touching
+      const want = room <= 0 ? 0 : Math.min(c.speed, room * 1.6);
+      const v = vel.current[i] + Math.max(-12 * step, Math.min(3 * step, want - vel.current[i]));
+      vel.current[i] = Math.max(0, v);
+      return p + Math.min(vel.current[i] * step, Math.max(0, room));
+    });
+    pos.current = next.map((p) => p % span);
     cars.forEach((c, i) => {
       const g = refs.current[i];
       if (!g) return;
-      const p = (c.off * span + t0.current * c.speed) % span;
+      const p = pos.current[i];
       g.position.x = c.lane === 0 ? x0 + p : x1 - p;
     });
   });
