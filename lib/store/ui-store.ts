@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 export type Mode = "live" | "build";
-export type Dialog = null | "dashboard" | "meeting-call" | "hire" | "settings" | "team" | "edit-employee" | "fulfil";
+export type Dialog = null | "dashboard" | "meeting-call" | "hire" | "settings" | "team" | "edit-employee" | "fulfil" | "purchases";
 
 export interface Toast {
   id: number;

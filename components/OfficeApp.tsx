@@ -11,6 +11,7 @@ import { resolveLighting } from "@/lib/office/lighting";
 import { recoverInterruptedTasks } from "@/lib/ai/runner";
 import { KobeDay } from "@/components/hud/KobeDay";
 import { Fulfilment } from "@/components/hud/Fulfilment";
+import { Purchases } from "@/components/hud/Purchases";
 import { bootLiveData, watchLiveData } from "@/lib/integrations/client";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { ensureWorkspace, startSync } from "@/lib/data/sync";
@@ -176,6 +177,7 @@ export default function OfficeApp() {
       <SettingsDialog />
       <KobeDay />
       <Fulfilment />
+      <Purchases />
       <Toasts />
     </>
   );

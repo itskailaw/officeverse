@@ -612,6 +612,8 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
             icon={<Wallet />}
             label="Revenue"
             accent={one ?? undefined}
+            onOpen={isOwner ? () => setUI({ dialog: "purchases" }) : undefined}
+            openLabel="Purchase list"
             control={
               <select
                 value={period}
