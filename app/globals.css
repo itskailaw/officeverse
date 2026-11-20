@@ -84,3 +84,10 @@ body {
 .dark .text-navy { color: #93c5fd; }
 .dark .border-navy { border-color: #3b82f6; }
 .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; }
+
+/* music equaliser bars */
+@keyframes ovEq {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+[class*="animate-[ovEq"] { transform-origin: bottom; }

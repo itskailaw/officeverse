@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
+import { MusicPlayer } from "./MusicPlayer";
 import { CATALOG } from "@/lib/office/catalog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -113,6 +114,7 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         >
           <Tag />
         </Button>
+        <MusicPlayer />
         <ApprovalsButton />
         <div className="relative">
           <Button variant="ghost" size="icon" title="Notifications" onClick={() => ui.set({ notificationsOpen: !ui.notificationsOpen })}>

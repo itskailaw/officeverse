@@ -26,7 +26,8 @@ import { meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 const SHOWCASE = new Set(["sneaker_wall", "kobe_cabinet", "jersey_frame", "aquarium"]);
 const CENTER = new THREE.Vector3(OFFICE_W / 2, 0, OFFICE_D / 2);
 const pressedKeys = new Set<string>();
-const ISO_OFFSET = new THREE.Vector3(26, 30, 30);
+// start view: looking in from the reception corner, road on the right, CEO suite at the back
+const ISO_OFFSET = new THREE.Vector3(-30, 30, 26);
 
 // ------------------------------------------------------------------ lighting
 /** Current lighting mode, re-evaluated every minute when set to "auto". */
