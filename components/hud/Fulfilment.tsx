@@ -523,6 +523,8 @@ export function Fulfilment() {
         title={stage === "process" ? "To process — arrange drop-off" : "To ship — print labels"}
         description={stage === "process" ? "Tick the orders you've packed, then arrange drop-off. You drop the parcels at the courier yourself." : "Print the shipping labels (AWB) for arranged orders."}
         className="h-[85vh] max-w-3xl"
+        onBack={() => set({ dialog: "dashboard" })}
+        backLabel="Dashboard"
       >
         {role !== "owner" ? (
           <p className="p-6 text-sm text-slate-600">Only the workspace owner can arrange shipments and print labels.</p>

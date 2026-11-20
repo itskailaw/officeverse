@@ -79,7 +79,7 @@ export function Purchases() {
 
   return (
     <Dialog open={open} onOpenChange={(o) => set({ dialog: o ? "purchases" : null })}>
-      <DialogContent title="Purchase list" description="What each order bought — Shopee and Lazada, newest first." className="h-[85vh] max-w-3xl">
+      <DialogContent title="Purchase list" description="What each order bought — Shopee and Lazada, newest first." className="h-[85vh] max-w-3xl" onBack={() => set({ dialog: "dashboard" })} backLabel="Dashboard">
         {role !== "owner" ? (
           <p className="p-6 text-sm text-slate-600">Only the workspace owner can see the purchase list.</p>
         ) : (
