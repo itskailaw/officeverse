@@ -30,6 +30,8 @@ export interface JobResult {
   rows: JobRow[];
   practice: { planted: number; caught: number; details: { kind: string; caught: boolean }[] };
   usage: { input: number; output: number };
+  /** split by who used it, with the model that actually ran */
+  byRole: Record<"translator" | "reviewer", { input: number; output: number; model: string | null }>;
   rounds: number;
 }
 export interface Progress {
@@ -69,12 +71,38 @@ async function inPool<T>(items: T[], n: number, fn: (x: T) => Promise<void>, sig
 }
 const chunks = <T,>(a: T[], size: number) => Array.from({ length: Math.ceil(a.length / size) }, (_, k) => a.slice(k * size, k * size + size));
 
+/** Error from a stopped/failed job, carrying the tokens already used so they can still be recorded. */
+export class JobError extends Error {
+  constructor(
+    message: string,
+    public byRole: JobResult["byRole"],
+    public cancelled: boolean,
+  ) {
+    super(message);
+  }
+}
+
 export async function runSubtitleJob(cues: Cue[], brief: JobBrief, onProgress: (p: Progress) => void, signal?: AbortSignal): Promise<JobResult> {
+  const byRoleRef: { current: JobResult["byRole"] | null } = { current: null };
+  try {
+    return await runJob(cues, brief, onProgress, signal, byRoleRef);
+  } catch (e) {
+    const cancelled = e instanceof Error && e.name === "AbortError";
+    throw new JobError(cancelled ? "Cancelled" : e instanceof Error ? e.message : String(e), byRoleRef.current ?? { translator: { input: 0, output: 0, model: null }, reviewer: { input: 0, output: 0, model: null } }, cancelled);
+  }
+}
+
+async function runJob(cues: Cue[], brief: JobBrief, onProgress: (p: Progress) => void, signal: AbortSignal | undefined, byRoleRef: { current: JobResult["byRole"] | null }): Promise<JobResult> {
   const usage = { input: 0, output: 0 };
-  const addUsage = (u?: { input: number; output: number }) => {
+  const byRole: JobResult["byRole"] = { translator: { input: 0, output: 0, model: null }, reviewer: { input: 0, output: 0, model: null } };
+  byRoleRef.current = byRole;
+  const addUsage = (u: { input: number; output: number } | undefined, role: "translator" | "reviewer", model?: string) => {
     if (u) {
       usage.input += u.input;
       usage.output += u.output;
+      byRole[role].input += u.input;
+      byRole[role].output += u.output;
+      if (model) byRole[role].model = model;
     }
   };
   const wire = (who: JobBrief["translator"]) => ({
@@ -96,7 +124,7 @@ export async function runSubtitleJob(cues: Cue[], brief: JobBrief, onProgress: (
   const translate = async (batch: Cue[], extra?: Map<number, { previous: string[]; note: string }>) => {
     const first = idx.get(batch[0].n)!;
     const last = idx.get(batch[batch.length - 1].n)!;
-    const res = await post<{ result: Record<string, string[]>; usage: { input: number; output: number } }>(
+    const res = await post<{ result: Record<string, string[]>; usage: { input: number; output: number }; model?: string }>(
       "/api/subtitles/translate",
       {
         brief: wire(brief.translator),
@@ -105,7 +133,7 @@ export async function runSubtitleJob(cues: Cue[], brief: JobBrief, onProgress: (
       },
       signal,
     );
-    addUsage(res.usage);
+    addUsage(res.usage, "translator", res.model);
     for (const [k, v] of Object.entries(res.result)) tr.set(Number(k), v);
   };
   let done = 0;
@@ -145,8 +173,8 @@ export async function runSubtitleJob(cues: Cue[], brief: JobBrief, onProgress: (
         items.splice(Math.floor(Math.random() * items.length), 0, { n, ms: ms(pick), source: pick.lines, translation: err.lines, auto: [] });
       }
     }
-    const res = await post<{ result: Rev[]; usage: { input: number; output: number } }>("/api/subtitles/review", { brief: wire(brief.reviewer), items }, signal);
-    addUsage(res.usage);
+    const res = await post<{ result: Rev[]; usage: { input: number; output: number }; model?: string }>("/api/subtitles/review", { brief: wire(brief.reviewer), items }, signal);
+    addUsage(res.usage, "reviewer", res.model);
     for (const r of res.result) reviews.set(r.n, r);
   };
   done = 0;
@@ -231,7 +259,7 @@ export async function runSubtitleJob(cues: Cue[], brief: JobBrief, onProgress: (
     return { n: c.n, inTC: c.inTC, outTC: c.outTC, source: c.lines, final, status, note: r?.verdict !== "ok" ? r?.issue : drafts.has(c.n) ? "Fixed after review" : undefined, back: r?.back, auto, draft: drafts.get(c.n) };
   });
   onProgress({ stage: "done", done: rows.length, total: rows.length });
-  return { rows, practice, usage, rounds };
+  return { rows, practice, usage, byRole, rounds };
 }
 
 /** QA report as CSV (opens in Excel). */

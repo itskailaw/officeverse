@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { AppearanceEditor } from "./EmployeeEditor";
 import { IntegrationsPanel } from "./Integrations";
+import { AIUsageCard } from "./AIUsageCard";
 
 const MAX_UPLOAD = 5 * 1024 * 1024;
 const ALLOWED = ["image/png", "image/jpeg", "image/webp"];
@@ -335,56 +336,6 @@ export function SettingsDialog() {
         </Tabs>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// USD per million tokens [input, output] — estimates only; the Anthropic Console is authoritative.
-const PRICES: Record<string, [number, number]> = {
-  "claude-opus-5-5": [4, 20],
-  "claude-sonnet-5-5": [2, 10],
-  "claude-haiku-5-5": [0.1, 0.5],
-};
-
-function AIUsageCard() {
-  const tasks = useOffice((s) => s.tasks);
-  const chats = useOffice((s) => s.chatMessages);
-  const month = new Date().toISOString().slice(0, 7);
-  let input = 0;
-  let output = 0;
-  let cost = 0;
-  let runs = 0;
-  const add = (u: { input: number; output: number } | null | undefined, model: string | null | undefined, at: string) => {
-    if (!u || !at.startsWith(month)) return;
-    runs++;
-    input += u.input;
-    output += u.output;
-    const p = PRICES[model ?? ""] ?? PRICES["claude-opus-5-5"];
-    cost += (u.input * p[0] + u.output * p[1]) / 1_000_000;
-  };
-  tasks.forEach((t) => add(t.usage, t.model, t.updatedAt));
-  chats.forEach((m) => add(m.usage, m.model, m.createdAt));
-  return (
-    <div className="rounded-xl border border-slate-200 p-3">
-      <div className="mb-2 text-xs font-semibold text-slate-700">AI usage this month</div>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-lg bg-slate-50 p-2">
-          <div className="text-base font-semibold text-slate-900">{runs}</div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-500">AI requests</div>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-2">
-          <div className="text-base font-semibold text-slate-900">{((input + output) / 1000).toFixed(1)}k</div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-500">Tokens</div>
-        </div>
-        <div className="rounded-lg bg-slate-50 p-2">
-          <div className="text-base font-semibold text-slate-900">${cost.toFixed(2)}</div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-500">Est. cost (USD)</div>
-        </div>
-      </div>
-      <p className="mt-2 text-[11px] text-slate-500">
-        Estimate from requests made in this browser. Your Anthropic Console shows exact billing. To spend less, set an employee&apos;s model to Sonnet or Haiku
-        in Edit employee.
-      </p>
-    </div>
   );
 }
 

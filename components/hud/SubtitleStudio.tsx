@@ -10,7 +10,7 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { CIP_ENCODINGS, decodeSubtitle, encodeSubtitle, formatOf, parseSubtitle, SUB_EXTS, type SubDoc } from "@/lib/subtitles";
 import { limitsFor, parseGlossary, type CheckLimits } from "@/lib/subtitles/checks";
-import { reportCsv, runSubtitleJob, type JobResult, type JobRow, type Progress, type RowStatus } from "@/lib/subtitles/pipeline";
+import { JobError, reportCsv, runSubtitleJob, type JobResult, type JobRow, type Progress, type RowStatus } from "@/lib/subtitles/pipeline";
 
 const TRANSLATOR = "emp-translator";
 const REVIEWER = "emp-lqa";
@@ -171,16 +171,24 @@ export function SubtitleStudio() {
       const count = (k: RowStatus) => res.rows.filter((r) => r.status === k).length;
       const summary = `${res.rows.length} subtitles: ${count("ok")} OK, ${count("fixed")} fixed after review, ${count("check")} need a native check, ${count("attention")} need you.${res.practice.planted ? ` Practice test: caught ${res.practice.caught}/${res.practice.planted} planted mistakes.` : ""}`;
       const s = useOffice.getState();
-      if (adamId) s.updateTask(adamId, { status: "completed", result: summary });
+      if (adamId) s.updateTask(adamId, { status: "completed", result: summary, usage: { input: res.byRole.reviewer.input, output: res.byRole.reviewer.output }, model: res.byRole.reviewer.model });
+      // Lina's tokens include the fix rounds after review
+      if (linaId) s.updateTask(linaId, { usage: { input: res.byRole.translator.input, output: res.byRole.translator.output }, model: res.byRole.translator.model });
       s.setEmployeeStatus([adam.id, lina.id], "available");
       const prev = s.settings.qaStats?.[adam.id] ?? { planted: 0, caught: 0, missed: 0, jobs: 0 };
       s.updateSettings({ qaStats: { ...(s.settings.qaStats ?? {}), [adam.id]: { ...prev, planted: prev.planted + res.practice.planted, caught: prev.caught + res.practice.caught, jobs: prev.jobs + 1 } } });
       s.notify({ priority: count("attention") ? "important" : "info", title: `✅ Subtitles ready: ${file.name}`, body: `${lina.name.split(" ")[0]} translated, ${adam.name.split(" ")[0]} checked. ${summary}`, employeeId: adam.id, companyId: adam.companyId, demo: false });
       toast("success", "Subtitles translated and checked");
     } catch (e) {
-      const msg = e instanceof Error ? (e.name === "AbortError" ? "Cancelled" : e.message) : String(e);
+      const msg = e instanceof Error ? e.message : String(e);
       const s = useOffice.getState();
-      for (const id of [linaId, adamId]) if (id && s.tasks.find((t) => t.id === id)?.status === "running") s.updateTask(id, { status: msg === "Cancelled" ? "cancelled" : "failed", result: msg });
+      for (const id of [linaId, adamId]) if (id && s.tasks.find((t) => t.id === id)?.status === "running") s.updateTask(id, { status: e instanceof JobError && e.cancelled ? "cancelled" : "failed", result: msg });
+      // tokens already spent still count
+      if (e instanceof JobError) {
+        const u = e.byRole;
+        if (linaId && u.translator.input + u.translator.output) s.updateTask(linaId, { usage: { input: u.translator.input, output: u.translator.output }, model: u.translator.model });
+        if (adamId && u.reviewer.input + u.reviewer.output) s.updateTask(adamId, { usage: { input: u.reviewer.input, output: u.reviewer.output }, model: u.reviewer.model });
+      }
       s.setEmployeeStatus([lina.id, adam.id], "available");
       setProgress(null);
       toast("error", `Subtitle job: ${msg}`);
