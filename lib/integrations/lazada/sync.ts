@@ -3,6 +3,7 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 import { readTokens, saveIntegration, updateIntegration, type IntegrationRow } from "../store";
 import { lazadaGet, LazadaError, refreshToken, requireLazadaConfig, type LazadaConfig } from "./api";
 import { syncLazadaFees, syncLazadaReturns } from "./extras";
+import { freshKept } from "../summary-keep";
 import { fetchLazadaAds, type LazadaAds } from "./ads";
 import { LAZADA_STATUS, lazadaTime, parseLazadaDate } from "./sign";
 
@@ -51,7 +52,8 @@ const num = (v: unknown) => {
 };
 
 /** Incremental Lazada sync: orders updated since the last sync (first time: 30 days) and their items. */
-export async function syncLazada(row: IntegrationRow) {
+/** light: orders only (for instant pushes) — ads, fees and returns are left to the regular syncs. */
+export async function syncLazada(row: IntegrationRow, opts: { light?: boolean } = {}) {
   const cfg = requireLazadaConfig();
   const sb = getAdminSupabase();
   const warnings: string[] = [];
@@ -134,7 +136,7 @@ export async function syncLazada(row: IntegrationRow) {
     // 4. Sponsored Solutions (read-only); refreshed at most every 10 minutes, never fails the order sync
     const prevAds = (row.last_sync_summary?.ads ?? null) as LazadaAds | null;
     let ads = prevAds;
-    if (!prevAds || Date.now() - Date.parse(prevAds.at) > 10 * 60 * 1000) {
+    if (!opts.light && (!prevAds || Date.now() - Date.parse(prevAds.at) > 10 * 60 * 1000)) {
       try {
         ads = await fetchLazadaAds(cfg, token);
       } catch (e) {
@@ -148,14 +150,13 @@ export async function syncLazada(row: IntegrationRow) {
     const prevSum = row.last_sync_summary as { financeAt?: string } | null;
     let financeAt = prevSum?.financeAt ?? null;
     let feesSynced = 0;
-    if (!financeAt || Date.now() - Date.parse(financeAt) > 6 * 3600 * 1000) {
+    if (!opts.light && (!financeAt || Date.now() - Date.parse(financeAt) > 6 * 3600 * 1000)) {
       feesSynced = await syncLazadaFees(cfg, token, row.workspace_id, warnings);
       financeAt = new Date().toISOString();
     }
-    const returns = await syncLazadaReturns(cfg, token, row.workspace_id, warnings);
+    const returns = opts.light ? ((row.last_sync_summary as { returns?: unknown } | null)?.returns ?? null) : await syncLazadaReturns(cfg, token, row.workspace_id, warnings);
 
-    const autoTried = (row.last_sync_summary as { autoTried?: string[] } | null)?.autoTried;
-    const summary = { orders: rows.length, from: from.toISOString(), to: new Date(now).toISOString(), warnings, ads, financeAt, feesSynced, returns, autoTried };
+    const summary = { ...(await freshKept(row)), orders: rows.length, from: from.toISOString(), to: new Date(now).toISOString(), warnings, ads, financeAt, feesSynced, returns, light: !!opts.light };
     await updateIntegration(row.id, { last_success_at: new Date().toISOString(), last_error: null, status: "connected", last_sync_summary: summary });
     if (runId) await sb.from("sync_runs").update({ status: "succeeded", records_in: orders.length, records_new: rows.length, finished_at: new Date().toISOString() }).eq("id", runId);
     return summary;

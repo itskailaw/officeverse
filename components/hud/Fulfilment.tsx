@@ -302,6 +302,54 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
   );
 }
 
+type StoreRun = {
+  platform: string;
+  status: string;
+  lastSync: string | null;
+  lastPush: string | null;
+  lastRun: { at: string; source: string; state: string; waiting?: number; tried?: number; arranged?: number; failed?: number } | null;
+  error: string | null;
+};
+
+/** One line per store: when the marketplace last pushed an update, and what Farid did on his last check. */
+function FaridStatus({ stores, checking, onCheck }: { stores: StoreRun[] | null; checking: boolean; onCheck: () => void }) {
+  if (!stores?.length) return null;
+  const SRC: Record<string, string> = { push: "instant update", schedule: "10-min check", manual: "your check", sync: "sync" };
+  return (
+    <div className="flex flex-wrap items-start gap-x-4 gap-y-1 px-5 pb-2 pl-[3.1rem] text-[11px] text-slate-600">
+      {stores.map((st) => {
+        const run = st.lastRun;
+        const what = !run
+          ? "hasn't checked yet"
+          : run.state === "off"
+            ? "switched off"
+            : run.state === "outside_hours"
+              ? "outside working hours"
+              : run.arranged || run.failed
+                ? `confirmed ${run.arranged ?? 0}${run.failed ? `, ${run.failed} failed` : ""}`
+                : run.waiting
+                  ? `${run.waiting} waiting (already tried — confirm these yourself)`
+                  : "no new orders";
+        const noPush = !st.lastPush;
+        return (
+          <span key={st.platform} className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: st.platform === "shopee" ? "#eb6834" : "#2a78d6" }} />
+            <b className="font-semibold">{st.platform === "shopee" ? "Shopee" : "Lazada"}</b>
+            {run ? ` · checked ${timeAgo(run.at)} (${SRC[run.source] ?? run.source}): ${what}` : ` · ${what}`}
+            <span className={cn(noPush ? "font-medium text-amber-700" : "text-slate-400")} title={noPush ? "OfficeVerse has never received an instant order update from this store. New orders are still picked up by the 10-minute check." : undefined}>
+              {noPush ? " · no instant updates received" : ` · last instant update ${timeAgo(st.lastPush!)}`}
+            </span>
+            {st.status !== "connected" && <span className="font-medium text-red-700"> · {st.status}{st.error ? `: ${st.error.slice(0, 60)}` : ""}</span>}
+          </span>
+        );
+      })}
+      <button onClick={onCheck} disabled={checking} className="ml-auto flex items-center gap-1 font-semibold text-sky-700 hover:underline disabled:opacity-50">
+        {checking ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Check now
+      </button>
+    </div>
+  );
+}
+
 /** Farid's on/off switch and working hours for confirming new orders automatically. */
 function AutoArrangeBar() {
   const auto = useOffice((s) => s.settings.autoArrange) ?? { enabled: false, start: "08:00", end: "22:00" };
@@ -309,8 +357,37 @@ function AutoArrangeBar() {
   const farid = useOffice((s) => s.employees.find((e) => e.id === "emp-orders" && e.active));
   const toast = useUI((s) => s.toast);
   const set = (patch: Partial<typeof auto>) => update({ autoArrange: { ...auto, ...patch } });
+  const [stores, setStores] = useState<StoreRun[] | null>(null);
+  const [checking, setChecking] = useState(false);
+  const loadRuns = useCallback(async () => {
+    try {
+      const r = await fetch("/api/fulfil/automation", { cache: "no-store" });
+      if (r.ok) setStores((await r.json()).stores);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    void loadRuns();
+    const t = setInterval(() => void loadRuns(), 60_000);
+    return () => clearInterval(t);
+  }, [loadRuns]);
+  const checkNow = async () => {
+    setChecking(true);
+    try {
+      const r = await fetch("/api/fulfil/automation", { method: "POST" });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? `Request failed (${r.status})`);
+      setStores(j.stores);
+      const res = j.result as { arranged: number; failed: number; cancellations: number };
+      toast(res.failed ? "error" : "success", res.arranged || res.failed ? `${res.arranged} confirmed${res.failed ? `, ${res.failed} need you` : ""}` : auto.enabled ? "Checked — no new orders to confirm" : "Checked — automatic confirmation is off");
+      void useLive.getState().loadSummary();
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : String(e));
+    }
+    setChecking(false);
+  };
   return (
-    <div className={cn("flex flex-wrap items-center gap-3 border-b px-5 py-2 text-xs", auto.enabled ? "border-emerald-100 bg-emerald-50/70" : "border-slate-100 bg-slate-50/70")}>
+    <div className={cn("border-b", auto.enabled ? "border-emerald-100 bg-emerald-50/70" : "border-slate-100 bg-slate-50/70")}>
+    <div className="flex flex-wrap items-center gap-3 px-5 py-2 text-xs">
       <span className="text-base" aria-hidden>
         🤖
       </span>
@@ -318,7 +395,7 @@ function AutoArrangeBar() {
         <div className="font-semibold text-slate-800">{farid?.name ?? "Order assistant"} confirms new orders automatically</div>
         <div className="text-[11px] text-slate-500">
           {auto.enabled
-            ? `On — new paid orders get drop-off arranged within seconds, ${auto.start}–${auto.end}. Cancellation requests come to you for approval.`
+            ? `On — new paid orders get drop-off arranged within seconds (checked again every 10 min), ${auto.start}–${auto.end}. Cancellation requests come to you for approval.`
             : "Off — you confirm orders yourself. Cancellation requests still come to you for approval."}
         </div>
       </div>
@@ -340,6 +417,8 @@ function AutoArrangeBar() {
       >
         <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition", auto.enabled ? "left-[22px]" : "left-0.5")} />
       </button>
+    </div>
+    <FaridStatus stores={stores} checking={checking} onCheck={checkNow} />
     </div>
   );
 }

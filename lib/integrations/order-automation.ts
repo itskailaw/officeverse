@@ -25,16 +25,19 @@ async function notify(ws: string, priority: "critical" | "important" | "info", t
  *  2. turn buyer cancellation requests into approvals (Shopee: accept / reject from OfficeVerse or Telegram;
  *     Lazada: alert only — Lazada has no API to answer them).
  */
-export async function runOrderAutomation(ws: string) {
+export async function runOrderAutomation(ws: string, source: "push" | "schedule" | "manual" | "sync" = "sync") {
   const sb = getAdminSupabase();
   const rows = await listIntegrations(ws);
   const tg = rows.find((r) => r.provider === "telegram" && r.status === "connected");
   const { data: lay } = await sb.from("office_layouts").select("settings").eq("workspace_id", ws).maybeSingle();
   const auto = (lay?.settings as { autoArrange?: { enabled?: boolean; start?: string; end?: string } } | null)?.autoArrange;
   const out = { arranged: 0, failed: 0, cancellations: 0 };
+  // what Farid saw on this run, per platform — shown in the Fulfilment window so the CEO can tell he's working
+  const seen: Partial<Record<Plat, { waiting: number; tried: number; arranged: number; failed: number }>> = {};
+  const state = !auto?.enabled ? "off" : inHours(new Date(), auto.start ?? "00:00", auto.end ?? "23:59") ? "on" : "outside_hours";
 
   // ── 1. auto-arrange new paid orders ──
-  if (auto?.enabled && inHours(new Date(), auto.start ?? "00:00", auto.end ?? "23:59")) {
+  if (state === "on") {
     for (const p of ["shopee", "lazada"] as Plat[]) {
       if (!rows.some((r) => r.provider === p && r.status !== "expired")) continue;
       const { data } = await sb
@@ -50,6 +53,7 @@ export async function runOrderAutomation(ws: string) {
       const conn = rows.find((r) => r.provider === p)!;
       const tried = new Set(((conn.last_sync_summary as { autoTried?: string[] } | null)?.autoTried ?? []) as string[]);
       const todo = (data ?? []).filter((o) => !tried.has(o.external_order_id as string)).slice(0, 20);
+      seen[p] = { waiting: (data ?? []).length, tried: todo.length, arranged: 0, failed: 0 };
       if (!todo.length) continue;
       const ids = todo.map((o) => o.external_order_id as string);
       const nextTried = [...tried, ...ids].slice(-500);
@@ -60,6 +64,7 @@ export async function runOrderAutomation(ws: string) {
       const bad = res.filter((r) => !r.ok);
       out.arranged += ok.length;
       out.failed += bad.length;
+      seen[p] = { ...seen[p]!, arranged: ok.length, failed: bad.length };
       if (ok.length || bad.length) {
         const lines = [
           ok.length ? `📦 <b>Farid confirmed ${ok.length} new ${NAME[p]} order${ok.length > 1 ? "s" : ""}</b> (drop-off arranged)` : "",
@@ -69,6 +74,13 @@ export async function runOrderAutomation(ws: string) {
         await notify(ws, bad.length ? "important" : "info", `${NAME[p]}: ${ok.length} order${ok.length === 1 ? "" : "s"} confirmed${bad.length ? `, ${bad.length} need you` : ""}`, lines.map((l) => l.replace(/<[^>]+>/g, "")).join("\n"));
       }
     }
+  }
+
+  // record the run on each store connection
+  for (const conn of rows.filter((r) => r.provider === "shopee" || r.provider === "lazada")) {
+    const { data: cur } = await sb.from("integrations").select("last_sync_summary").eq("id", conn.id).maybeSingle();
+    const sum = (cur?.last_sync_summary ?? conn.last_sync_summary ?? {}) as Record<string, unknown>;
+    await updateIntegration(conn.id, { last_sync_summary: { ...sum, autoRun: { at: new Date().toISOString(), source, state, ...(seen[conn.provider as Plat] ?? {}) } } });
   }
 
   // ── 2a. Shopee: buyer cancellation requests → approvals with accept / reject ──

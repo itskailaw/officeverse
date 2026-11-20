@@ -23,6 +23,11 @@ export async function syncFromPush(provider: "shopee" | "lazada", shopId: string
   if (error) throw new Error(error.message);
   const rows = ((data ?? []) as IntegrationRow[]).filter((r) => r.status !== "expired");
   if (!rows.length) return { synced: 0, reason: "no connected integration for this shop" };
+  // note that a push arrived (shown in the Fulfilment window)
+  for (const r of rows) {
+    const { data: cur } = await sb.from("integrations").select("last_sync_summary").eq("id", r.id).maybeSingle();
+    await sb.from("integrations").update({ last_sync_summary: { ...((cur?.last_sync_summary as object) ?? {}), lastPushAt: new Date(receivedAt).toISOString() } }).eq("id", r.id);
+  }
 
   await sleep(3000);
   let synced = 0;
@@ -42,15 +47,17 @@ export async function syncFromPush(provider: "shopee" | "lazada", shopId: string
         await sleep(3000);
         continue;
       }
-      if (provider === "shopee") await syncShopee(row);
-      else await syncLazada(row);
+      // orders only — fast, so Farid gets his turn well within the time limit
+      if (provider === "shopee") await syncShopee(row, { light: true });
+      else await syncLazada(row, { light: true });
       synced++;
       break;
     }
   }
-  if (synced) {
+  // always let Farid look (if another sync covered this push, its orders are already saved)
+  {
     try {
-      await runOrderAutomation(rows[0].workspace_id);
+      await runOrderAutomation(rows[0].workspace_id, "push");
     } catch (e) {
       console.error("[push] order automation failed", e instanceof Error ? e.message : e);
     }

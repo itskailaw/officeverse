@@ -7,12 +7,13 @@ on:
     - cron: "30 0 * * *" # 08:30 Malaysia time: morning briefing
     - cron: "0 19 * * *" # 03:00 Malaysia time: full marketplace sync
     - cron: "5 0-15 * * *" # hourly 08:05–23:05 Malaysia time: daily packing-list email when its time has passed
+    - cron: "*/10 * * * *" # every 10 min: check for new orders (backup for instant pushes) so Farid confirms them
   workflow_dispatch:
     inputs:
       job:
         description: Which job to run now
         type: choice
-        options: [briefing, sync, hourly]
+        options: [briefing, sync, hourly, orders]
         default: briefing
 
 jobs:
@@ -24,7 +25,7 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           APP_URL: ${{ vars.APP_URL || 'https://officeverse-ten.vercel.app' }}
-          JOB: ${{ github.event_name == 'workflow_dispatch' && inputs.job || (github.event.schedule == '0 19 * * *' && 'sync' || (github.event.schedule == '5 0-15 * * *' && 'hourly' || 'briefing')) }}
+          JOB: ${{ github.event_name == 'workflow_dispatch' && inputs.job || (github.event.schedule == '0 19 * * *' && 'sync' || (github.event.schedule == '5 0-15 * * *' && 'hourly' || (github.event.schedule == '*/10 * * * *' && 'orders' || 'briefing'))) }}
         run: |
           if [ -z "$CRON_SECRET" ]; then echo "::error::Add the CRON_SECRET repository secret first"; exit 1; fi
           code=$(curl -sS -o out.json -w '%{http_code}' --max-time 300 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/$JOB")

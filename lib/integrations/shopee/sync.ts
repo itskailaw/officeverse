@@ -3,6 +3,7 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 import { readTokens, saveIntegration, updateIntegration, type IntegrationRow } from "../store";
 import { refreshAccessToken, requireShopeeConfig, shopGet, ShopeeError, type ShopeeConfig } from "./api";
 import { syncShopeeFees, syncShopeeReturns } from "./extras";
+import { freshKept } from "../summary-keep";
 import { windows } from "./sign";
 
 const DAY = 86400;
@@ -71,7 +72,8 @@ export async function validToken(cfg: ShopeeConfig, row: IntegrationRow): Promis
  * orders updated since the last successful sync (first time: last 30 days),
  * their details (amounts, items, deadlines — no buyer personal data), and the ads credit balance.
  */
-export async function syncShopee(row: IntegrationRow): Promise<SyncResult> {
+/** light: orders only (for instant pushes) — ads, fees and returns are left to the regular syncs. */
+export async function syncShopee(row: IntegrationRow, opts: { light?: boolean } = {}): Promise<SyncResult> {
   const cfg = requireShopeeConfig();
   const sb = getAdminSupabase();
   const shopId = Number(row.shop_id);
@@ -154,24 +156,38 @@ export async function syncShopee(row: IntegrationRow): Promise<SyncResult> {
       }
     }
 
-    // 3. ads credit balance (needs the Ads permission on the Shopee app — optional)
-    let adsBalance: number | null = null;
-    try {
-      const r = await shopGet<{ response: { total_balance: number; data_timestamp: number } }>(cfg, "/api/v2/ads/get_total_balance", {}, token, shopId);
-      adsBalance = Number(r.response?.total_balance);
-      if (Number.isFinite(adsBalance)) {
-        await sb.from("ad_balance_snapshots").insert({ workspace_id: row.workspace_id, platform: "shopee", shop_id: String(shopId), balance: adsBalance });
-      } else adsBalance = null;
-    } catch (e) {
-      warnings.push(`Ads balance unavailable: ${e instanceof Error ? e.message : String(e)}`);
+    const prev = (row.last_sync_summary ?? {}) as { adsBalance?: number | null; feesSynced?: number; returns?: unknown };
+    let adsBalance: number | null = prev.adsBalance ?? null;
+    let feesSynced = 0;
+    let returns: unknown = prev.returns ?? null;
+    if (!opts.light) {
+      // 3. ads credit balance (needs the Ads permission on the Shopee app — optional)
+      try {
+        const r = await shopGet<{ response: { total_balance: number; data_timestamp: number } }>(cfg, "/api/v2/ads/get_total_balance", {}, token, shopId);
+        adsBalance = Number(r.response?.total_balance);
+        if (Number.isFinite(adsBalance)) {
+          await sb.from("ad_balance_snapshots").insert({ workspace_id: row.workspace_id, platform: "shopee", shop_id: String(shopId), balance: adsBalance });
+        } else adsBalance = null;
+      } catch (e) {
+        warnings.push(`Ads balance unavailable: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      // 4. fees & payout per order, and return / refund requests (optional; never fail the order sync)
+      feesSynced = await syncShopeeFees(cfg, token, shopId, row.workspace_id, warnings);
+      returns = await syncShopeeReturns(cfg, token, shopId, row.workspace_id, warnings);
     }
 
-    // 4. fees & payout per order, and return / refund requests (optional; never fail the order sync)
-    const feesSynced = await syncShopeeFees(cfg, token, shopId, row.workspace_id, warnings);
-    const returns = await syncShopeeReturns(cfg, token, shopId, row.workspace_id, warnings);
-
-    const autoTried = (row.last_sync_summary as { autoTried?: string[] } | null)?.autoTried;
-    const summary = { orders: saved, from: new Date(from * 1000).toISOString(), to: new Date(to * 1000).toISOString(), adsBalance, feesSynced, returns, warnings, autoTried };
+    const summary = {
+      ...(await freshKept(row)),
+      orders: saved,
+      from: new Date(from * 1000).toISOString(),
+      to: new Date(to * 1000).toISOString(),
+      adsBalance,
+      feesSynced,
+      returns,
+      warnings,
+      light: !!opts.light,
+    };
     await updateIntegration(row.id, { last_success_at: new Date().toISOString(), last_error: null, status: "connected", last_sync_summary: summary });
     if (runId) await sb.from("sync_runs").update({ status: "succeeded", records_in: sns.length, records_new: saved, finished_at: new Date().toISOString() }).eq("id", runId);
     return summary;
