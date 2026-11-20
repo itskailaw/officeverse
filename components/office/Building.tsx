@@ -328,6 +328,44 @@ function FlowerBed({ x, z, w }: { x: number; z: number; w: number }) {
   );
 }
 
+/** Text painted onto the sign face (a real 3D surface, so trees and cars in front hide it properly). */
+function SignText({ text, color, width, height, position, weight = 700, spacing = 0.28 }: { text: string; color: string; width: number; height: number; position: [number, number, number]; weight?: number; spacing?: number }) {
+  const tex = useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = 512;
+    c.height = Math.round((512 * height) / width);
+    const g = c.getContext("2d")!;
+    const size = c.height * 0.62;
+    g.font = `${weight} ${size}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    g.fillStyle = color;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    // letter spacing by hand (canvas letterSpacing isn't everywhere yet)
+    const chars = [...text];
+    const gap = size * spacing;
+    const total = chars.reduce((w, ch) => w + g.measureText(ch).width, 0) + gap * (chars.length - 1);
+    const scale = Math.min(1, (c.width * 0.9) / total);
+    g.setTransform(scale, 0, 0, 1, c.width / 2 - (total * scale) / 2, 0);
+    let x = 0;
+    for (const ch of chars) {
+      const w = g.measureText(ch).width;
+      g.fillText(ch, x + w / 2, c.height / 2);
+      x += w + gap;
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    return t;
+  }, [text, color, width, height, weight, spacing]);
+  useEffect(() => () => tex.dispose(), [tex]);
+  return (
+    <mesh position={position}>
+      <planeGeometry args={[width, height]} />
+      <meshBasicMaterial map={tex} transparent toneMapped={false} />
+    </mesh>
+  );
+}
+
 function Tree({ x, z, s = 1, tone = 0 }: { x: number; z: number; s?: number; tone?: number }) {
   return (
     <group position={[x, 0, z]} scale={s}>
@@ -540,15 +578,14 @@ const Exterior = memo(function Exterior({ night }: { night: boolean }) {
       <mesh geometry={BOX} material={gold} position={[lotX - 3.9, -0.06, 1.25]} scale={[4.7, 0.01, 0.12]} />
       <mesh geometry={BOX} material={gold} position={[lotX - 3.9, -0.06, 4.15]} scale={[4.7, 0.01, 0.12]} />
       <mesh geometry={BOX} material={gold} position={[lotX - 6.2, -0.06, 2.7]} scale={[0.12, 0.01, 2.95]} />
-      <group position={[lotX - 3.7, 0, 2.7]} rotation={[0, Math.PI / 2, 0]}>
+      <group position={[lotX - 3.4, 0, 2.7]} rotation={[0, Math.PI / 2, 0]}>
         <SportsCar night={night} />
       </group>
-      <group position={[lotX - 6.35, 0, 2.7]} rotation={[0, Math.PI / 2, 0]}>
+      {/* reserved sign at the bay's back corner — beside the car, not behind its rear wing */}
+      <group position={[lotX - 6.55, 0, 1.05]} rotation={[0, Math.PI / 2, 0]}>
         <mesh geometry={CYL} material={mat("#334155", { metal: 0.6 })} position={[0, 0.6, 0]} scale={[0.08, 1.2, 0.08]} />
-        <mesh geometry={BOX} material={mat("#552583")} position={[0, 1.35, 0]} scale={[1.1, 0.5, 0.06]} />
-        <Html center transform position={[0, 1.35, 0.04]} scale={0.25} occlude={false} style={{ pointerEvents: "none" }}>
-          <div className="select-none font-extrabold tracking-[0.3em] text-[#fdb927]">CEO</div>
-        </Html>
+        <mesh geometry={BOX} material={mat("#552583")} position={[0, 1.35, 0]} scale={[1.1, 0.5, 0.06]} castShadow />
+        <SignText text="CEO" color="#fdb927" width={1.0} height={0.42} position={[0, 1.35, 0.032]} weight={800} spacing={0.3} />
       </group>
 
       {/* lamp posts */}
@@ -567,7 +604,7 @@ const Exterior = memo(function Exterior({ night }: { night: boolean }) {
       <Tree x={-12} z={12} tone={1} />
       <Tree x={-11} z={22} s={1.15} />
       <Tree x={-11} z={31} s={0.9} tone={1} />
-      <Tree x={10} z={D + 2.6} s={0.9} />
+      <Tree x={13.6} z={D + 2.6} s={0.9} />
       <Tree x={28} z={D + 2.6} tone={1} />
       <Tree x={52} z={D + 2.6} s={1.1} />
       <Tree x={W / 2} z={-4} s={1.2} />
@@ -578,9 +615,7 @@ const Exterior = memo(function Exterior({ night }: { night: boolean }) {
       {/* signage by the gate */}
       <group position={[9, 0, D + 1.4]}>
         <mesh geometry={BOX} material={mat(P.navy)} position={[0, 0.35, 0]} scale={[3.2, 0.7, 0.25]} castShadow />
-        <Html center transform position={[0, 0.36, 0.13]} scale={0.32} occlude={false} style={{ pointerEvents: "none" }}>
-          <div className="select-none font-semibold tracking-[0.25em] text-white">OFFICEVERSE</div>
-        </Html>
+        <SignText text="OFFICEVERSE" color="#ffffff" width={3.0} height={0.5} position={[0, 0.36, 0.127]} weight={600} spacing={0.25} />
       </group>
     </group>
   );
