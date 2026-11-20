@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, ClipboardCheck, Loader2, PackageCheck, Printer, RefreshCw, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardCheck, Loader2, Mail, PackageCheck, Printer, RefreshCw, Send, XCircle } from "lucide-react";
 import { useUI } from "@/lib/store/ui-store";
 import { useOffice } from "@/lib/store/office-store";
 import { useLive } from "@/lib/integrations/client";
@@ -211,6 +211,93 @@ function PackingList({ packing, onBack }: { packing: Packing; onBack: () => void
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** Farid emails the packing list + merged airway bills every day at the chosen time. */
+function PackingEmailBar({ paper }: { paper: Paper }) {
+  const cfg = useOffice((s) => s.settings.packingEmail) ?? { enabled: false, time: "12:00", to: "" };
+  const update = useOffice((s) => s.updateSettings);
+  const toast = useUI((s) => s.toast);
+  const [to, setTo] = useState(cfg.to);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ configured: boolean; log: { at: string; status: string; count: number; error: string | null; manual: boolean }[] } | null>(null);
+  const loadStatus = useCallback(async () => {
+    try {
+      const r = await fetch("/api/fulfil/packing-email", { cache: "no-store" });
+      if (r.ok) setStatus(await r.json());
+    } catch {}
+  }, []);
+  useEffect(() => {
+    void loadStatus();
+  }, [loadStatus]);
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to.trim());
+  const set = (patch: Partial<typeof cfg>) => update({ packingEmail: { ...cfg, to: to.trim(), paper, ...patch } });
+  const sendNow = async () => {
+    if (!valid) return toast("error", "Enter the email address first");
+    set({});
+    setBusy(true);
+    try {
+      const r = await fetch("/api/fulfil/packing-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: to.trim() }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? `Request failed (${r.status})`);
+      toast(j.status === "sent" ? "success" : "info", j.status === "sent" ? `Packing list emailed — ${j.count} parcel${j.count === 1 ? "" : "s"}` : "Nothing new to pack since the last email");
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : String(e));
+    }
+    setBusy(false);
+    void loadStatus();
+  };
+  const last = status?.log[0];
+  const lastText = last
+    ? `${last.status === "sent" ? `Last email: ${last.count} parcel${last.count === 1 ? "" : "s"}` : last.status === "empty" ? "Last check: nothing new to pack" : last.status === "failed" ? "Last email failed" : "Sending…"} · ${new Date(last.at).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}`
+    : null;
+  return (
+    <div className={cn("flex flex-wrap items-center gap-3 border-b px-5 py-2 text-xs", cfg.enabled ? "border-sky-100 bg-sky-50/70" : "border-slate-100 bg-slate-50/70")}>
+      <Mail className="h-4 w-4 text-slate-500" />
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold text-slate-800">Daily packing list by email</div>
+        <div className="text-[11px] text-slate-500">
+          {status && !status.configured ? (
+            <span className="font-medium text-amber-700">Email isn&apos;t set up yet — add RESEND_API_KEY in Vercel, then redeploy.</span>
+          ) : cfg.enabled ? (
+            `On — every day at ${cfg.time}: new To-ship parcels + one merged airway-bill PDF (Shopee & Lazada).`
+          ) : (
+            "Off — Farid can email new parcels and their airway bills to you every day."
+          )}
+          {lastText && <span className={cn("ml-1", last?.status === "failed" && "text-red-700")} title={last?.error ?? undefined}>· {lastText}{last?.status === "failed" && last.error ? ` — ${last.error.slice(0, 120)}` : ""}</span>}
+        </div>
+      </div>
+      <input
+        type="email"
+        value={to}
+        onChange={(e) => setTo(e.target.value)}
+        onBlur={() => to.trim() !== cfg.to && set({})}
+        placeholder="you@example.com"
+        className="h-7 w-48 rounded-md border border-slate-200 bg-panel px-2 text-[11px]"
+        aria-label="Send the packing list to"
+      />
+      <label className="flex items-center gap-1 text-[11px] text-slate-500">
+        at
+        <input type="time" value={cfg.time} onChange={(e) => set({ time: e.target.value || "12:00" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]" />
+      </label>
+      <Button size="sm" variant="outline" onClick={sendNow} disabled={busy || !valid} title="Email the new To-ship parcels now">
+        {busy ? <Loader2 className="animate-spin" /> : <Send />} Send now
+      </Button>
+      <button
+        role="switch"
+        aria-checked={cfg.enabled}
+        aria-label="Daily packing email"
+        onClick={() => {
+          if (!cfg.enabled && !valid) return toast("error", "Enter the email address first");
+          set({ enabled: !cfg.enabled });
+          toast("success", cfg.enabled ? "Daily packing email off" : `Daily packing email on — every day at ${cfg.time}`);
+        }}
+        className={cn("relative h-6 w-11 rounded-full transition", cfg.enabled ? "bg-sky-500" : "bg-slate-300")}
+      >
+        <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", cfg.enabled ? "left-[22px]" : "left-0.5")} />
+      </button>
     </div>
   );
 }
@@ -445,6 +532,7 @@ export function Fulfilment() {
           ) : (
           <div className="flex h-full min-h-0 flex-col">
             <AutoArrangeBar />
+            <PackingEmailBar paper={paper} />
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-2">
               <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
                 {(["process", "ship"] as const).map((st) => (
