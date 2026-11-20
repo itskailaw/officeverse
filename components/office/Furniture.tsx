@@ -102,49 +102,77 @@ function Workstation({ item }: { item: FurnitureItem }) {
 }
 
 /** CEO "mission-control" desk: curved walnut front, brass trim, 3 screens. */
+/**
+ * CEO desk: a big rectangular walnut executive desk (2.4 m × 1.1 m, 76 cm high) with a brass edge,
+ * two drawer pedestals, a full-width front panel, one curved ultrawide monitor and desk accessories.
+ * The CEO sits on the -z side, facing the visitors on the +z side.
+ */
 function ExecDesk({ frames }: { frames: (THREE.Texture | null)[] }) {
   const walnut = mat("#5b3a22", { rough: 0.35 });
+  const walnutDark = mat("#432a18", { rough: 0.45 });
   const brass = mat("#d4a017", { metal: 0.85, rough: 0.25 });
-  const segs = [-0.5, -0.25, 0, 0.25, 0.5];
-  const K = 1.55;
+  const W = 2.4;
+  const D = 1.1;
+  const Z = 0.1; // desk centre (chair side at Z - D/2)
   return (
     <group>
-      <group position={[0, 0, -0.45]}>
-      {/* curved top made of angled segments */}
-      {segs.map((a, i) => (
-        // K = 1.55: a properly sized executive desk (about 2.2 m wide); height stays at a normal 76 cm
-        <group key={i} rotation={[0, a * 0.9, 0]}>
-          <B p={[0, 0.76, 0.55 * K]} s={[0.62 * K, 0.06, 0.95 * K]} m={walnut} />
-          <B p={[0, 0.4, 0.98 * K]} s={[0.62 * K, 0.7, 0.05]} m={walnut} />
-          <B p={[0, 0.08, 0.99 * K]} s={[0.63 * K, 0.04, 0.05]} m={brass} />
-          <B p={[0, 0.79, 1.02 * K]} s={[0.63 * K, 0.02, 0.04]} m={brass} />
+      {/* top + brass edge */}
+      <B p={[0, 0.74, Z]} s={[W, 0.06, D]} m={walnut} />
+      <B p={[0, 0.715, Z + D / 2 + 0.006]} s={[W + 0.012, 0.012, 0.012]} m={brass} />
+      <B p={[0, 0.715, Z - D / 2 - 0.006]} s={[W + 0.012, 0.012, 0.012]} m={brass} />
+      <B p={[W / 2 + 0.006, 0.715, Z]} s={[0.012, 0.012, D + 0.024]} m={brass} />
+      <B p={[-W / 2 - 0.006, 0.715, Z]} s={[0.012, 0.012, D + 0.024]} m={brass} />
+      {/* leather writing pad */}
+      <B p={[0, 0.775, Z - 0.12]} s={[0.9, 0.008, 0.5]} c="#1f2937" />
+      {/* two drawer pedestals */}
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * (W / 2 - 0.3), 0, Z]}>
+          <B p={[0, 0.36, 0]} s={[0.56, 0.72, D - 0.08]} m={walnutDark} />
+          {[0.58, 0.38, 0.16].map((y) => (
+            <group key={y}>
+              <B p={[0, y, -(D - 0.08) / 2 - 0.006]} s={[0.5, y === 0.16 ? 0.24 : 0.16, 0.012]} m={walnut} />
+              <B p={[0, y, -(D - 0.08) / 2 - 0.02]} s={[0.14, 0.018, 0.018]} m={brass} />
+            </group>
+          ))}
         </group>
       ))}
-      {/* one big curved monitor (ultrawide) on a single stand */}
-      <B p={[0, 0.81, 0.6]} s={[0.36, 0.03, 0.22]} c="#111827" />
-      <B p={[0, 0.98, 0.58]} s={[0.07, 0.34, 0.05]} c="#1f2937" />
-      {/* thin gold strip along the back of the monitor */}
-      <B p={[0, 1.43, 0.545]} s={[1.25, 0.02, 0.02]} c="#d4a017" />
-      {Array.from({ length: 7 }).map((_, i) => {
-        // panels on an arc (radius 1.3 m) form one continuous curved ultrawide screen
-        const R = 1.3;
-        const step = 0.19 / R;
-        const a = (i - 3) * step;
-        return (
-          <group key={i} position={[R * Math.sin(a), 0, 0.52 - R + R * Math.cos(a)]} rotation={[0, a, 0]}>
-            <B p={[0, 1.2, 0]} s={[0.2, 0.44, 0.035]} c="#111827" />
-            <mesh position={[0, 1.2, -0.019]} rotation={[0, Math.PI, 0]}>
-              <planeGeometry args={[0.2, 0.4]} />
-              <meshStandardMaterial color="#0b1220" emissive={new THREE.Color(i === 3 ? "#fdb927" : "#4f8ff7")} emissiveIntensity={0.55} />
-            </mesh>
-          </group>
-        );
-      })}
+      {/* full-width front (modesty) panel facing visitors, with a brass inlay line */}
+      <B p={[0, 0.42, Z + D / 2 - 0.05]} s={[W - 0.08, 0.6, 0.04]} m={walnutDark} />
+      <B p={[0, 0.52, Z + D / 2 - 0.028]} s={[W - 0.3, 0.014, 0.006]} m={brass} />
+      <B p={[0, 0.04, Z + D / 2 - 0.05]} s={[W - 0.06, 0.04, 0.05]} m={brass} />
+
+      {/* one big curved ultrawide monitor on a single stand, facing the CEO */}
+      <group position={[0, 0, Z + 0.25]}>
+        <B p={[0, 0.79, 0.08]} s={[0.4, 0.03, 0.24]} c="#111827" />
+        <B p={[0, 0.98, 0.06]} s={[0.07, 0.36, 0.05]} c="#1f2937" />
+        {Array.from({ length: 9 }).map((_, i) => {
+          // panels on an arc (radius 1.6 m) form one continuous curved screen
+          const R = 1.6;
+          const a = ((i - 4) * 0.165) / R;
+          return (
+            <group key={i} position={[R * Math.sin(a), 0, -R + R * Math.cos(a)]} rotation={[0, a, 0]}>
+              <B p={[0, 1.2, 0]} s={[0.17, 0.46, 0.035]} c="#111827" />
+              <mesh position={[0, 1.2, -0.019]} rotation={[0, Math.PI, 0]}>
+                <planeGeometry args={[0.17, 0.42]} />
+                <meshStandardMaterial color="#0b1220" emissive={new THREE.Color(i === 4 ? "#fdb927" : "#4f8ff7")} emissiveIntensity={0.55} />
+              </mesh>
+            </group>
+          );
+        })}
       </group>
-      <B p={[0, 0.8, -0.05]} s={[0.45, 0.015, 0.14]} c="#1f2937" />
-      {/* small desk photo frames */}
-      {[-1.3, -1.05].map((x, i) => (
-        <group key={x} position={[x, 0.79, 0.4]} rotation={[-0.15, Math.PI + (i ? -0.3 : 0.2), 0]}>
+      {/* keyboard, phone, pen holder */}
+      <B p={[0, 0.785, Z - 0.2]} s={[0.46, 0.015, 0.14]} c="#1f2937" />
+      <B p={[0.7, 0.79, Z - 0.15]} s={[0.18, 0.04, 0.2]} c="#111827" />
+      <C p={[-0.62, 0.83, Z + 0.15]} s={[0.07, 0.12, 0.07]} c="#d4a017" />
+      {/* desk lamp */}
+      <group position={[0.98, 0.77, Z + 0.3]}>
+        <C p={[0, 0.01, 0]} s={[0.16, 0.02, 0.16]} c="#d4a017" />
+        <B p={[0, 0.2, 0]} s={[0.02, 0.38, 0.02]} c="#d4a017" />
+        <C p={[0, 0.4, -0.06]} s={[0.16, 0.08, 0.16]} c="#14532d" />
+      </group>
+      {/* small photo frames, facing the CEO */}
+      {[-1.0, -0.78].map((x, i) => (
+        <group key={x} position={[x, 0.77, Z + 0.3]} rotation={[-0.15, Math.PI + (i ? -0.3 : 0.2), 0]}>
           <B p={[0, 0.09, 0]} s={[0.16, 0.2, 0.02]} c="#78350f" />
           <Screen p={[0, 0.09, 0.011]} s={[0.12, 0.15]} tex={frames[i] ?? null} />
         </group>

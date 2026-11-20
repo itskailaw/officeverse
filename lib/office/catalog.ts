@@ -50,7 +50,7 @@ const meetingSeats = (): LocalSeat[] => {
 
 export const CATALOG: Record<FurnitureType, CatalogEntry> = {
   workstation: { label: "Workstation", size: [1.4, 0.7], blocks: true, seats: [deskSeat("workstation")], movable: true },
-  exec_desk: { label: "Executive desk", size: [2.9, 1.6], blocks: true, seats: [deskSeat("ceo", 0.85)], movable: true },
+  exec_desk: { label: "Executive desk", size: [2.6, 1.3], blocks: true, seats: [deskSeat("ceo", 0.85)], movable: true },
   reception_desk: { label: "Reception desk", size: [3.2, 0.7], blocks: true, seats: [deskSeat("workstation")], movable: true },
   meeting_table: { label: "Meeting table", size: [5.2, 1.6], blocks: true, seats: meetingSeats(), movable: true },
   sofa: {

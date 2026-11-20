@@ -605,33 +605,93 @@ const SNEAKERS: [string, string][] = [
   ["#111827", "#552583"], ["#f8fafc", "#2563eb"], ["#fdb927", "#dc2626"], ["#7c3aed", "#fdb927"], ["#111827", "#111827"], ["#fdb927", "#fdb927"],
 ];
 
-/** 24 lit cubbies (6 x 4), one pair of sneakers each. */
+const isLight = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  return ((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11 > 170;
+};
+
+/**
+ * A low-top basketball sneaker seen side-on: outsole, midsole, toe spring, upper, toe box, heel counter,
+ * collar, tongue, laces and a side stripe. Toe points +x, outer side faces +z. About 26 cm long.
+ */
+function Sneaker({ shoe, accent }: { shoe: string; accent: string }) {
+  const mid = isLight(shoe) ? accent : "#f1f5f9";
+  const lace = isLight(shoe) ? "#111827" : "#f8fafc";
+  return (
+    <group>
+      {/* sole */}
+      <B p={[0, 0.008, 0]} s={[0.26, 0.016, 0.094]} c={accent} shadow={false} />
+      <B p={[-0.008, 0.026, 0]} s={[0.24, 0.022, 0.095]} c={mid} shadow={false} />
+      <B p={[0.112, 0.03, 0]} s={[0.06, 0.02, 0.09]} r={[0, 0, 0.42]} c={mid} shadow={false} />
+      {/* upper */}
+      <B p={[-0.04, 0.066, 0]} s={[0.17, 0.058, 0.088]} c={shoe} shadow={false} />
+      <B p={[0.07, 0.052, 0]} s={[0.12, 0.034, 0.086]} r={[0, 0, -0.2]} c={shoe} shadow={false} />
+      <B p={[0.118, 0.044, 0]} s={[0.035, 0.03, 0.08]} r={[0, 0, -0.55]} c={shoe} shadow={false} />
+      {/* heel counter + pull tab */}
+      <B p={[-0.112, 0.072, 0]} s={[0.04, 0.072, 0.092]} c={accent} shadow={false} />
+      <B p={[-0.128, 0.105, 0]} s={[0.01, 0.03, 0.03]} c={accent} shadow={false} />
+      {/* collar opening + tongue */}
+      <B p={[-0.062, 0.097, 0]} s={[0.09, 0.008, 0.066]} c="#0b0b0f" shadow={false} />
+      <B p={[-0.005, 0.098, 0]} s={[0.035, 0.03, 0.05]} r={[0, 0, -0.45]} c={shoe} shadow={false} />
+      {/* laces */}
+      {[0.012, 0.038, 0.064].map((x, i) => (
+        <B key={x} p={[x, 0.09 - i * 0.012, 0]} s={[0.012, 0.006, 0.07]} r={[0, 0, -0.25]} c={lace} shadow={false} />
+      ))}
+      {/* side stripe, both sides */}
+      {[1, -1].map((side) => (
+        <B key={side} p={[-0.01, 0.062, side * 0.0452]} s={[0.15, 0.014, 0.002]} r={[0, 0, 0.3]} c={accent} shadow={false} />
+      ))}
+    </group>
+  );
+}
+
+/** 24 lit cubbies (6 x 4): each shows a pair — one shoe side-on at the front, its partner raised behind it. */
 function SneakerWall({ w, night }: { w: number; night?: boolean }) {
   const cols = 6;
   const rows = 4;
   const cw = (w - 0.2) / cols;
   const ch = 0.46;
-  const glow = mat(night ? "#c4b5fd" : "#ede9fe", { emissive: night ? "#a78bfa" : "#fdb927", ei: night ? 3 : 0.35 });
+  const led = mat(night ? "#c4b5fd" : "#fbbf24", { emissive: night ? "#a78bfa" : "#f59e0b", ei: night ? 2.2 : 0.6 });
+  const backlit = mat(night ? "#2e1065" : "#3b2d22", { emissive: night ? "#5b21b6" : "#7c5a3a", ei: night ? 0.9 : 0.35, rough: 0.8 });
+  const acrylic = mat("#e0f2fe", { rough: 0.05, opacity: 0.35 });
+  const k = Math.min(1.35, (cw - 0.08) / 0.3); // scale shoes to the cubby
+  const wood = mat("#1f1712", { rough: 0.6 });
+  const top = 0.28 + rows * (ch + 0.04);
   return (
     <group>
-      <B p={[0, 1.1, -0.05]} s={[w, 2.2, 0.4]} c="#1f1712" />
+      {/* open cabinet: back, sides, shelves and dividers (cubbies are open boxes you can see into) */}
+      <B p={[0, 1.1, -0.23]} s={[w, 2.2, 0.04]} m={wood} />
+      {[-1, 1].map((sd) => (
+        <B key={sd} p={[sd * (w / 2 - 0.03), 1.1, -0.04]} s={[0.06, 2.2, 0.42]} m={wood} />
+      ))}
+      {Array.from({ length: rows + 1 }).map((_, r) => (
+        <B key={`s${r}`} p={[0, 0.27 + r * (ch + 0.04), -0.04]} s={[w - 0.06, 0.04, 0.42]} m={wood} />
+      ))}
+      {Array.from({ length: cols - 1 }).map((_, c) => (
+        <B key={`d${c}`} p={[-w / 2 + 0.1 + (c + 1) * cw, (0.29 + top) / 2, -0.04]} s={[0.03, top - 0.29, 0.42]} m={wood} />
+      ))}
+      <B p={[0, (top + 2.2) / 2, -0.04]} s={[w - 0.06, 2.2 - top, 0.42]} m={wood} />
       {Array.from({ length: cols * rows }).map((_, i) => {
         const c = i % cols;
         const r = Math.floor(i / cols);
         const x = -w / 2 + 0.1 + cw / 2 + c * cw;
-        const y = 0.28 + r * (ch + 0.04) + ch / 2;
+        const y = 0.28 + r * (ch + 0.04) + ch / 2 + 0.01;
         const [shoe, accent] = SNEAKERS[i];
+        const floor = -ch / 2 + 0.012;
         return (
           <group key={i} position={[x, y, 0.06]}>
-            <B p={[0, 0, -0.05]} s={[cw - 0.05, ch, 0.28]} c="#2a1f17" shadow={false} />
-            <B p={[0, ch / 2 - 0.02, 0.0]} s={[cw - 0.08, 0.015, 0.2]} m={glow} shadow={false} />
-            {[-0.075, 0.075].map((dx, k) => (
-              <group key={k} position={[dx, -ch / 2 + 0.05, 0]} rotation={[0, k ? -0.15 : 0.15, 0]}>
-                <B p={[0, 0.035, 0]} s={[0.09, 0.07, 0.22]} c={shoe} shadow={false} />
-                <B p={[0, 0.005, 0]} s={[0.095, 0.02, 0.23]} c={accent} shadow={false} />
-                <B p={[0, 0.08, -0.05]} s={[0.085, 0.05, 0.09]} c={shoe} shadow={false} />
-              </group>
-            ))}
+            {/* cubby: lit back panel, shelf, LED strip under the top */}
+            <B p={[0, 0, -0.205]} s={[cw - 0.04, ch - 0.01, 0.01]} m={backlit} shadow={false} />
+            <B p={[0, ch / 2 - 0.028, 0.1]} s={[cw - 0.1, 0.006, 0.012]} m={led} shadow={false} />
+            {/* partner shoe raised on a clear riser, angled */}
+            <B p={[-0.02, floor + 0.04, -0.11]} s={[0.16, 0.08, 0.1]} m={acrylic} shadow={false} />
+            <group position={[-0.03, floor + 0.08, -0.11]} rotation={[0, 0.45, 0]} scale={k * 0.95}>
+              <Sneaker shoe={shoe} accent={accent} />
+            </group>
+            {/* hero shoe, side-on at the front */}
+            <group position={[0.03, floor, 0.06]} rotation={[0, -0.12, 0]} scale={k}>
+              <Sneaker shoe={shoe} accent={accent} />
+            </group>
           </group>
         );
       })}
