@@ -107,13 +107,29 @@ function Workstation({ item }: { item: FurnitureItem }) {
  * two drawer pedestals, a full-width front panel, one curved ultrawide monitor and desk accessories.
  * The CEO sits on the -z side, facing the visitors on the +z side.
  */
-function ExecDesk({ frames }: { frames: (THREE.Texture | null)[] }) {
+function ExecDesk({ frames, screen }: { frames: (THREE.Texture | null)[]; screen: THREE.Texture | null }) {
   const walnut = mat("#5b3a22", { rough: 0.35 });
   const walnutDark = mat("#432a18", { rough: 0.45 });
   const brass = mat("#d4a017", { metal: 0.85, rough: 0.25 });
   const W = 2.4;
   const D = 1.1;
   const Z = 0.1; // desk centre (chair side at Z - D/2)
+  const N = 9;
+  // one dashboard image spread over the curved panels: panel i shows slice i (as the CEO sees it, left → right)
+  const slices = useMemo(
+    () =>
+      screen
+        ? Array.from({ length: N }, (_, i) => {
+            const t = screen.clone();
+            t.repeat.set(1 / N, 1);
+            t.offset.set((N - 1 - i) / N, 0);
+            t.needsUpdate = true;
+            return t;
+          })
+        : null,
+    [screen],
+  );
+  useEffect(() => () => slices?.forEach((t) => t.dispose()), [slices]);
   return (
     <group>
       {/* top + brass edge */}
@@ -154,7 +170,11 @@ function ExecDesk({ frames }: { frames: (THREE.Texture | null)[] }) {
               <B p={[0, 1.2, 0]} s={[0.17, 0.46, 0.035]} c="#111827" />
               <mesh position={[0, 1.2, -0.019]} rotation={[0, Math.PI, 0]}>
                 <planeGeometry args={[0.17, 0.42]} />
-                <meshStandardMaterial color="#0b1220" emissive={new THREE.Color(i === 4 ? "#fdb927" : "#4f8ff7")} emissiveIntensity={0.55} />
+                {slices ? (
+                  <meshBasicMaterial map={slices[i]} toneMapped={false} />
+                ) : (
+                  <meshStandardMaterial color="#0b1220" emissive={new THREE.Color("#1e3a5f")} emissiveIntensity={0.55} />
+                )}
               </mesh>
             </group>
           );
@@ -645,7 +665,7 @@ export const FurnitureVisual = memo(function FurnitureVisual({ item, frames, scr
     case "workstation":
       return <Workstation item={item} />;
     case "exec_desk":
-      return <ExecDesk frames={frames} />;
+      return <ExecDesk frames={frames} screen={screenTex ?? null} />;
     case "meeting_table":
       return <MeetingTable />;
     case "sofa":

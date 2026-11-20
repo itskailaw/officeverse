@@ -173,3 +173,134 @@ export function meetingTexture(topic: string | null) {
     g.fillText(line, 48, y);
   });
 }
+
+/**
+ * The CEO's curved ultrawide monitor (drawn across 9 curved panels, 1530×420): today's revenue per
+ * platform, a 30-day revenue chart, parcels waiting, and a clock. Live data when connected, else sample.
+ */
+export function ceoMonitorTexture(demoMode: boolean, live: LiveSummary | null | undefined, now = new Date()) {
+  return makeScreenTexture(
+    (g, w, h) => {
+      const bg = g.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, "#0b1424");
+      bg.addColorStop(1, "#0f1f36");
+      g.fillStyle = bg;
+      g.fillRect(0, 0, w, h);
+
+      const d = live
+        ? {
+            shopee: live.byPlatform?.shopee?.today.revenue ?? 0,
+            lazada: live.byPlatform?.lazada?.today.revenue ?? 0,
+            orders: live.today.orders,
+            mtd: live.monthToDate.revenue,
+            process: live.toPack.readyToShip,
+            ship: live.toPack.processed,
+            urgent: live.toPack.urgent,
+            days: live.days.map((x) => ({ s: x.shopee ?? x.revenue, l: x.lazada ?? 0 })),
+            tag: "LIVE",
+          }
+        : demoMode
+          ? (() => {
+              const e = demoEcommerce();
+              return {
+                shopee: e.today.shopee,
+                lazada: e.today.lazada,
+                orders: 0,
+                mtd: e.mtd,
+                process: e.parcels.shopee,
+                ship: e.parcels.lazada,
+                urgent: 0,
+                days: e.days.map((x) => ({ s: x.shopee, l: x.lazada })),
+                tag: "DEMO",
+              };
+            })()
+          : null;
+
+      // top bar: title, live pill, clock
+      g.fillStyle = "#e2e8f0";
+      g.font = "600 30px system-ui, sans-serif";
+      g.fillText("CEO Command Centre", 34, 50);
+      const clock = new Intl.DateTimeFormat("en-MY", { timeZone: "Asia/Kuala_Lumpur", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(now);
+      g.font = "600 26px system-ui, sans-serif";
+      g.fillStyle = "#fdb927";
+      const cw = g.measureText(clock).width;
+      g.fillText(clock, w - 34 - cw, 50);
+      if (d) pill(g, w - 60 - cw, 22, d.tag, d.tag === "LIVE" ? "#10b981" : "#fbbf24", d.tag === "LIVE" ? "#fff" : "#111827");
+      g.fillStyle = "#1e3a5f";
+      g.fillRect(34, 70, w - 68, 2);
+
+      if (!d) {
+        g.fillStyle = "#94a3b8";
+        g.font = "28px system-ui, sans-serif";
+        g.fillText("Connect Shopee or Lazada in Settings → Integrations to see your live numbers here.", 34, 220);
+        return;
+      }
+
+      // left: KPI tiles
+      const tile = (x: number, y: number, tw: number, label: string, value: string, color: string) => {
+        g.fillStyle = "#13294a";
+        g.beginPath();
+        g.roundRect(x, y, tw, 132, 14);
+        g.fill();
+        g.fillStyle = color;
+        g.fillRect(x, y + 14, 5, 104);
+        g.fillStyle = "#94a3b8";
+        g.font = "22px system-ui, sans-serif";
+        g.fillText(label, x + 20, y + 40);
+        g.fillStyle = "#f8fafc";
+        g.font = "700 40px system-ui, sans-serif";
+        g.fillText(value, x + 20, y + 96);
+      };
+      tile(34, 92, 250, "Shopee today", formatMYR(d.shopee), "#eb6834");
+      tile(298, 92, 250, "Lazada today", formatMYR(d.lazada), "#2a78d6");
+      tile(34, 238, 250, "Month to date", formatMYR(d.mtd), "#fdb927");
+      tile(298, 238, 250, `To process${d.urgent ? ` · ${d.urgent} urgent` : ""}`, `${d.process} / ship ${d.ship}`, d.urgent ? "#ef4444" : "#10b981");
+
+      // right: stacked 30-day revenue bars (Shopee + Lazada)
+      const x0 = 590;
+      const y0 = 360;
+      const ww = w - x0 - 34;
+      const hh = 240;
+      g.fillStyle = "#94a3b8";
+      g.font = "22px system-ui, sans-serif";
+      g.fillText("Revenue · last 30 days", x0, 100);
+      g.fillStyle = "#eb6834";
+      g.fillRect(x0 + 260, 86, 14, 14);
+      g.fillStyle = "#94a3b8";
+      g.fillText("Shopee", x0 + 282, 100);
+      g.fillStyle = "#2a78d6";
+      g.fillRect(x0 + 380, 86, 14, 14);
+      g.fillStyle = "#94a3b8";
+      g.fillText("Lazada", x0 + 402, 100);
+      const days = d.days.slice(-30);
+      const max = Math.max(1, ...days.map((x) => x.s + x.l));
+      const bw = ww / Math.max(days.length, 1);
+      for (let k = 1; k <= 3; k++) {
+        g.fillStyle = "#1e3a5f";
+        g.fillRect(x0, y0 - (hh * k) / 3, ww, 1);
+      }
+      days.forEach((x, i) => {
+        const bx = x0 + i * bw + bw * 0.15;
+        const hs = (x.s / max) * hh;
+        const hl = (x.l / max) * hh;
+        g.fillStyle = "#eb6834";
+        g.fillRect(bx, y0 - hs, bw * 0.7, hs);
+        g.fillStyle = "#2a78d6";
+        g.fillRect(bx, y0 - hs - hl, bw * 0.7, hl);
+      });
+      // today highlighted
+      if (days.length) {
+        g.strokeStyle = "#fdb927";
+        g.lineWidth = 3;
+        const last = days[days.length - 1];
+        const th = ((last.s + last.l) / max) * hh;
+        g.strokeRect(x0 + (days.length - 1) * bw + bw * 0.1, y0 - th - 4, bw * 0.8, th + 4);
+      }
+      g.fillStyle = "#64748b";
+      g.font = "20px system-ui, sans-serif";
+      g.fillText(`Peak ${formatMYR(max)} / day`, x0, y0 + 34);
+    },
+    1530,
+    420,
+  );
+}

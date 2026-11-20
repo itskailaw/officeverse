@@ -20,7 +20,7 @@ import { FurnitureVisual } from "./Furniture";
 import { Character } from "./Character";
 import { festiveTheme } from "@/lib/office/festive";
 import { shootMiniHoop } from "./FunFurniture";
-import { meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
+import { ceoMonitorTexture, meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
 /** Display pieces that zoom the camera in when clicked. */
 const SHOWCASE = new Set(["sneaker_wall", "kobe_cabinet", "jersey_frame", "aquarium"]);
@@ -306,6 +306,15 @@ function FurnitureLayer({ night, brands }: { night: boolean; brands: Record<stri
 
   const liveSummary = useLive((x) => x.summary);
   const perfTex = useMemo(() => perfScreenTexture(settings.demoMode, liveSummary), [settings.demoMode, liveSummary]);
+  // the CEO's own monitor: same data, redrawn every 30 s so the clock moves
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const ceoTex = useMemo(() => ceoMonitorTexture(settings.demoMode, liveSummary), [settings.demoMode, liveSummary, tick]);
+  useEffect(() => () => ceoTex.dispose(), [ceoTex]);
   const logo = useTextureImage(settings.logoUrl);
   const recTex = useMemo(() => receptionTexture(companies, logo), [companies, logo]);
   const meetTex = useMemo(() => meetingTexture(liveMeeting), [liveMeeting]);
@@ -353,7 +362,7 @@ function FurnitureLayer({ night, brands }: { night: boolean; brands: Record<stri
         const d = drag && drag.id === item.id ? drag : null;
         const x = d ? d.x : item.x;
         const z = d ? d.z : item.z;
-        const tex = item.type === "perf_screen" ? perfTex : item.id === "rec-logo" ? recTex : item.id === "meet-screen" ? meetTex : null;
+        const tex = item.type === "perf_screen" ? perfTex : item.type === "exec_desk" ? ceoTex : item.id === "rec-logo" ? recTex : item.id === "meet-screen" ? meetTex : null;
         const interactive = item.id === CEO_DESK_ID || item.type === "perf_screen" || item.id === MEETING_TABLE_ID || item.type === "mini_hoop" || SHOWCASE.has(item.type) || mode === "build";
         const [w, dd] = sizeOf(item);
         return (
