@@ -10,10 +10,14 @@ export const maxDuration = 300;
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const { data, error } = await getAdminSupabase().from("integrations").select("workspace_id").eq("provider", "telegram").eq("status", "connected");
+  const { data, error } = await getAdminSupabase().from("integrations").select("workspace_id, last_success_at").eq("provider", "telegram").eq("status", "connected");
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const sentToday = (iso: unknown) =>
+    typeof iso === "string" && new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso)) === today;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const results: { workspace: string; ok: boolean; error?: string }[] = [];
-  for (const ws of [...new Set((data ?? []).map((r) => r.workspace_id as string))]) {
+  // skip workspaces that already got today's briefing (e.g. from the backup trigger)
+  for (const ws of [...new Set((data ?? []).filter((r) => !sentToday(r.last_success_at)).map((r) => r.workspace_id as string))]) {
     try {
       await sendBriefing(ws, { refresh: true });
       results.push({ workspace: ws, ok: true });

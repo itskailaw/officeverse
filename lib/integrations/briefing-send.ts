@@ -49,3 +49,27 @@ export async function sendBriefing(workspaceId: string, opts: { refresh?: boolea
     throw e;
   }
 }
+
+const klDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+const klHM = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
+
+/**
+ * Backup for the 8:30 am Vercel Cron: after any order update / sync from 08:30 (Malaysia time) on,
+ * send today's briefing if it hasn't gone out yet. Returns true when it sent one.
+ */
+export async function ensureDailyBriefing(workspaceId: string, now = new Date()) {
+  if (klHM(now) < "08:30") return false;
+  const rows = await listIntegrations(workspaceId);
+  const tg = rows.find((r) => r.provider === "telegram" && r.status === "connected");
+  if (!tg?.shop_id) return false;
+  if (tg.last_success_at && klDate(new Date(tg.last_success_at)) === klDate(now)) return false;
+  // claim today's slot first so two order updates arriving together don't both send it
+  await updateIntegration(tg.id, { last_success_at: now.toISOString() });
+  try {
+    await sendBriefing(workspaceId);
+    return true;
+  } catch (e) {
+    await updateIntegration(tg.id, { last_success_at: tg.last_success_at });
+    throw e;
+  }
+}

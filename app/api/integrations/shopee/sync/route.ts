@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { checkAlerts } from "@/lib/integrations/alerts";
 import { runOrderAutomation } from "@/lib/integrations/order-automation";
+import { ensureDailyBriefing } from "@/lib/integrations/briefing-send";
 import { errorResponse, HttpError } from "@/lib/ai/server/guard";
 import { getMembership, listIntegrations, requireRole } from "@/lib/integrations/store";
 import { syncShopee } from "@/lib/integrations/shopee/sync";
@@ -32,6 +33,9 @@ export async function POST() {
       } catch {}
       try {
         await checkAlerts(m.workspaceId);
+      } catch {}
+      try {
+        await ensureDailyBriefing(m.workspaceId);
       } catch {}
     });
     return NextResponse.json({ results }, { headers: { "Cache-Control": "no-store" } });

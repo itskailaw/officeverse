@@ -5,6 +5,7 @@ import { syncShopee } from "./shopee/sync";
 import { syncLazada } from "./lazada/sync";
 import { checkAlerts } from "./alerts";
 import { runOrderAutomation } from "./order-automation";
+import { ensureDailyBriefing } from "./briefing-send";
 
 const COLUMNS =
   "id, workspace_id, company_id, provider, status, shop_id, shop_name, credentials_enc, token_expires_at, expires_at, last_success_at, last_error, last_sync_summary";
@@ -52,6 +53,11 @@ export async function syncFromPush(provider: "shopee" | "lazada", shopId: string
       await runOrderAutomation(rows[0].workspace_id);
     } catch (e) {
       console.error("[push] order automation failed", e instanceof Error ? e.message : e);
+    }
+    try {
+      await ensureDailyBriefing(rows[0].workspace_id);
+    } catch (e) {
+      console.error("[push] backup briefing failed", e instanceof Error ? e.message : e);
     }
     try {
       await checkAlerts(rows[0].workspace_id);
