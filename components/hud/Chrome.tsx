@@ -25,6 +25,7 @@ import {
   Sunset,
   Clock,
   Layers,
+  Pin,
 } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
@@ -282,9 +283,10 @@ export function CameraControls() {
       <button className={btn} title="Zoom in (+)" onClick={() => camera({ kind: "zoom", dir: 1 })}>
         <Plus />
       </button>
-      <button className={btn} title="Reset view" onClick={() => camera({ kind: "reset" })}>
+      <button className={btn} title="Back to your start view" onClick={() => camera({ kind: "reset" })}>
         <Scan />
       </button>
+      <StartViewButton btn={btn} />
     </div>
   );
 }
@@ -344,5 +346,28 @@ export function Toasts() {
         </button>
       ))}
     </div>
+  );
+}
+
+/** Save the current camera view as the view OfficeVerse opens with (Shift+click or the menu item restores the default). */
+function StartViewButton({ btn }: { btn: string }) {
+  const saved = useOffice((s) => !!s.settings.startView);
+  const camera = useUI((s) => s.camera);
+  return (
+    <button
+      className={cn(btn, saved && "text-sky-700")}
+      title={saved ? "Save this view as your start view (Shift+click: go back to the default start view)" : "Save this view as your start view"}
+      onClick={(e) => {
+        if (e.shiftKey && saved) {
+          useOffice.getState().updateSettings({ startView: null });
+          useUI.getState().toast("info", "Start view reset to the default");
+          camera({ kind: "reset" });
+          return;
+        }
+        camera({ kind: "save" });
+      }}
+    >
+      <Pin />
+    </button>
   );
 }

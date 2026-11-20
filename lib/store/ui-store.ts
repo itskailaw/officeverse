@@ -26,12 +26,12 @@ interface UIState {
   fulfilStage: "process" | "ship";
   notificationsOpen: boolean;
   companyFilter: string | "all";
-  cameraCommand: { kind: "rotate"; dir: 1 | -1; n: number } | { kind: "zoom"; dir: 1 | -1; n: number } | { kind: "reset"; n: number } | { kind: "focus"; x: number; z: number; zoom?: number; n: number } | null;
+  cameraCommand: { kind: "rotate"; dir: 1 | -1; n: number } | { kind: "zoom"; dir: 1 | -1; n: number } | { kind: "reset"; n: number } | { kind: "save"; n: number } | { kind: "focus"; x: number; z: number; zoom?: number; n: number } | null;
   toasts: Toast[];
   set(patch: Partial<UIState>): void;
   toast(kind: Toast["kind"], text: string): void;
   dismiss(id: number): void;
-  camera(cmd: { kind: "rotate"; dir: 1 | -1 } | { kind: "zoom"; dir: 1 | -1 } | { kind: "reset" } | { kind: "focus"; x: number; z: number; zoom?: number }): void;
+  camera(cmd: { kind: "rotate"; dir: 1 | -1 } | { kind: "zoom"; dir: 1 | -1 } | { kind: "reset" } | { kind: "save" } | { kind: "focus"; x: number; z: number; zoom?: number }): void;
 }
 
 let toastId = 0;

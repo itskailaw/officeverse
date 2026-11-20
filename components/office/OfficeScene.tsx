@@ -127,13 +127,36 @@ function CameraRig() {
   const anim = useRef<{ fromT: THREE.Vector3; toT: THREE.Vector3; fromO: THREE.Vector3; toO: THREE.Vector3; fromZ: number; toZ: number; t: number } | null>(null);
   const size = useThree((s) => s.size);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug")) (window as unknown as Record<string, unknown>).__ovCam = { camera, controls };
+  }, [camera, controls]);
   const fitZoom = () => Math.max(7, Math.min(size.width / (OFFICE_W + 8), size.height / (OFFICE_D + 12)));
 
+  // start view: the CEO's saved view if there is one, else the default angle fitted to the screen
+  const startView = useOffice((s) => s.settings.startView);
+  const applied = useRef(false);
+  const appliedKey = useRef<"saved" | "default" | null>(null);
+  const startPose = () => {
+    const v = useOffice.getState().settings.startView;
+    return v
+      ? { t: new THREE.Vector3(v.t[0], 0, v.t[1]), o: new THREE.Vector3(...v.o), z: THREE.MathUtils.clamp(v.z * fitZoom(), 6, 120) }
+      : { t: CENTER.clone(), o: ISO_OFFSET.clone(), z: fitZoom() };
+  };
   useEffect(() => {
-    camera.zoom = fitZoom();
+    // once on load; and once more if the saved view arrives a moment later from the cloud
+    if (!controls) return;
+    const key = startView ? "saved" : "default";
+    if (applied.current && (key === "default" || appliedKey.current === "saved")) return;
+    applied.current = true;
+    appliedKey.current = key;
+    const p = startPose();
+    controls.target.copy(p.t);
+    camera.position.copy(p.t).add(p.o);
+    camera.zoom = p.z;
     camera.updateProjectionMatrix();
+    controls.update();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [controls, startView]);
 
   useEffect(() => {
     if (!cmd || !controls) return;
@@ -145,9 +168,18 @@ function CameraRig() {
     if (cmd.kind === "rotate") toO = offset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), (cmd.dir * Math.PI) / 2);
     if (cmd.kind === "zoom") toZ = THREE.MathUtils.clamp(camera.zoom * (cmd.dir > 0 ? 1.35 : 1 / 1.35), 6, 120);
     if (cmd.kind === "reset") {
-      toT = CENTER.clone();
-      toO = ISO_OFFSET.clone();
-      toZ = fitZoom();
+      const p = startPose();
+      toT = p.t;
+      toO = p.o;
+      toZ = p.z;
+    }
+    if (cmd.kind === "save") {
+      const o = offset;
+      useOffice.getState().updateSettings({
+        startView: { t: [+target.x.toFixed(2), +target.z.toFixed(2)], o: [+o.x.toFixed(2), +o.y.toFixed(2), +o.z.toFixed(2)], z: +(camera.zoom / fitZoom()).toFixed(3) },
+      });
+      useUI.getState().toast("success", "Saved — OfficeVerse will open with this view (also on your other devices)");
+      return;
     }
     if (cmd.kind === "focus") {
       toT = new THREE.Vector3(cmd.x, 0, cmd.z);
@@ -622,12 +654,16 @@ export default function OfficeScene() {
     return () => window.removeEventListener("keydown", onKey);
   }, [rotateSelected]);
 
+  // where the controls aim: a stable value (a new array every render would keep snapping the view back)
+  const sv = useOffice((s) => s.settings.startView);
+  const controlTarget = useMemo<[number, number, number]>(() => (sv ? [sv.t[0], 0, sv.t[1]] : [CENTER.x, 0, CENTER.z]), [sv]);
+
   return (
     <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, powerPreference: "high-performance" }} onContextMenu={(e) => e.preventDefault()}>
       <OrthographicCamera makeDefault position={CENTER.clone().add(ISO_OFFSET).toArray()} zoom={18} near={-200} far={400} />
       <OrbitControls
         makeDefault
-        target={CENTER.toArray()}
+        target={controlTarget}
         enabled={!held && !dragging}
         enableDamping
         dampingFactor={0.12}

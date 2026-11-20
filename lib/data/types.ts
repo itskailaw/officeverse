@@ -248,6 +248,8 @@ export interface OfficeSettings {
   packingEmail?: { enabled: boolean; time: string; to: string; paper?: "thermal" | "a6" | "a5" | "a4" | "original" };
   /** floor-plan version the saved furniture belongs to (see LAYOUT_VERSION) */
   layoutVersion?: number;
+  /** the CEO's saved start view: look-at point, camera offset, and zoom relative to "fit the office" (so it suits any screen) */
+  startView?: { t: [number, number]; o: [number, number, number]; z: number } | null;
   /** UI panels theme; "auto" follows the office lighting */
   uiTheme: UITheme;
   /** floating activity bubbles above employees */
