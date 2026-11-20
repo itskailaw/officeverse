@@ -23,7 +23,16 @@ const RANGES = [
   { v: 30, label: "Last 30 days" },
   { v: 90, label: "Last 90 days" },
 ];
-const itemText = (i: Purchase["items"][number]) => `${i.name}${i.model ? ` (${i.model})` : ""} × ${i.qty}`;
+/** What the buyer picked: the variation (Lazada's "Color Family:" style prefixes removed), or the product name if there's none. */
+export const variantOf = (i: { name: string; model: string | null }) => {
+  const v = (i.model ?? "")
+    .split(/\s*[,;]\s*(?=[A-Za-z][\w ]{0,24}:)/)
+    .map((part) => part.replace(/^[A-Za-z][\w ]{0,24}:\s*/, "").trim())
+    .filter(Boolean)
+    .join(" · ");
+  return v || i.name;
+};
+const itemText = (i: Purchase["items"][number]) => `${variantOf(i)} × ${i.qty}`;
 const klDay = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date(iso));
 
 /** Purchase list: platform · order ID · what was bought. Owner only. */
@@ -61,7 +70,7 @@ export function Purchases() {
       (o) =>
         (plat === "all" || o.platform === plat) &&
         (days !== 1 || klDay(o.at) === today) &&
-        (!needle || o.id.toLowerCase().includes(needle) || o.items.some((i) => itemText(i).toLowerCase().includes(needle))),
+        (!needle || o.id.toLowerCase().includes(needle) || o.items.some((i) => `${i.name} ${i.model ?? ""}`.toLowerCase().includes(needle))),
     );
   }, [orders, plat, q, days]);
   const count = (p: Plat | "all") => (orders ?? []).filter((o) => p === "all" || o.platform === p).length;
@@ -167,9 +176,8 @@ export function Purchases() {
                           {o.items.length ? (
                             <ul className="space-y-0.5">
                               {o.items.map((i, n) => (
-                                <li key={n}>
-                                  <span className="font-semibold text-slate-900">{i.qty}×</span> {i.name}
-                                  {i.model && <span className="text-slate-500"> · {i.model}</span>}
+                                <li key={n} title={i.model ? `${i.name} — ${i.model}` : i.name}>
+                                  <span className="font-semibold text-slate-900">{i.qty}×</span> {variantOf(i)}
                                 </li>
                               ))}
                             </ul>
