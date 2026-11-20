@@ -37,6 +37,9 @@ export async function POST(req: Request) {
     const problems: string[] = [];
     const pdfs: ArrayBuffer[] = [];
     let html: { platform: Plat; doc: ArrayBuffer } | null = null;
+    // which orders were printed, in the order their labels appear (drives the packing list)
+    const sequence: { platform: Plat; id: string; tracking: string | null }[] = [];
+    let htmlSeq: typeof sequence = [];
     for (const p of plats) {
       const ids = orders.filter((o) => o.platform === p).map((o) => o.id).slice(0, 50);
       let res: LabelResult;
@@ -48,20 +51,26 @@ export async function POST(req: Request) {
         continue;
       }
       problems.push(...res.problems);
+      const seq = (res.sequence ?? ids.map((id) => ({ id, tracking: null }))).map((x) => ({ platform: p, ...x }));
       if (res.kind === "html") html = { platform: p, doc: res.pdf };
       else pdfs.push(await fitToPaper(res.pdf, paper).catch(() => res.pdf));
+      if (res.kind !== "html") sequence.push(...seq);
+      else htmlSeq = seq;
     }
 
     const headers: Record<string, string> = {
       "Cache-Control": "no-store",
       "X-OV-Problems": encodeURIComponent(JSON.stringify(problems.slice(0, 20))),
+      "Access-Control-Expose-Headers": "X-OV-Problems, X-OV-Separate, X-OV-Sequence",
     };
+    const seqHeader = (s: typeof sequence) => encodeURIComponent(JSON.stringify(s.map((x) => [x.platform === "shopee" ? "s" : "l", x.id, x.tracking])));
     if (!pdfs.length && html) {
       // only a web-page label (some Lazada channels): print it as it comes
-      return new NextResponse(html.doc, { headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
+      return new NextResponse(html.doc, { headers: { ...headers, "X-OV-Sequence": seqHeader(htmlSeq), "Content-Type": "text/html; charset=utf-8" } });
     }
     if (!pdfs.length) throw new HttpError(502, problems.join(" · ") || "No labels came back.");
     if (html) headers["X-OV-Separate"] = html.platform; // that platform's web-page labels must be printed on their own
+    headers["X-OV-Sequence"] = seqHeader(sequence);
     const merged = await mergePdfs(pdfs);
     return new NextResponse(merged, {
       headers: { ...headers, "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="airway-bills.pdf"` },

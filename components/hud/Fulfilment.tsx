@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, PackageCheck, Printer, RefreshCw, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardCheck, Loader2, PackageCheck, Printer, RefreshCw, XCircle } from "lucide-react";
 import { useUI } from "@/lib/store/ui-store";
 import { useOffice } from "@/lib/store/office-store";
 import { useLive } from "@/lib/integrations/client";
@@ -103,6 +103,118 @@ function loadingPage(count: number) {
 </div></body></html>`;
 }
 
+/** One parcel in the packing list, in the order its airway bill comes out of the printer. */
+interface PackRow {
+  platform: Plat;
+  id: string;
+  tracking: string | null;
+  items: Order["items"];
+}
+interface Packing {
+  at: string;
+  rows: PackRow[];
+  /** labels a marketplace sent as a web page, printed from a second tab after the main PDF */
+  separate?: Plat | null;
+}
+const PACK_KEY = "ov:packing-v1";
+const PACKED_KEY = "ov:packed-v1";
+function readJSON<T>(k: string, d: T): T {
+  try {
+    const v = localStorage.getItem(k);
+    return v ? (JSON.parse(v) as T) : d;
+  } catch {
+    return d;
+  }
+}
+function writeJSON(k: string, v: unknown) {
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
+  } catch {}
+}
+
+/** Tick-off list that follows the printed airway bills top to bottom. */
+function PackingList({ packing, onBack }: { packing: Packing; onBack: () => void }) {
+  const [packed, setPacked] = useState<Set<string>>(() => new Set(readJSON<string[]>(PACKED_KEY, [])));
+  const k = (r: PackRow) => `${r.platform}:${r.id}`;
+  const toggle = (r: PackRow) =>
+    setPacked((s) => {
+      const n = new Set(s);
+      if (n.has(k(r))) n.delete(k(r));
+      else n.add(k(r));
+      writeJSON(PACKED_KEY, [...n].slice(-500));
+      return n;
+    });
+  const done = packing.rows.filter((r) => packed.has(k(r))).length;
+  const next = packing.rows.findIndex((r) => !packed.has(k(r)));
+  const all = done === packing.rows.length;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-2">
+        <Button size="sm" variant="ghost" onClick={onBack}>
+          <ArrowLeft /> Orders
+        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-slate-900">Packing list — same order as your airway bills</div>
+          <div className="text-[11px] text-slate-500">
+            Label #1 is the first page of the PDF. Click a parcel once it&apos;s packed. Printed{" "}
+            {new Date(packing.at).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+          </div>
+        </div>
+        <div className={cn("rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums", all ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700")}>
+          {all ? "All packed ✓" : `${done} / ${packing.rows.length} packed`}
+        </div>
+      </div>
+      <div className="h-1 bg-slate-100">
+        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${packing.rows.length ? (done / packing.rows.length) * 100 : 0}%` }} />
+      </div>
+      <div className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
+        {packing.rows.map((r, i) => {
+          const isDone = packed.has(k(r));
+          const second = packing.separate && r.platform === packing.separate;
+          const firstOfSecond = second && packing.rows.findIndex((x) => x.platform === packing.separate) === i;
+          return (
+            <div key={k(r)}>
+              {firstOfSecond && <div className="mb-2 mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Second tab — {NAME[r.platform]} labels</div>}
+              <button
+                onClick={() => toggle(r)}
+                className={cn(
+                  "flex w-full gap-3 rounded-xl border p-3 text-left text-xs transition",
+                  isDone ? "border-emerald-200 bg-emerald-50/60 opacity-70" : i === next ? "border-sky-400 bg-sky-50 ring-2 ring-sky-200" : "border-slate-200 hover:bg-slate-50",
+                )}
+              >
+                <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base font-bold tabular-nums", isDone ? "bg-emerald-500 text-white" : "bg-slate-900 text-white")}>
+                  {isDone ? <CheckCircle2 className="h-5 w-5" /> : i + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="h-2 w-2 rounded-full" style={{ background: DOT[r.platform] }} />
+                    <span className="font-semibold text-slate-800">{NAME[r.platform]}</span>
+                    <span className="font-mono text-[11px] text-slate-500">#{r.id}</span>
+                    {r.tracking && <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">AWB {r.tracking}</span>}
+                    {i === next && !isDone && <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide text-sky-700">Pack next</span>}
+                  </div>
+                  <ul className={cn("mt-1 space-y-0.5 text-sm", isDone ? "text-slate-500 line-through" : "text-slate-800")}>
+                    {r.items.length ? (
+                      r.items.map((it, n) => (
+                        <li key={n}>
+                          <b>{it.qty}×</b> {it.name}
+                          {it.model ? <span className="text-slate-500"> — {it.model}</span> : null}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-xs text-slate-400">Items not synced — check the label</li>
+                    )}
+                  </ul>
+                </div>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** Farid's on/off switch and working hours for confirming new orders automatically. */
 function AutoArrangeBar() {
   const auto = useOffice((s) => s.settings.autoArrange) ?? { enabled: false, start: "08:00", end: "22:00" };
@@ -166,6 +278,9 @@ export function Fulfilment() {
     } catch {}
   };
   const [justArranged, setJustArranged] = useState<{ platform: Plat; id: string }[]>([]);
+  const [packing, setPacking] = useState<Packing | null>(null);
+  const [showPacking, setShowPacking] = useState(false);
+  useEffect(() => setPacking(readJSON<Packing | null>(PACK_KEY, null)), []);
   const chooseSort = (v: Sort) => {
     setSort(v);
     try {
@@ -263,6 +378,10 @@ export function Fulfilment() {
           problems = JSON.parse(decodeURIComponent(r.headers.get("X-OV-Problems") ?? "%5B%5D"));
         } catch {}
         if (problems.length) toast("error", `${problems.length} label${problems.length > 1 ? "s" : ""} not printed — ${problems.join(" · ")}`);
+        try {
+          const raw = JSON.parse(decodeURIComponent(r.headers.get("X-OV-Sequence") ?? "%5B%5D")) as [string, string, string | null][];
+          printed.push(...raw.map(([p, id, tracking]) => ({ platform: (p === "s" ? "shopee" : "lazada") as Plat, id, tracking })));
+        } catch {}
         const blob = await r.blob();
         if (blob.size < 100) throw new Error("the marketplace sent an empty label file — try again in a minute");
         const url = URL.createObjectURL(blob);
@@ -290,11 +409,23 @@ export function Fulfilment() {
         return null;
       }
     };
+    const printed: { platform: Plat; id: string; tracking: string | null }[] = [];
     // one PDF for everything; if one marketplace only sends web-page labels, open those separately
     const separate = await open(targets);
     if (separate) {
       toast("info", `${NAME[separate]} sent its labels as a web page — opening them in a second tab.`);
       await open(targets.filter((o) => o.platform === separate));
+    }
+    // packing list in the same order as the labels
+    const seen = new Set<string>();
+    const rows = printed
+      .filter((x) => !seen.has(`${x.platform}:${x.id}`) && seen.add(`${x.platform}:${x.id}`))
+      .map((x) => ({ ...x, items: orders?.find((o) => o.platform === x.platform && o.id === x.id)?.items ?? [] }));
+    if (rows.length) {
+      const p: Packing = { at: new Date().toISOString(), rows, separate: separate ?? null };
+      setPacking(p);
+      writeJSON(PACK_KEY, p);
+      setShowPacking(true);
     }
     setBusy(null);
   };
@@ -309,6 +440,9 @@ export function Fulfilment() {
         {role !== "owner" ? (
           <p className="p-6 text-sm text-slate-600">Only the workspace owner can arrange shipments and print labels.</p>
         ) : (
+          showPacking && packing ? (
+          <PackingList packing={packing} onBack={() => setShowPacking(false)} />
+          ) : (
           <div className="flex h-full min-h-0 flex-col">
             <AutoArrangeBar />
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-2">
@@ -376,6 +510,11 @@ export function Fulfilment() {
                 <Button size="sm" variant="ghost" onClick={() => void load()} title="Refresh">
                   <RefreshCw />
                 </Button>
+                {packing && (
+                  <Button size="sm" variant="outline" onClick={() => setShowPacking(true)} title="What to pack, in the same order as the last airway bills you printed">
+                    <ClipboardCheck /> Packing list ({packing.rows.length})
+                  </Button>
+                )}
                 {stage === "process" ? (
                   <Button size="sm" onClick={arrange} disabled={!chosen.length || busy !== null}>
                     {busy === "ship" ? <Loader2 className="animate-spin" /> : <PackageCheck />} Arrange drop-off ({chosen.length})
@@ -461,6 +600,7 @@ export function Fulfilment() {
               })}
             </div>
           </div>
+          )
         )}
       </DialogContent>
     </Dialog>

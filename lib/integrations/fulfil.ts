@@ -84,6 +84,20 @@ export interface LabelResult {
   kind?: "pdf" | "html";
   /** orders that couldn't be printed, with Shopee's reason */
   problems: string[];
+  /** orders in the order their labels appear in the file */
+  sequence?: LabelSeq[];
+}
+export interface LabelSeq {
+  id: string;
+  tracking: string | null;
+}
+
+/** Run fn over items with at most n at a time. */
+async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<void>) {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (i < items.length) await fn(items[i++]);
+  }));
 }
 
 interface DocResult {
@@ -159,7 +173,8 @@ export async function labelsShopee(ws: string, orderSns: string[]): Promise<Labe
     const t = typeOf.get(o.order_sn) ?? "NORMAL_AIR_WAYBILL";
     groups.set(t, [...(groups.get(t) ?? []), o]);
   }
-  const parts: ArrayBuffer[] = [];
+  const bundles: { sns: string[]; pdf: ArrayBuffer }[] = [];
+  const single = new Map<string, ArrayBuffer>();
   for (const [type, batch] of groups) {
     const created = await shopPost<{ response?: { result_list?: DocResult[] } }>(
       cfg,
@@ -198,26 +213,43 @@ export async function labelsShopee(ws: string, orderSns: string[]): Promise<Labe
     for (const o of pending) problems.push(`${o.order_sn}: Shopee is still preparing the label — try again in a minute`);
     // keep the CEO's list order (e.g. oldest paid first) in the printed PDF
     ready.sort((a, b) => orderSns.indexOf(a) - orderSns.indexOf(b));
-    if (ready.length) {
-      const download = (sns: string[]) =>
-        shopPostFile(cfg, "/api/v2/logistics/download_shipping_document", { shipping_document_type: type, order_list: sns.map((sn) => ({ order_sn: sn })) }, token, shopId);
+    if (!ready.length) continue;
+    const download = (sns: string[]) =>
+      shopPostFile(cfg, "/api/v2/logistics/download_shipping_document", { shipping_document_type: type, order_list: sns.map((sn) => ({ order_sn: sn })) }, token, shopId);
+    // one label type → one bundled download keeps the list order; several types → per order, so the
+    // merged PDF still follows the list exactly (the packing list numbers depend on it)
+    if (groups.size === 1) {
       try {
-        parts.push(await download(ready));
+        bundles.push({ sns: ready, pdf: await download(ready) });
+        continue;
       } catch (e) {
         // Shopee refuses to bundle some packages (different courier / channel): fetch each one and merge ourselves
         if (!(e instanceof ShopeeError) || ready.length === 1) throw e;
-        for (const sn of ready) {
-          try {
-            parts.push(await download([sn]));
-          } catch (one) {
-            problems.push(`${sn}: ${one instanceof ShopeeError ? one.message : String(one)}`);
-          }
-        }
       }
     }
+    await pool(ready, 4, async (sn) => {
+      try {
+        single.set(sn, await download([sn]));
+      } catch (one) {
+        problems.push(`${sn}: ${one instanceof ShopeeError ? one.message : String(one)}`);
+      }
+    });
+  }
+  const sequence: LabelSeq[] = [];
+  const parts: ArrayBuffer[] = [];
+  const tn = new Map(list.map((o) => [o.order_sn, o.tracking_number]));
+  for (const b of bundles) {
+    parts.push(b.pdf);
+    sequence.push(...b.sns.map((id) => ({ id, tracking: tn.get(id) ?? null })));
+  }
+  for (const sn of orderSns) {
+    const pdf = single.get(sn);
+    if (!pdf) continue;
+    parts.push(pdf);
+    sequence.push({ id: sn, tracking: tn.get(sn) ?? null });
   }
   if (!parts.length) throw new HttpError(502, `Shopee couldn't create the labels: ${problems.join(" · ")}`);
-  return { pdf: await mergePdfs(parts), problems };
+  return { pdf: await mergePdfs(parts), problems, sequence };
 }
 
 // ───────────────────────────── Lazada
@@ -304,12 +336,14 @@ export async function labelsLazada(ws: string, orderIds: string[]): Promise<Labe
   const token = await lazadaToken(cfg, row);
   const packages: string[] = [];
   const itemIds: number[] = [];
+  const sequence: LabelSeq[] = [];
   for (const id of orderIds.slice(0, 20)) {
     const items = await lazadaItems(cfg, token, id);
     for (const i of items) {
       if (i.package_id) packages.push(String(i.package_id));
       itemIds.push(Number(i.order_item_id));
     }
+    if (items.some((i) => i.package_id)) sequence.push({ id, tracking: items.find((i) => i.tracking_code)?.tracking_code ?? null });
   }
   const uniq = [...new Set(packages)];
   if (!uniq.length) throw new HttpError(409, "These Lazada orders aren't packed yet — arrange the shipment first.");
@@ -318,8 +352,8 @@ export async function labelsLazada(ws: string, orderIds: string[]): Promise<Labe
     if (bytes.length < 50) return null;
     const head = Buffer.from(bytes.slice(0, 64)).toString("latin1").trimStart();
     const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-    if (head.startsWith("%PDF")) return { pdf: buf, kind: "pdf", problems: [] };
-    if (head.startsWith("<")) return { pdf: buf, kind: "html", problems: [] };
+    if (head.startsWith("%PDF")) return { pdf: buf, kind: "pdf", problems: [], sequence };
+    if (head.startsWith("<")) return { pdf: buf, kind: "html", problems: [], sequence };
     return null;
   };
   const fromDoc = async (doc: Record<string, unknown> | undefined): Promise<LabelResult | null> => {
