@@ -20,21 +20,20 @@ export async function sendBriefing(workspaceId: string, opts: { refresh?: boolea
   const chat = rows.find((r) => r.provider === "telegram" && r.status === "connected");
   if (!chat?.shop_id) throw new Error("Telegram isn't linked for this workspace.");
   if (opts.refresh) {
-    for (const r of rows) {
-      const stale = !r.last_success_at || Date.now() - Date.parse(r.last_success_at) > 30 * 60 * 1000;
-      if (!stale || r.status === "expired") continue;
-      try {
-        if (r.provider === "shopee") await syncShopee(r);
-        else if (r.provider === "lazada") await syncLazada(r);
-      } catch {}
-    }
+    // Freshen stale shops in parallel, but never let a slow marketplace hold the briefing back:
+    // after 90 s it goes out with whatever data is already stored.
+    const syncs = rows
+      .filter((r) => (r.provider === "shopee" || r.provider === "lazada") && r.status !== "expired")
+      .filter((r) => !r.last_success_at || Date.now() - Date.parse(r.last_success_at) > 30 * 60 * 1000)
+      .map((r) => (r.provider === "shopee" ? syncShopee(r) : syncLazada(r)).catch((e) => console.error(`[briefing] ${r.provider} sync failed`, e instanceof Error ? e.message : e)));
+    await Promise.race([Promise.allSettled(syncs), new Promise((r) => setTimeout(r, 90_000))]);
   }
   const s = await liveSummary(getAdminSupabase(), workspaceId, { serviceRole: true });
   // Sophia's commentary — optional: if the AI is unavailable the plain briefing still goes out
   let notes: string[] = [];
   if (s && aiConfigured()) {
     try {
-      notes = await Promise.race([briefingNotes(briefingFacts(s)), new Promise<string[]>((r) => setTimeout(() => r([]), 60_000))]);
+      notes = await Promise.race([briefingNotes(briefingFacts(s)), new Promise<string[]>((r) => setTimeout(() => r([]), 45_000))]);
     } catch (e) {
       console.error("[briefing] notes failed", e instanceof Error ? e.message : e);
     }
