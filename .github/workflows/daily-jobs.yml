@@ -1,0 +1,31 @@
+name: Daily jobs
+
+# Backup scheduler for the Vercel cron jobs: calls the same endpoints with the same CRON_SECRET.
+# The briefing endpoint skips workspaces that already got today's briefing, so it never sends twice.
+on:
+  schedule:
+    - cron: "30 0 * * *" # 08:30 Malaysia time: morning briefing
+    - cron: "0 19 * * *" # 03:00 Malaysia time: full marketplace sync
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Which job to run now
+        type: choice
+        options: [briefing, sync]
+        default: briefing
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call OfficeVerse
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ vars.APP_URL || 'https://officeverse-ten.vercel.app' }}
+          JOB: ${{ github.event_name == 'workflow_dispatch' && inputs.job || (github.event.schedule == '0 19 * * *' && 'sync' || 'briefing') }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "::error::Add the CRON_SECRET repository secret first"; exit 1; fi
+          code=$(curl -sS -o out.json -w '%{http_code}' --max-time 300 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/$JOB")
+          echo "HTTP $code"; cat out.json; echo
+          [ "$code" = "200" ] || { echo "::error::/api/cron/$JOB returned HTTP $code"; exit 1; }

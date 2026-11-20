@@ -17,11 +17,20 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const results: { workspace: string; ok: boolean; error?: string }[] = [];
   // skip workspaces that already got today's briefing (e.g. from the backup trigger)
-  for (const ws of [...new Set((data ?? []).filter((r) => !sentToday(r.last_success_at)).map((r) => r.workspace_id as string))]) {
+  for (const r of (data ?? []).filter((r) => !sentToday(r.last_success_at))) {
+    const ws = r.workspace_id as string;
+    // claim today's slot first: Vercel Cron and the GitHub backup may both call this at 08:30
+    const claim = getAdminSupabase()
+      .from("integrations")
+      .update({ last_success_at: new Date().toISOString() })
+      .eq("workspace_id", ws).eq("provider", "telegram");
+    const { data: claimed } = await (r.last_success_at ? claim.eq("last_success_at", r.last_success_at) : claim.is("last_success_at", null)).select("id");
+    if (!claimed?.length) continue;
     try {
       await sendBriefing(ws, { refresh: true });
       results.push({ workspace: ws, ok: true });
     } catch (e) {
+      await getAdminSupabase().from("integrations").update({ last_success_at: r.last_success_at ?? null }).eq("workspace_id", ws).eq("provider", "telegram");
       results.push({ workspace: ws, ok: false, error: e instanceof Error ? e.message : String(e) });
     }
   }
