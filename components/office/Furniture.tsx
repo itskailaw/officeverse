@@ -106,16 +106,18 @@ function ExecDesk({ frames }: { frames: (THREE.Texture | null)[] }) {
   const walnut = mat("#5b3a22", { rough: 0.35 });
   const brass = mat("#d4a017", { metal: 0.85, rough: 0.25 });
   const segs = [-0.5, -0.25, 0, 0.25, 0.5];
+  const K = 1.55;
   return (
     <group>
       <group position={[0, 0, -0.45]}>
       {/* curved top made of angled segments */}
       {segs.map((a, i) => (
+        // K = 1.55: a properly sized executive desk (about 2.2 m wide); height stays at a normal 76 cm
         <group key={i} rotation={[0, a * 0.9, 0]}>
-          <B p={[0, 0.76, 0.55]} s={[0.62, 0.06, 0.95]} m={walnut} />
-          <B p={[0, 0.4, 0.98]} s={[0.62, 0.7, 0.05]} m={walnut} />
-          <B p={[0, 0.08, 0.99]} s={[0.63, 0.04, 0.05]} m={brass} />
-          <B p={[0, 0.79, 1.02]} s={[0.63, 0.02, 0.04]} m={brass} />
+          <B p={[0, 0.76, 0.55 * K]} s={[0.62 * K, 0.06, 0.95 * K]} m={walnut} />
+          <B p={[0, 0.4, 0.98 * K]} s={[0.62 * K, 0.7, 0.05]} m={walnut} />
+          <B p={[0, 0.08, 0.99 * K]} s={[0.63 * K, 0.04, 0.05]} m={brass} />
+          <B p={[0, 0.79, 1.02 * K]} s={[0.63 * K, 0.02, 0.04]} m={brass} />
         </group>
       ))}
       {/* one big curved monitor (ultrawide) on a single stand */}
@@ -139,10 +141,10 @@ function ExecDesk({ frames }: { frames: (THREE.Texture | null)[] }) {
         );
       })}
       </group>
-      <B p={[0, 0.8, -0.1]} s={[0.45, 0.015, 0.14]} c="#1f2937" />
+      <B p={[0, 0.8, -0.05]} s={[0.45, 0.015, 0.14]} c="#1f2937" />
       {/* small desk photo frames */}
-      {[-0.95, -0.75].map((x, i) => (
-        <group key={x} position={[x, 0.79, 0.2]} rotation={[-0.15, Math.PI + (i ? -0.3 : 0.2), 0]}>
+      {[-1.3, -1.05].map((x, i) => (
+        <group key={x} position={[x, 0.79, 0.4]} rotation={[-0.15, Math.PI + (i ? -0.3 : 0.2), 0]}>
           <B p={[0, 0.09, 0]} s={[0.16, 0.2, 0.02]} c="#78350f" />
           <Screen p={[0, 0.09, 0.011]} s={[0.12, 0.15]} tex={frames[i] ?? null} />
         </group>

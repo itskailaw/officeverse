@@ -24,7 +24,7 @@ import type {
 } from "@/lib/data/types";
 import { DEFAULT_SETTINGS, SEED_COMPANIES, SEED_DEPARTMENTS, SEED_EMPLOYEES } from "@/lib/data/seed";
 import { applyTeamMerges } from "@/lib/data/team-migrations";
-import { DEFAULT_LAYOUT, LAYOUT_VERSION } from "@/lib/office/layout";
+import { applyLayoutMoves, DEFAULT_LAYOUT, LAYOUT_VERSION } from "@/lib/office/layout";
 
 export const uid = (p = "id") =>
   `${p}-${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10)}`;
@@ -471,7 +471,7 @@ export const useOffice = create<OfficeState>()(
         } else if (p.furniture) {
           // forward-migrate older saves: add newly introduced default furniture
           const have = new Set(p.furniture.map((f) => f.id));
-          merged.furniture = [...p.furniture, ...DEFAULT_LAYOUT.furniture.filter((f) => !have.has(f.id))];
+          merged.furniture = [...applyLayoutMoves(p.furniture), ...DEFAULT_LAYOUT.furniture.filter((f) => !have.has(f.id))];
         }
         if (!p.settings?.layoutVersion) merged.settings = { ...merged.settings, layoutVersion: LAYOUT_VERSION };
         // ...and give seeded employees their default outfit if they have none yet

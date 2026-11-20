@@ -116,8 +116,8 @@ export const FURNITURE: FurnitureItem[] = [
   f("ceo-sneakers", "sneaker_wall", "ceo", 51.7, 7.1, -HALF, { size: [3.8, 0.5] }),
   f("ceo-aquarium", "aquarium", "ceo", 40.35, 3.2, HALF, { size: [3.2, 0.6] }),
   f("ceo-frames", "photo_frames", "ceo", 40.22, 5.6, HALF),
-  f("ceo-visitor-1", "visitor_chair", "ceo", 46.6, 5.4, PI),
-  f("ceo-visitor-2", "visitor_chair", "ceo", 45.4, 5.4, PI),
+  f("ceo-visitor-1", "visitor_chair", "ceo", 46.8, 5.85, PI),
+  f("ceo-visitor-2", "visitor_chair", "ceo", 45.2, 5.85, PI),
   f("ceo-court", "court_rug", "ceo", 42.8, 8.6, 0, { size: [5, 3.6] }),
   f("ceo-sofa", "sofa", "ceo", 40.6, 8.2, HALF, { color: "#3b2a6b" }),
   f("ceo-coffee", "coffee_table", "ceo", 41.75, 8.2, -HALF),
@@ -354,4 +354,20 @@ export function wallSegments(walls: WallLine[], doors: Door[]) {
     }
   }
   return segs;
+}
+
+/**
+ * Default pieces that moved within the same floor-plan version. A saved piece is moved only if it is still
+ * exactly where the old default put it, so anything the CEO placed by hand stays put.
+ */
+const MOVED: { id: string; from: [number, number]; to: [number, number] }[] = [
+  // the bigger CEO desk: guest chairs step back
+  { id: "ceo-visitor-1", from: [46.6, 5.4], to: [46.8, 5.85] },
+  { id: "ceo-visitor-2", from: [45.4, 5.4], to: [45.2, 5.85] },
+];
+export function applyLayoutMoves<T extends { id: string; x: number; z: number }>(furniture: T[]): T[] {
+  return furniture.map((f) => {
+    const m = MOVED.find((x) => x.id === f.id && Math.abs(f.x - x.from[0]) < 0.01 && Math.abs(f.z - x.from[1]) < 0.01);
+    return m ? { ...f, x: m.to[0], z: m.to[1] } : f;
+  });
 }

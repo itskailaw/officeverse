@@ -8,7 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useOffice, type OfficeData } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
-import { DEFAULT_LAYOUT, LAYOUT_VERSION } from "@/lib/office/layout";
+import { applyLayoutMoves, DEFAULT_LAYOUT, LAYOUT_VERSION } from "@/lib/office/layout";
 
 const COLLECTIONS = {
   companies: "companies",
@@ -92,7 +92,7 @@ export async function startSync(sb: SupabaseClient, workspaceId: string) {
           : {
               // same floor plan: keep the saved positions, add any newly introduced default pieces
               furniture: [
-                ...(layout.furniture as OfficeData["furniture"]),
+                ...applyLayoutMoves(layout.furniture as OfficeData["furniture"]),
                 ...DEFAULT_LAYOUT.furniture.filter((d) => !(layout.furniture as OfficeData["furniture"]).some((x) => x.id === d.id)),
               ],
               settings: { ...store.getState().settings, ...layout.settings },
