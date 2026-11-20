@@ -234,6 +234,10 @@ export interface OfficeSettings {
   ambientLife: boolean;
   /** one-time data updates already applied to this office */
   appliedMigrations?: string[];
+  /** bigger heads, shorter legs (default on) */
+  chibi?: boolean;
+  /** festive outfits on Hari Raya, CNY, Deepavali and Kobe Day (default on) */
+  festiveOutfits?: boolean;
   /** unit cost (RM) per product name, for estimated profit */
   productCosts?: Record<string, number>;
   /** Farid (Order Processing Executive) arranges drop-off for new paid orders automatically */

@@ -349,7 +349,8 @@ export const Character = memo(function Character(props: Props) {
     const crouch = shot >= 0 && shot < 0.3 ? Math.sin((shot / 0.3) * Math.PI) * 0.12 : 0;
     const jump = shot >= 0.3 && shot < 0.6 ? Math.sin(((shot - 0.3) / 0.3) * Math.PI) * 0.28 : 0;
     if (hips.current) hips.current.position.y = THREE.MathUtils.lerp(HIP_Y, SEAT_HIP_Y, sm.sit) + bob - crouch;
-    if (body.current) body.current.position.y = ag.y + jump + DROP;
+    // shorter chibi legs: lower the body while standing, but keep the seat height when sitting
+    if (body.current) body.current.position.y = ag.y + jump + DROP * (1 - sm.sit);
 
     // legs
     const sitUp = (-Math.PI / 2) * sm.sit;

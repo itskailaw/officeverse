@@ -18,6 +18,7 @@ import { useLive } from "@/lib/integrations/client";
 import { Building, RoomLabels, type Brand } from "./Building";
 import { FurnitureVisual } from "./Furniture";
 import { Character } from "./Character";
+import { festiveTheme } from "@/lib/office/festive";
 import { shootMiniHoop } from "./FunFurniture";
 import { meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
@@ -415,6 +416,15 @@ function Agents() {
   const departments = useOffice((s) => s.departments);
   const companies = useOffice((s) => s.companies);
   const lanyardOf = (deptId: string) => departmentColor(departments.find((d) => d.id === deptId), companies);
+  const chibi = useOffice((s) => s.settings.chibi ?? true);
+  const festiveOn = useOffice((s) => s.settings.festiveOutfits ?? true);
+  // today's festive outfit (?theme=raya|cny|deepavali|kobe previews one)
+  const theme = useMemo(() => {
+    if (!festiveOn) return null;
+    const q = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("theme") : null;
+    if (q === "raya" || q === "cny" || q === "deepavali" || q === "kobe") return q;
+    return festiveTheme();
+  }, [festiveOn]);
 
   useFrame((_, dt) => getSim().update(dt));
 
@@ -446,6 +456,8 @@ function Agents() {
         id={CEO_ID}
         name={`${ceoName} (You)`}
         appearance={ceoLook}
+        chibi={chibi}
+        theme={theme}
         isCEO
         hovered={hovered === CEO_ID}
         showTag={showTags}
@@ -461,6 +473,9 @@ function Agents() {
           status={e.status}
           role={e.id}
           lanyard={lanyardOf(e.departmentId)}
+          chibi={chibi}
+          theme={theme}
+          gender={e.gender}
           selected={selected === e.id}
           hovered={hovered === e.id}
           showTag={showTags}

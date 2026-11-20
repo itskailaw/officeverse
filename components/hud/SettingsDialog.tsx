@@ -193,6 +193,13 @@ export function SettingsDialog() {
               </div>
             </div>
             <Toggle label="Activity bubbles" hint="Show what each employee is doing above their head." checked={st.showBubbles} onChange={(v) => s.updateSettings({ showBubbles: v })} />
+            <Toggle label="Chibi avatars" hint="Bigger heads so faces and expressions show from a distance." checked={st.chibi ?? true} onChange={(v) => s.updateSettings({ chibi: v })} />
+            <Toggle
+              label="Festive outfits"
+              hint="Baju Raya, CNY red, Deepavali and #24 jerseys on Kobe Day — automatically on the day."
+              checked={st.festiveOutfits ?? true}
+              onChange={(v) => s.updateSettings({ festiveOutfits: v })}
+            />
             <Toggle label="Always show name tags" checked={st.showNameTags} onChange={(v) => s.updateSettings({ showNameTags: v })} />
             <Toggle
               label="Ambient office life"

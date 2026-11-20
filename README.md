@@ -61,6 +61,7 @@ Dashboard → **To process** → *Arrange drop-off*: tick packed orders and conf
 - Quick-jump camera buttons (Work · Fun · CEO) next to the camera controls.
 - Neon signs (KOPI ☕, PLAY, CREATE) and garden fairy lights that glow at night.
 - CEO suite "Mamba corner": sneaker wall, framed #8 / #24 jerseys, trophy & ring cabinet with a quote plaque, court-floor lounge, clickable mini hoop, aquarium. Click the displays to zoom in.
+- Chibi avatars and festive outfits (Settings → appearance toggles): baju Raya / songkok during Hari Raya, red for Chinese New Year, saree & kurta for Deepavali, #24 jerseys on Kobe Day. Preview with `/office?theme=raya|cny|deepavali|kobe`.
 - Kobe Day (24 August, Malaysia time): purple & gold confetti, a banner, and the game-room neon reads "MAMBA FOREVER 8·24". Preview any day with `/office?kobeday=1`.
 
 ## Phase 2 — AI employees
