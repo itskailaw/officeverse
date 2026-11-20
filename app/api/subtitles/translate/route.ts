@@ -16,7 +16,11 @@ export async function POST(req: Request) {
     const brief = parseBrief(body?.brief);
     const cues = parseCues(body?.cues);
     const ctx = (body?.context ?? {}) as Record<string, unknown>;
-    const context = { before: Array.isArray(ctx.before) ? parseCues(ctx.before.slice(-3), 3) : [], after: Array.isArray(ctx.after) ? parseCues(ctx.after.slice(0, 3), 3) : [] };
+    // context is optional: the first batch has nothing before it, the last nothing after
+    const context = {
+      before: Array.isArray(ctx.before) && ctx.before.length ? parseCues(ctx.before.slice(-3), 3) : [],
+      after: Array.isArray(ctx.after) && ctx.after.length ? parseCues(ctx.after.slice(0, 3), 3) : [],
+    };
     return NextResponse.json(await translateSubtitles(brief, cues, context), { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return errorResponse(e);
