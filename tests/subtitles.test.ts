@@ -60,3 +60,30 @@ test(".srt / .vtt / .sbv / .ass: text swapped, the rest byte-identical", () => {
   assert.deepEqual(a.cues[0].lines, ["{\\i1}Hello,{\\i0} you", "there"]);
   assert.equal(a.write(new Map([[1, ["{\\i1}Hai,{\\i0} awak", "di sana"]]])), ass.replace("{\\i1}Hello,{\\i0} you\\Nthere", "{\\i1}Hai,{\\i0} awak\\Ndi sana"));
 });
+
+// Chinese .cip: GBK bytes (\'hh pairs) in a font declared as GB2312 (\fcharset134)
+const zhCip = (charset: number) =>
+  `{\\rtf1\\ansi\\ansicpg1252\\deff0{\\fonttbl{\\f0\\fnil\\fcharset0 Tahoma;}{\\f2\\fnil\\fcharset${charset} SimSun;}}\r\n\\viewkind4\\uc1 \r\n\\pard\\f0\\fs22 FILE_INFO_BEGIN\\par\r\nLANG_CO: Chinese\\par\r\nTV_FPS: EBU 625/50\\par\r\nFILE_INFO_END\\par\r\n` +
+  hdr(1, "00:00:01.00", "00:00:03.00", "2.00") +
+  txt("\\'ba\\'c3\\'cf\\'e3\\'a3\\'a1\\b0\\f1\\fs22\\par\r\n\\b\\f2\\fs45 400\\'c4\\'ea\\'c7\\'b0") +
+  hdr(2, "00:00:04.00", "00:00:05.00", "1.00") +
+  txt("\\'d5\\'e2\\'ca\\'c7\\'b0\\'d9\\'c0\\'ef\\'cf\\'e3") +
+  "}\r\n";
+
+test(".cip: Chinese GBK text is decoded, and written back in GBK", () => {
+  for (const cs of [134, 0]) {
+    // 0 = file wrongly says Western: detected from the bytes
+    const raw = zhCip(cs);
+    const d = parseSubtitle(raw, "cip");
+    assert.deepEqual(d.cues.map((c) => c.lines), [["好香！", "400年前"], ["这是百里香"]], `charset ${cs}`);
+    assert.equal(d.write(new Map()), raw);
+    const out = d.write(new Map([[2, ["百里香"]]]));
+    assert.ok(out.includes("\\'b0\\'d9\\'c0\\'ef\\'cf\\'e3"), "GBK bytes, like the original");
+    assert.deepEqual(parseSubtitle(out, "cip").cues[1].lines, ["百里香"]);
+  }
+  // Malay translation into the Chinese file: plain ASCII
+  const d = parseSubtitle(zhCip(134), "cip");
+  assert.deepEqual(parseSubtitle(d.write(new Map([[1, ["Wanginya!", "400 tahun dulu"]]])), "cip").cues[0].lines, ["Wanginya!", "400 tahun dulu"]);
+  // manual override
+  assert.notDeepEqual(parseSubtitle(zhCip(134), "cip", { encoding: "windows-1252" }).cues[1].lines, ["这是百里香"]);
+});

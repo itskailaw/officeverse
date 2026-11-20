@@ -1,4 +1,5 @@
 import { parseCip } from "./cip.ts";
+export { CIP_ENCODINGS } from "./cip.ts";
 import { parseAss, parseSbv, parseSrt, parseVtt } from "./text-formats.ts";
 import { SubtitleError, type SubDoc, type SubFormat } from "./types.ts";
 
@@ -34,10 +35,10 @@ export function encodeSubtitle(text: string, format: SubFormat): Uint8Array {
   return new TextEncoder().encode(text);
 }
 
-export function parseSubtitle(text: string, format: SubFormat): SubDoc {
+export function parseSubtitle(text: string, format: SubFormat, opts: { encoding?: string } = {}): SubDoc {
   switch (format) {
     case "cip":
-      return parseCip(text);
+      return parseCip(text, opts);
     case "srt":
       return parseSrt(text);
     case "vtt":

@@ -9,17 +9,69 @@ import { SubtitleError, type Cue, type SubDoc } from "./types.ts";
 
 type Tok = { kind: "text" | "ctrl" | "brk" | "other"; s: number; e: number; text?: string };
 
+/** Which code page \'hh bytes are in: per font (\fcharset) with the document's \ansicpg as fallback. */
+export interface RtfEncoding {
+  ansi: string;
+  fonts: Record<number, string>;
+  deff: number;
+}
+const CHARSET_CP: Record<number, string> = {
+  128: "shift_jis",
+  129: "euc-kr",
+  134: "gbk",
+  136: "big5",
+  161: "windows-1253",
+  162: "windows-1254",
+  163: "windows-1258",
+  177: "windows-1255",
+  178: "windows-1256",
+  186: "windows-1257",
+  204: "windows-1251",
+  222: "windows-874",
+  238: "windows-1250",
+};
+const CPG: Record<string, string> = { "936": "gbk", "950": "big5", "932": "shift_jis", "949": "euc-kr", "874": "windows-874" };
+export function rtfEncoding(raw: string): RtfEncoding {
+  const cpg = /\\ansicpg(\d+)/.exec(raw)?.[1] ?? "1252";
+  const ansi = CPG[cpg] ?? `windows-${cpg}`;
+  const fonts: Record<number, string> = {};
+  const tbl = /\{\\fonttbl([\s\S]*?)\}\s*\}/.exec(raw)?.[1] ?? "";
+  for (const m of tbl.matchAll(/\\f(\d+)[^;{}]*?\\fcharset(\d+)/g)) {
+    const cs = Number(m[2]);
+    fonts[Number(m[1])] = cs === 0 ? "windows-1252" : cs === 1 ? ansi : CHARSET_CP[cs] ?? ansi;
+  }
+  return { ansi, fonts, deff: Number(/\\deff(\d+)/.exec(raw)?.[1] ?? 0) };
+}
+const decoders = new Map<string, TextDecoder | null>();
+function decodeBytes(bytes: number[], label: string) {
+  if (!decoders.has(label)) {
+    try {
+      decoders.set(label, new TextDecoder(label));
+    } catch {
+      decoders.set(label, null);
+    }
+  }
+  const d = decoders.get(label);
+  return d ? d.decode(new Uint8Array(bytes)) : bytes.map(cp1252).join("");
+}
+
 /** Tokenise an RTF fragment: literal text (incl. \'hh, \uN, \~), line breaks (\par, \line) and everything else. */
-function tokens(src: string, uc = 1): Tok[] {
+function tokens(src: string, uc = 1, enc: RtfEncoding = { ansi: "windows-1252", fonts: {}, deff: 0 }): Tok[] {
   const out: Tok[] = [];
   let i = 0;
+  let font = enc.deff;
   while (i < src.length) {
     const c = src[i];
     if (c === "\\") {
-      const hex = /^\\'([0-9a-fA-F]{2})/.exec(src.slice(i, i + 4));
-      if (hex) {
-        out.push({ kind: "text", s: i, e: i + 4, text: cp1252(parseInt(hex[1], 16)) });
-        i += 4;
+      if (/^\\'[0-9a-fA-F]{2}/.test(src.slice(i, i + 4))) {
+        // a run of \'hh bytes decodes together (Chinese/Japanese/Korean are two bytes per character)
+        const s0 = i;
+        const bytes: number[] = [];
+        while (/^\\'[0-9a-fA-F]{2}/.test(src.slice(i, i + 4))) {
+          bytes.push(parseInt(src.slice(i + 2, i + 4), 16));
+          i += 4;
+        }
+        out.push({ kind: "text", s: s0, e: i, text: decodeBytes(bytes, enc.fonts[font] ?? enc.ansi) });
         continue;
       }
       const sym = src[i + 1];
@@ -41,7 +93,10 @@ function tokens(src: string, uc = 1): Tok[] {
         out.push({ kind: "text", s: i, e, text: String.fromCharCode(n) });
       } else if (word === "par" || word === "line") out.push({ kind: "brk", s: i, e, text: word });
       else if (word === "tab") out.push({ kind: "text", s: i, e, text: "\t" });
-      else out.push({ kind: "ctrl", s: i, e });
+      else {
+        if (word === "f" && m[2]) font = Number(m[2]);
+        out.push({ kind: "ctrl", s: i, e });
+      }
       i = e;
       continue;
     }
@@ -67,14 +122,34 @@ const CP1252: Record<number, number> = { 0x80: 0x20ac, 0x82: 0x201a, 0x83: 0x192
 const cp1252 = (b: number) => String.fromCharCode(CP1252[b] ?? b);
 
 /** Plain text of an RTF fragment, with \par / \line as "\n". */
-function plain(src: string) {
-  return tokens(src)
+/** Font changes (\fN) through the file, so a slice can start with the font in effect at its position. */
+function fontIndex(raw: string, deff: number) {
+  const pos: number[] = [0];
+  const font: number[] = [deff];
+  for (const m of raw.matchAll(/\\f(\d+)(?![a-z\d])/g)) {
+    pos.push(m.index!);
+    font.push(Number(m[1]));
+  }
+  return (at: number) => {
+    let lo = 0;
+    let hi = pos.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (pos[mid] < at) lo = mid;
+      else hi = mid - 1;
+    }
+    return font[lo];
+  };
+}
+function plain(src: string, enc?: RtfEncoding) {
+  return tokens(src, 1, enc)
     .map((t) => (t.kind === "text" ? t.text : t.kind === "brk" ? "\n" : ""))
     .join("");
 }
 
-/** Escape text for RTF: ASCII as is, everything else as \uN? */
-function rtfEscape(s: string) {
+/** Escape text for RTF: ASCII as is; in a Chinese/Japanese/Korean font block, the same \'hh bytes the file uses; otherwise \uN? */
+function rtfEscape(s: string, codepage?: string) {
+  const dbcs = codepage && DBCS.has(codepage) ? encoderFor(codepage) : null;
   let out = "";
   for (let i = 0; i < s.length; i++) {
     const c = s.charCodeAt(i);
@@ -82,6 +157,7 @@ function rtfEscape(s: string) {
     if (ch === "\\" || ch === "{" || ch === "}") out += "\\" + ch;
     else if (ch === "\t") out += "\\tab ";
     else if (c < 0x80) out += ch;
+    else if (dbcs?.has(ch)) out += dbcs.get(ch);
     else out += `\\u${c > 32767 ? c - 65536 : c}?`;
   }
   return out;
@@ -89,15 +165,83 @@ function rtfEscape(s: string) {
 
 const TC = /^(\d{2}):(\d{2}):(\d{2})[.:](\d{2})$/;
 
-export function parseCip(raw: string): SubDoc {
+/** Multi-byte code pages we can also write (built from the browser's own decoder, so it round-trips). */
+const DBCS = new Set(["gbk", "big5", "shift_jis", "euc-kr"]);
+const encoders = new Map<string, Map<string, string>>();
+function encoderFor(label: string) {
+  let map = encoders.get(label);
+  if (map) return map;
+  map = new Map();
+  const d = new TextDecoder(label, { fatal: true });
+  for (let hi = 0x81; hi <= 0xfe; hi++) {
+    for (let lo = 0x40; lo <= 0xfe; lo++) {
+      if (lo === 0x7f) continue;
+      try {
+        const ch = d.decode(new Uint8Array([hi, lo]));
+        if (ch.length === 1 && !map.has(ch)) map.set(ch, `\\'${hi.toString(16)}\\'${lo.toString(16)}`);
+      } catch {}
+    }
+  }
+  encoders.set(label, map);
+  return map;
+}
+
+/**
+ * Some tools write Chinese bytes but leave the font table saying Western (1252). If the \'hh bytes in the
+ * file are all valid two-byte characters in one code page, use that one.
+ */
+function sniffDbcs(raw: string): string | null {
+  const runs = [...raw.matchAll(/(?:\\'[0-9a-fA-F]{2}){2,}/g)].slice(0, 400).map((m) => m[0]);
+  if (runs.length < 3) return null;
+  const bytes = runs.map((r) => r.match(/[0-9a-fA-F]{2}/g)!.map((h) => parseInt(h, 16)));
+  for (const label of ["gbk", "big5", "shift_jis", "euc-kr"]) {
+    try {
+      const d = new TextDecoder(label, { fatal: true });
+      let cjk = 0;
+      let all = 0;
+      for (const b of bytes) {
+        const t = d.decode(new Uint8Array(b));
+        all += t.length;
+        cjk += (t.match(/[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/g) ?? []).length;
+      }
+      if (all && cjk / all > 0.8) return label;
+    } catch {}
+  }
+  return null;
+}
+
+export const CIP_ENCODINGS = [
+  { v: "auto", label: "Automatic (from the file)" },
+  { v: "gbk", label: "Chinese Simplified (GBK / GB2312)" },
+  { v: "big5", label: "Chinese Traditional (Big5)" },
+  { v: "windows-1252", label: "Western (Malay, English…)" },
+  { v: "shift_jis", label: "Japanese (Shift-JIS)" },
+  { v: "euc-kr", label: "Korean" },
+  { v: "windows-874", label: "Thai" },
+];
+
+export function parseCip(raw: string, opts: { encoding?: string } = {}): SubDoc {
   if (!raw.startsWith("{\\rtf")) throw new SubtitleError("This .cip file isn't in the rich-text format OfficeVerse expects.");
   const ucM = /\\uc(\d)/.exec(raw);
   const uc = ucM ? Number(ucM[1]) : 1;
   // file info block
+  const enc = rtfEncoding(raw);
+  if (opts.encoding && opts.encoding !== "auto") {
+    // the CEO picked the code page: use it for every font
+    enc.ansi = opts.encoding;
+    for (const k of Object.keys(enc.fonts)) enc.fonts[Number(k)] = opts.encoding;
+  } else if (!Object.values(enc.fonts).some((f) => DBCS.has(f)) && !DBCS.has(enc.ansi)) {
+    const sniffed = sniffDbcs(raw);
+    if (sniffed) {
+      enc.ansi = sniffed;
+      for (const k of Object.keys(enc.fonts)) enc.fonts[Number(k)] = sniffed;
+    }
+  }
+  const fontAt = fontIndex(raw, enc.deff);
   const infoEnd = raw.indexOf("FILE_INFO_END");
   if (infoEnd < 0) throw new SubtitleError("No FILE_INFO block found in this .cip file.");
   const meta: Record<string, string> = {};
-  for (const line of plain(raw.slice(0, infoEnd)).split("\n")) {
+  for (const line of plain(raw.slice(0, infoEnd), enc).split("\n")) {
     const m = /^\s*([A-Z_#]+):\s?(.*)$/.exec(line);
     if (m) meta[m[1]] = m[2].trim();
   }
@@ -105,7 +249,7 @@ export function parseCip(raw: string): SubDoc {
   const fps = /\b(?:625|EBU|PAL|25)\b/.test(fpsTxt) ? 25 : /\b30\b|525|NTSC/.test(fpsTxt) ? 30 : /\b24\b/.test(fpsTxt) ? 24 : 25;
 
   // subtitle headers: the paragraph that holds "<n>\t<in>\t<out>"
-  const toks = tokens(raw, uc);
+  const toks = tokens(raw, uc, enc);
   // rebuild paragraphs from tokens so we know byte ranges
   type Para = { s: number; e: number; text: string };
   const paras: Para[] = [];
@@ -141,7 +285,7 @@ export function parseCip(raw: string): SubDoc {
     return { s, e };
   });
   const cues: Cue[] = headers.map((h, i) => {
-    const text = plain(raw.slice(regions[i].s, regions[i].e));
+    const text = plain(raw.slice(regions[i].s, regions[i].e), { ...enc, deff: fontAt(regions[i].s) });
     const lines = text.split("\n").map((l) => l.replace(/\s+$/, "").replace(/^\s+/, "")).filter((l) => l.length);
     return { n: h.n, startMs: ms(h.inTC), endMs: ms(h.outTC), lines, inTC: h.inTC, outTC: h.outTC };
   });
@@ -158,19 +302,20 @@ export function parseCip(raw: string): SubDoc {
       const cue = cues[i];
       if (!next || (next.length === cue.lines.length && next.every((l, k) => l === cue.lines[k]))) return;
       const r = regions[i];
-      const local = tokens(raw.slice(r.s, r.e), uc);
+      const local = tokens(raw.slice(r.s, r.e), uc, { ...enc, deff: fontAt(r.s) });
       const texts = local.filter((t) => t.kind === "text" && t.text!.trim().length);
       if (!texts.length) throw new SubtitleError(`Subtitle ${h.n} has no text to replace.`);
       const first = texts[0];
       const last = texts[texts.length - 1];
       const brks = local.filter((t) => t.kind === "brk" && t.s > first.s && t.s < last.e);
       const sep = brks.length && brks.every((b) => b.text === "line") ? "\\line " : "\\par\r\n";
-      edits.push({ s: r.s + first.s, e: r.s + last.e, text: next.map(rtfEscape).join(sep) });
+      const cp = enc.fonts[fontAt(r.s + first.s)] ?? enc.ansi;
+      edits.push({ s: r.s + first.s, e: r.s + last.e, text: next.map((l) => rtfEscape(l, cp)).join(sep) });
     });
     if (opts?.meta) {
       for (const [k, v] of Object.entries(opts.meta)) {
         const m = new RegExp(`(${k}:)([^\\\\\\r\\n]*)(\\\\par)`).exec(raw.slice(0, infoEnd));
-        if (m) edits.push({ s: m.index + m[1].length, e: m.index + m[1].length + m[2].length, text: ` ${rtfEscape(v)}` });
+        if (m) edits.push({ s: m.index + m[1].length, e: m.index + m[1].length + m[2].length, text: ` ${rtfEscape(v, enc.ansi)}` });
       }
     }
     edits.sort((a, b) => b.s - a.s);
@@ -179,5 +324,5 @@ export function parseCip(raw: string): SubDoc {
     return out;
   };
 
-  return { format: "cip", cues, fps, meta, write };
+  return { format: "cip", cues, fps, meta: { ...meta, ENCODING: enc.fonts[fontAt(regions[0]?.s ?? 0)] ?? enc.ansi }, write };
 }

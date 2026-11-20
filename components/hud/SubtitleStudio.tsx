@@ -8,7 +8,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { decodeSubtitle, encodeSubtitle, formatOf, parseSubtitle, SUB_EXTS, type SubDoc } from "@/lib/subtitles";
+import { CIP_ENCODINGS, decodeSubtitle, encodeSubtitle, formatOf, parseSubtitle, SUB_EXTS, type SubDoc } from "@/lib/subtitles";
 import { limitsFor, parseGlossary, type CheckLimits } from "@/lib/subtitles/checks";
 import { reportCsv, runSubtitleJob, type JobResult, type JobRow, type Progress, type RowStatus } from "@/lib/subtitles/pipeline";
 
@@ -47,6 +47,7 @@ interface Loaded {
   name: string;
   raw: string;
   doc: SubDoc;
+  encoding: string;
 }
 
 /** Subtitle job: Lina translates, the rules check, Adam reviews, Lina fixes — then you download the file. */
@@ -85,23 +86,37 @@ export function SubtitleStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const open_ = (name: string, raw: string, encoding: string) => {
+    const format = formatOf(name)!;
+    const doc = parseSubtitle(raw, format, { encoding });
+    // proof that writing back changes nothing but the text
+    if (doc.write(new Map()) !== raw) throw new Error("This file couldn't be read back exactly — not safe to translate. Please send it to support.");
+    setFile({ name, raw, doc, encoding });
+    setLimits(limitsFor(doc.cues));
+    return doc;
+  };
   const load = async (f: File) => {
     const format = formatOf(f.name);
     if (!format) return toast("error", `Use a subtitle file: ${SUB_EXTS.map((e) => "." + e).join(", ")}`);
     if (f.size > 8 * 1024 * 1024) return toast("error", "That file is over 8 MB.");
     try {
       const raw = decodeSubtitle(new Uint8Array(await f.arrayBuffer()), format);
-      const doc = parseSubtitle(raw, format);
-      // proof that writing back changes nothing but the text
-      if (doc.write(new Map()) !== raw) throw new Error("This file couldn't be read back exactly — not safe to translate. Please send it to support.");
-      setFile({ name: f.name, raw, doc });
-      setLimits(limitsFor(doc.cues));
-      const src = langFromMeta(doc.meta.LANG_CO);
+      const doc = open_(f.name, raw, "auto");
+      const enc = doc.meta.ENCODING ?? "";
+      const src = langFromMeta(doc.meta.LANG_CO) || (enc === "gbk" ? "Chinese (Simplified)" : enc === "big5" ? "Chinese (Traditional)" : "");
       if (src) setSourceLang(src);
       if (src && src === targetLang) setTargetLang(src === "English" ? "Malay" : "English");
       setResult(null);
       setProgress(null);
       setEdits(new Map());
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : String(e));
+    }
+  };
+  const changeEncoding = (encoding: string) => {
+    if (!file) return;
+    try {
+      open_(file.name, file.raw, encoding);
     } catch (e) {
       toast("error", e instanceof Error ? e.message : String(e));
     }
@@ -270,6 +285,31 @@ export function SubtitleStudio() {
                   }}
                 />
 
+                {file && (
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-700">Preview</span>
+                      <span className="text-[11px] text-slate-500">— if this looks garbled, change the text encoding</span>
+                      {file.doc.format === "cip" && (
+                        <Select value={file.encoding} onChange={(e) => changeEncoding(e.target.value)} className="ml-auto h-7 w-auto text-[11px]" aria-label="Text encoding">
+                          {CIP_ENCODINGS.map((o) => (
+                            <option key={o.v} value={o.v}>
+                              {o.v === "auto" ? `Automatic — ${CIP_ENCODINGS.find((x) => x.v === file.doc.meta.ENCODING)?.label ?? file.doc.meta.ENCODING ?? "Western"}` : o.label}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                    </div>
+                    <div className="space-y-1 text-sm text-slate-800">
+                      {file.doc.cues.slice(0, 4).map((c) => (
+                        <div key={c.n} className="flex gap-3">
+                          <span className="w-10 shrink-0 font-mono text-[11px] text-slate-400">#{c.n}</span>
+                          <span>{c.lines.join(" / ")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <Label>From</Label>
