@@ -59,7 +59,7 @@ function toHttpError(e: unknown): never {
 }
 
 /** Shared bounded tool loop. */
-async function loop(opts: {
+export async function loop(opts: {
   model: string;
   system: Anthropic.Beta.BetaTextBlockParam[];
   messages: Anthropic.Beta.BetaMessageParam[];

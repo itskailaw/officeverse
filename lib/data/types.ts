@@ -242,6 +242,8 @@ export interface OfficeSettings {
   productCosts?: Record<string, number>;
   /** Farid (Order Processing Executive) arranges drop-off for new paid orders automatically */
   autoArrange?: { enabled: boolean; start: string; end: string };
+  /** reviewer track record: deliberate test mistakes caught, and mistakes the CEO reported as missed */
+  qaStats?: Record<string, { planted: number; caught: number; missed: number; jobs: number }>;
   /** Farid's daily packing-list email with the merged airway bills */
   packingEmail?: { enabled: boolean; time: string; to: string; paper?: "thermal" | "a6" | "a5" | "a4" | "original" };
   /** floor-plan version the saved furniture belongs to (see LAYOUT_VERSION) */

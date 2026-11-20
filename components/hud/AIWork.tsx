@@ -174,6 +174,19 @@ export function TaskComposer({ emp }: { emp: Employee }) {
         if (e.dataTransfer.files.length) void addFiles(e.dataTransfer.files);
       }}
     >
+      {emp.departmentId === "dept-amare" && (
+        <button
+          type="button"
+          onClick={() => useUI.getState().set({ dialog: "subtitles" })}
+          className="flex w-full items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-left text-xs text-violet-900 hover:bg-violet-100"
+        >
+          <span aria-hidden>🎬</span>
+          <span className="flex-1">
+            <b>Subtitle job</b> — upload .cip / .srt / .vtt / .ass / .sbv. Lina translates, Adam checks every line, you download the file.
+          </span>
+          <span className="font-semibold">Open →</span>
+        </button>
+      )}
       <div>
         <Label htmlFor="task-title">Task</Label>
         <Input id="task-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Analyze yesterday's Shopee sales" maxLength={200} />
