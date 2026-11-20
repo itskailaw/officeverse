@@ -412,6 +412,9 @@ function Agents() {
   const hovered = useUI((s) => s.hoveredId);
   const held = useUI((s) => s.heldId);
   const mode = useUI((s) => s.mode);
+  const departments = useOffice((s) => s.departments);
+  const companies = useOffice((s) => s.companies);
+  const lanyardOf = (deptId: string) => departmentColor(departments.find((d) => d.id === deptId), companies);
 
   useFrame((_, dt) => getSim().update(dt));
 
@@ -456,6 +459,8 @@ function Agents() {
           title={e.title}
           appearance={e.appearance}
           status={e.status}
+          role={e.id}
+          lanyard={lanyardOf(e.departmentId)}
           selected={selected === e.id}
           hovered={hovered === e.id}
           showTag={showTags}

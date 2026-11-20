@@ -19,6 +19,8 @@ const SKIRT = new THREE.CylinderGeometry(0.5, 0.62, 1, 16);
 const TORUS = new THREE.TorusGeometry(0.11, 0.025, 8, 24);
 const MOUTH = new THREE.TorusGeometry(0.035, 0.009, 6, 12, Math.PI);
 const RING = new THREE.RingGeometry(0.42, 0.5, 32);
+/** half-ring over the top of the head (headsets, headphones) */
+const BAND = new THREE.TorusGeometry(0.145, 0.013, 6, 20, Math.PI);
 const HIT_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
 const UPPER_LEG = 0.42;
@@ -33,6 +35,10 @@ interface Props {
   appearance: Appearance;
   status?: EmployeeStatus;
   isCEO?: boolean;
+  /** employee id — picks role accessories */
+  role?: string;
+  /** company / department colour for the ID lanyard */
+  lanyard?: string;
   selected?: boolean;
   hovered?: boolean;
   showTag?: boolean;
@@ -151,6 +157,24 @@ function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: s
   return null;
 }
 
+/** Things people carry or wear because of their job. */
+const ROLE: Record<string, { headset?: boolean; headphones?: boolean; vest?: boolean; camera?: boolean; glasses?: boolean; badge?: boolean; carry?: "parcel" | "laptop" | "clipboard" }> = {
+  "emp-cs": { headset: true },
+  "emp-orders": { vest: true, carry: "parcel" },
+  "emp-ads": { carry: "laptop" },
+  "emp-cd": { camera: true },
+  "emp-video": { camera: true },
+  "emp-fin": { glasses: true, carry: "clipboard" },
+  "emp-it": { headphones: true },
+  "emp-recep": { badge: true },
+  "emp-ea": { carry: "clipboard" },
+  "emp-mkt-spec": { carry: "laptop" },
+  "emp-inv": { carry: "clipboard" },
+};
+const DRINK = new Set(["coffee_bar", "vending_machine", "water_cooler", "snack_shelf", "bbq", "kitchen_counter"]);
+const REST = new Set(["nap_pod", "hammock"]);
+const LOUNGE = new Set(["bench", "bean_bag", "sofa", "armchair"]);
+
 export const Character = memo(function Character(props: Props) {
   const { id, appearance: a, status, isCEO, selected, hovered, showTag, showBubble, dimmed } = props;
   const outfit = a.outfit ?? "shirt";
@@ -172,6 +196,16 @@ export const Character = memo(function Character(props: Props) {
   const laptop = useRef<THREE.Group>(null);
   const clipboard = useRef<THREE.Group>(null);
   const ringRef = useRef<THREE.Mesh>(null);
+  const eyes = useRef<THREE.Group>(null);
+  const lBrow = useRef<THREE.Mesh>(null);
+  const rBrow = useRef<THREE.Mesh>(null);
+  const smile = useRef<THREE.Mesh>(null);
+  const frown = useRef<THREE.Mesh>(null);
+  const oMouth = useRef<THREE.Mesh>(null);
+  const carryRef = useRef<THREE.Group>(null);
+  const paddle = useRef<THREE.Group>(null);
+  const fx = useRef({ blinkAt: 2 + Math.random() * 3, greet: 0, greetCd: 0, seatId: "" as string | null, seatType: undefined as string | undefined });
+  const role = (props.role && ROLE[props.role]) || {};
   const smoothed = useRef({ sit: 0, walk: 0, scale: 1 });
   const lastBubble = useRef<string | null>(null);
   const bubbleClock = useRef(0);
@@ -227,12 +261,38 @@ export const Character = memo(function Character(props: Props) {
     sm.sit += ((sitting ? 1 : 0) - sm.sit) * Math.min(1, dt * 8);
     sm.walk += ((walking || (ag.glide && ag.glide.then !== "sit") ? 1 : 0) - sm.walk) * Math.min(1, dt * 8);
 
+    // what they're doing on a break (which piece of furniture they're at), cached per seat
+    const f = fx.current;
+    if (f.seatId !== ag.seatId) {
+      f.seatId = ag.seatId;
+      f.seatType = seat ? sim.layout.furniture.find((x) => x.id === seat.furnitureId)?.type : undefined;
+    }
+    const arrived = !walking && !ag.glide;
+    const act = onBreak && arrived ? f.seatType : undefined;
+    // a quick wave when passing a colleague in the corridor
+    f.greet = Math.max(0, f.greet - dt);
+    f.greetCd -= dt;
+    if (walking && f.greetCd <= 0) {
+      for (const o of sim.agents.values()) {
+        if (o.id !== id && o.pose === "walk" && Math.hypot(o.x - ag.x, o.z - ag.z) < 1.4) {
+          f.greet = 1.1;
+          f.greetCd = 14;
+          break;
+        }
+      }
+    }
+    const carrying = walking && !held && role.carry ? role.carry : null;
+
     const phase = ag.walkPhase * (ag.isCEO ? 9.5 : 8.5);
     const swing = Math.sin(phase) * 0.55 * sm.walk;
     const bob = Math.abs(Math.cos(phase)) * 0.04 * sm.walk;
 
-    if (hips.current) hips.current.position.y = THREE.MathUtils.lerp(HIP_Y, SEAT_HIP_Y, sm.sit) + bob;
-    if (body.current) body.current.position.y = ag.y;
+    // jump shot at the hoop: crouch, jump, release
+    const shot = act === "hoop" ? ((t + id.length * 0.37) / 1.6) % 1 : -1;
+    const crouch = shot >= 0 && shot < 0.3 ? Math.sin((shot / 0.3) * Math.PI) * 0.12 : 0;
+    const jump = shot >= 0.3 && shot < 0.6 ? Math.sin(((shot - 0.3) / 0.3) * Math.PI) * 0.28 : 0;
+    if (hips.current) hips.current.position.y = THREE.MathUtils.lerp(HIP_Y, SEAT_HIP_Y, sm.sit) + bob - crouch;
+    if (body.current) body.current.position.y = ag.y + jump;
 
     // legs
     const sitUp = (-Math.PI / 2) * sm.sit;
@@ -245,7 +305,7 @@ export const Character = memo(function Character(props: Props) {
     // arms
     const typing = ag.gesture === "type" || (sitting && ag.working);
     const talking = ag.gesture === "talk";
-    const waving = ag.waveT > 0;
+    const waving = ag.waveT > 0 || f.greet > 0;
     const stretching = onBreak && !sitting && Math.sin(t * 0.5 + id.length) > 0.82;
     let la = -swing * 0.9;
     let ra = swing * 0.9;
@@ -263,10 +323,50 @@ export const Character = memo(function Character(props: Props) {
         rf += Math.cos(t * 17) * (typing ? 0.08 : 0.01);
       }
     }
-    if (onBreak && !sitting) {
-      // holding a coffee cup
-      ra = -0.5;
-      rf = -1.3;
+    const drinking = onBreak && !sitting && (!act || DRINK.has(act));
+    if (drinking) {
+      // holding a cup, taking a sip now and then
+      const sip = Math.max(0, Math.sin(t * 0.9 + id.length)) > 0.93;
+      ra = sip ? -1.9 : -0.5;
+      rf = sip ? -1.7 : -1.3;
+    }
+    if (act === "hoop") {
+      const up = shot >= 0.25 && shot < 0.65;
+      la = up ? -2.9 : -0.7;
+      ra = up ? -2.9 : -0.7;
+      lf = up ? -0.5 : -1.2;
+      rf = up ? -0.5 : -1.2;
+    } else if (act === "ping_pong") {
+      ra = -0.9 + Math.sin(t * 5.2 + id.length) * 0.5;
+      rz = 0.35 + Math.sin(t * 5.2 + id.length) * 0.45;
+      rf = -0.8;
+      la = -0.4;
+      lf = -0.9;
+    } else if (act === "foosball") {
+      la = -1.2 + Math.sin(t * 9) * 0.08;
+      ra = -1.2 + Math.cos(t * 8) * 0.08;
+      lf = -0.35;
+      rf = -0.35;
+    } else if (act === "arcade") {
+      la = -1.0;
+      ra = -1.0 + Math.sin(t * 16) * 0.06;
+      lf = -0.6;
+      rf = -0.6 + Math.cos(t * 19) * 0.08;
+    }
+    if (carrying === "parcel") {
+      la = -0.95;
+      ra = -0.95;
+      lf = -0.75;
+      rf = -0.75;
+      lz = -0.25;
+      rz = 0.25;
+    } else if (carrying === "laptop") {
+      ra = -0.15;
+      rf = -0.2;
+      rz = 0.18;
+    } else if (carrying === "clipboard") {
+      la = -0.45;
+      lf = -1.2;
     }
     if (ag.intent === "summoned") {
       la = -0.4;
@@ -311,15 +411,23 @@ export const Character = memo(function Character(props: Props) {
     if (rFore.current) rFore.current.rotation.x += (rf - rFore.current.rotation.x) * k;
 
     // props
-    if (cup.current) cup.current.visible = onBreak && !sitting && !stretching;
+    if (cup.current) cup.current.visible = drinking && !stretching;
     if (laptop.current) laptop.current.visible = !!inMeetingSeat;
-    if (clipboard.current) clipboard.current.visible = ag.intent === "summoned" && !held;
+    if (clipboard.current) clipboard.current.visible = (ag.intent === "summoned" || carrying === "clipboard") && !held;
+    if (carryRef.current) {
+      carryRef.current.visible = carrying === "parcel" || carrying === "laptop";
+      carryRef.current.children.forEach((c) => (c.visible = c.name === carrying));
+    }
+    if (paddle.current) paddle.current.visible = act === "ping_pong";
 
     // torso + head
     const breathe = Math.sin(t * 1.6 + ag.walkPhase) * 0.012;
+    const resting = !!act && REST.has(act);
+    const lounging = !!act && LOUNGE.has(act);
+    const leanTarget = resting ? -0.75 : lounging ? -0.22 : act === "foosball" ? 0.28 : act === "arcade" ? 0.12 : sitting ? 0.05 : sm.walk * 0.06;
     if (torso.current) {
-      torso.current.scale.y = 1 + breathe;
-      torso.current.rotation.x = sitting ? 0.05 : sm.walk * 0.06;
+      torso.current.scale.y = 1 + (resting ? breathe * 2 : breathe);
+      torso.current.rotation.x += (leanTarget - torso.current.rotation.x) * Math.min(1, dt * 5);
     }
     if (head.current) {
       let yaw = 0;
@@ -334,9 +442,35 @@ export const Character = memo(function Character(props: Props) {
       } else if (sitting && !typing) yaw = Math.sin(t * 0.35 + id.length) * 0.35;
       else if (held) pitch = -0.3;
       else if (waving) pitch = -0.08;
+      if (resting) pitch = -0.35;
+      else if (act === "hoop") pitch = -0.25;
       head.current.rotation.y = yaw;
       head.current.rotation.x = pitch;
     }
+
+    // ── face: blink, mood, talking ──
+    const worried = status === "waiting_approval" || status === "error" || status === "waiting_data";
+    const happy = waving || act === "hoop" || act === "ping_pong" || act === "foosball" || act === "arcade" || status === "task_completed";
+    const mouthOpen = held || (talking && Math.sin(t * 14) > 0) || jump > 0.15;
+    if (t > f.blinkAt + 0.13) f.blinkAt = t + 2.4 + ((id.length * 7 + Math.floor(t)) % 10) * 0.35;
+    const blinking = t > f.blinkAt;
+    if (eyes.current) eyes.current.scale.y = resting ? 0.12 : blinking ? 0.15 : happy ? 0.8 : 1;
+    if (lBrow.current && rBrow.current) {
+      // inner ends up = worried; slight default tilt = friendly
+      const tilt = worried ? 0.38 : 0.12;
+      lBrow.current.rotation.z = tilt;
+      rBrow.current.rotation.z = -tilt;
+      const lift = happy ? 0.012 : worried ? 0.006 : 0;
+      lBrow.current.position.y = 0.06 + lift;
+      rBrow.current.position.y = 0.06 + lift;
+    }
+    if (smile.current) {
+      smile.current.visible = !worried && !mouthOpen;
+      const sc = resting ? 0.55 : happy ? 1.35 : 1;
+      smile.current.scale.set(sc, sc, 1);
+    }
+    if (frown.current) frown.current.visible = worried && !mouthOpen;
+    if (oMouth.current) oMouth.current.visible = mouthOpen;
     if (badge.current) {
       badge.current.position.y = (sitting ? 1.65 : 2.05) + ag.y + Math.sin(t * 2 + id.length) * 0.04;
       badge.current.rotation.y = t * 1.5;
@@ -417,6 +551,40 @@ export const Character = memo(function Character(props: Props) {
               </>
             )}
             {longTop && <mesh geometry={SKIRT} material={m.shirt} position={[0, 0.0, 0]} scale={[0.39, 0.2, 0.25]} castShadow />}
+            {/* ID lanyard in the company colour */}
+            {!isCEO && props.lanyard && (
+              <group>
+                <mesh geometry={BOX} material={mat(props.lanyard)} position={[-0.055, 0.4, 0.112]} rotation={[0, 0, -0.35]} scale={[0.018, 0.2, 0.006]} />
+                <mesh geometry={BOX} material={mat(props.lanyard)} position={[0.055, 0.4, 0.112]} rotation={[0, 0, 0.35]} scale={[0.018, 0.2, 0.006]} />
+                <mesh geometry={BOX} material={mat("#f8fafc")} position={[0, 0.25, 0.118]} scale={[0.065, 0.085, 0.008]} />
+                <mesh geometry={BOX} material={mat(props.lanyard)} position={[0, 0.275, 0.123]} scale={[0.065, 0.02, 0.004]} />
+              </group>
+            )}
+            {role.vest && (
+              <group>
+                <mesh geometry={BOX} material={mat("#a3e635", { emissive: "#a3e635", ei: 0.25 })} position={[-0.1, 0.27, 0.105]} scale={[0.07, 0.42, 0.012]} />
+                <mesh geometry={BOX} material={mat("#a3e635", { emissive: "#a3e635", ei: 0.25 })} position={[0.1, 0.27, 0.105]} scale={[0.07, 0.42, 0.012]} />
+                <mesh geometry={BOX} material={mat("#e5e7eb", { emissive: "#ffffff", ei: 0.3 })} position={[0, 0.16, 0.112]} scale={[0.36, 0.025, 0.006]} />
+              </group>
+            )}
+            {role.camera && (
+              <group position={[0.07, 0.2, 0.135]}>
+                <mesh geometry={BOX} material={mat("#111827")} scale={[0.11, 0.07, 0.05]} />
+                <mesh geometry={CYL} material={mat("#1f2937")} position={[0, 0, 0.035]} rotation={[Math.PI / 2, 0, 0]} scale={[0.045, 0.04, 0.045]} />
+                <mesh geometry={BOX} material={mat("#111827")} position={[-0.09, 0.15, -0.02]} rotation={[0, 0, -0.5]} scale={[0.012, 0.32, 0.006]} />
+              </group>
+            )}
+            {role.badge && <mesh geometry={BOX} material={mat("#d4a017", { metal: 0.7, rough: 0.3 })} position={[-0.09, 0.36, 0.115]} scale={[0.07, 0.03, 0.008]} />}
+            {/* carried items while walking */}
+            <group ref={carryRef} visible={false}>
+              <group name="parcel" position={[0, 0.22, 0.27]}>
+                <mesh geometry={BOX} material={mat("#c69c6d")} scale={[0.26, 0.18, 0.2]} castShadow />
+                <mesh geometry={BOX} material={mat("#ee4d2d")} position={[0, 0.091, 0]} scale={[0.26, 0.004, 0.05]} />
+              </group>
+              <group name="laptop" position={[0.27, 0.2, 0.02]} rotation={[0, 0, 0.1]}>
+                <mesh geometry={BOX} material={mat("#94a3b8", { metal: 0.6, rough: 0.3 })} scale={[0.02, 0.2, 0.28]} castShadow />
+              </group>
+            </group>
             {isCEO && outfit !== "blazer" && <mesh geometry={BOX} material={mat("#b91c1c")} position={[0, 0.3, 0.11]} scale={[0.05, 0.3, 0.02]} />}
             {/* arms */}
             {[
@@ -429,6 +597,12 @@ export const Character = memo(function Character(props: Props) {
                   <Limb len={0.26} w={0.09} m={outfit === "kurung" || outfit === "blazer" || outfit === "hoodie" ? m.shirt : m.skin} />
                   {/* hand */}
                   <mesh geometry={SPH} material={m.skin} position={[0, -0.28, 0]} scale={[0.085, 0.1, 0.075]} castShadow />
+                  {i === 1 && (
+                    <group ref={paddle} position={[0, -0.33, 0.04]} visible={false}>
+                      <mesh geometry={CYL} material={mat("#7c2d12")} scale={[0.025, 0.08, 0.025]} />
+                      <mesh geometry={CYL} material={mat("#dc2626")} position={[0, -0.09, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[0.12, 0.015, 0.12]} />
+                    </group>
+                  )}
                   {i === 1 && (
                     <group ref={cup} position={[0, -0.3, 0.06]} visible={false}>
                       <mesh geometry={CYL} material={mat("#f8fafc")} scale={[0.07, 0.09, 0.07]} />
@@ -452,18 +626,39 @@ export const Character = memo(function Character(props: Props) {
               {a.hairStyle !== "hijab" &&
                 [-1, 1].map((s) => <mesh key={s} geometry={SPH} material={m.skin} position={[s * 0.125, 0, 0]} scale={[0.04, 0.06, 0.04]} />)}
               <Hair a={a} />
-              {/* face */}
-              <mesh geometry={SPH} material={m.dark} position={[-0.052, 0.015, 0.118]} scale={[0.032, 0.04, 0.02]} />
-              <mesh geometry={SPH} material={m.dark} position={[0.052, 0.015, 0.118]} scale={[0.032, 0.04, 0.02]} />
-              <mesh geometry={SPH} material={mat("#ffffff")} position={[-0.046, 0.024, 0.127]} scale={0.01} />
-              <mesh geometry={SPH} material={mat("#ffffff")} position={[0.058, 0.024, 0.127]} scale={0.01} />
-              <mesh geometry={BOX} material={m.brow} position={[-0.052, 0.06, 0.118]} rotation={[0, 0, 0.12]} scale={[0.045, 0.01, 0.01]} />
-              <mesh geometry={BOX} material={m.brow} position={[0.052, 0.06, 0.118]} rotation={[0, 0, -0.12]} scale={[0.045, 0.01, 0.01]} />
+              {/* face — eyes blink / close, brows and mouth follow the mood */}
+              <group ref={eyes} position={[0, 0.015, 0]}>
+                <mesh geometry={SPH} material={m.dark} position={[-0.052, 0, 0.118]} scale={[0.032, 0.04, 0.02]} />
+                <mesh geometry={SPH} material={m.dark} position={[0.052, 0, 0.118]} scale={[0.032, 0.04, 0.02]} />
+                <mesh geometry={SPH} material={mat("#ffffff")} position={[-0.046, 0.009, 0.127]} scale={0.01} />
+                <mesh geometry={SPH} material={mat("#ffffff")} position={[0.058, 0.009, 0.127]} scale={0.01} />
+              </group>
+              <mesh ref={lBrow} geometry={BOX} material={m.brow} position={[-0.052, 0.06, 0.118]} rotation={[0, 0, 0.12]} scale={[0.045, 0.01, 0.01]} />
+              <mesh ref={rBrow} geometry={BOX} material={m.brow} position={[0.052, 0.06, 0.118]} rotation={[0, 0, -0.12]} scale={[0.045, 0.01, 0.01]} />
               <mesh geometry={SPH} material={m.skin} position={[0, -0.015, 0.128]} scale={[0.028, 0.03, 0.025]} />
-              <mesh geometry={MOUTH} material={m.mouth} position={[0, -0.055, 0.118]} rotation={[0, 0, Math.PI]} />
+              <mesh ref={smile} geometry={MOUTH} material={m.mouth} position={[0, -0.055, 0.118]} rotation={[0, 0, Math.PI]} />
+              <mesh ref={frown} geometry={MOUTH} material={m.mouth} position={[0, -0.07, 0.118]} visible={false} />
+              <mesh ref={oMouth} geometry={SPH} material={m.mouth} position={[0, -0.058, 0.118]} scale={[0.026, 0.03, 0.012]} visible={false} />
+              {/* role accessories on the head */}
+              {role.headset && (
+                <group>
+                  <mesh geometry={BAND} material={m.dark} position={[0, 0.0, 0]} />
+                  <mesh geometry={CYL} material={m.dark} position={[0.138, -0.005, 0]} rotation={[0, 0, Math.PI / 2]} scale={[0.07, 0.03, 0.07]} />
+                  <mesh geometry={CYL} material={m.dark} position={[-0.138, -0.005, 0]} rotation={[0, 0, Math.PI / 2]} scale={[0.07, 0.03, 0.07]} />
+                  <mesh geometry={BOX} material={m.dark} position={[0.1, -0.06, 0.07]} rotation={[0, -0.9, 0.3]} scale={[0.012, 0.012, 0.12]} />
+                  <mesh geometry={SPH} material={mat("#ec4899")} position={[0.05, -0.075, 0.115]} scale={0.018} />
+                </group>
+              )}
+              {role.headphones && (
+                <group>
+                  <mesh geometry={BAND} material={mat("#16a34a")} position={[0, 0.0, 0]} scale={[1.05, 1.05, 1.6]} />
+                  <mesh geometry={CYL} material={mat("#0f172a")} position={[0.145, -0.005, 0]} rotation={[0, 0, Math.PI / 2]} scale={[0.1, 0.05, 0.1]} />
+                  <mesh geometry={CYL} material={mat("#0f172a")} position={[-0.145, -0.005, 0]} rotation={[0, 0, Math.PI / 2]} scale={[0.1, 0.05, 0.1]} />
+                </group>
+              )}
               <mesh geometry={SPH} material={m.blush} position={[-0.075, -0.03, 0.105]} scale={[0.035, 0.022, 0.01]} />
               <mesh geometry={SPH} material={m.blush} position={[0.075, -0.03, 0.105]} scale={[0.035, 0.022, 0.01]} />
-              {a.glasses && (
+              {(a.glasses || role.glasses) && (
                 <group position={[0, 0.015, 0.128]}>
                   <mesh geometry={TORUS} material={m.dark} position={[-0.052, 0, 0]} scale={[0.34, 0.34, 0.3]} />
                   <mesh geometry={TORUS} material={m.dark} position={[0.052, 0, 0]} scale={[0.34, 0.34, 0.3]} />
