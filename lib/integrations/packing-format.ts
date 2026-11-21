@@ -1,4 +1,5 @@
 /** Pure helpers for the daily packing-list email (no server imports — unit tested). */
+import { pickList, shortProduct, variationOf } from "../data/product-names.ts";
 
 export interface PackingSettings {
   enabled: boolean;
@@ -53,12 +54,7 @@ export function packingSubject(lines: PackLine[], now = new Date()) {
 
 /** Email body: numbered parcels in the same order as the attached airway bills, plus a pick-list total. */
 export function packingHtml(lines: PackLine[], opts: { from?: string; problems?: string[]; separate?: "shopee" | "lazada" | null; appUrl?: string } = {}) {
-  const totals = new Map<string, number>();
-  for (const l of lines) for (const i of l.items) {
-    const k = i.model ? `${i.name} — ${i.model}` : i.name;
-    totals.set(k, (totals.get(k) ?? 0) + i.qty);
-  }
-  const pick = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  const pick = pickList(lines.flatMap((l) => l.items));
   const firstSep = opts.separate ? lines.findIndex((l) => l.platform === opts.separate) : -1;
   const rows = lines
     .map((l, i) => {
@@ -75,7 +71,12 @@ export function packingHtml(lines: PackLine[], opts: { from?: string; problems?:
           ? `<tr><td colspan="3" style="padding:14px 8px 4px;font:600 11px sans-serif;color:#64748b;text-transform:uppercase;letter-spacing:.04em">${NAME[l.platform]} labels — separate attachment</td></tr>`
           : "");
       const items = l.items.length
-        ? l.items.map((it) => `<div><b>${it.qty}×</b> ${esc(it.name)}${it.model ? ` <span style="color:#64748b">— ${esc(it.model)}</span>` : ""}</div>`).join("")
+        ? l.items
+            .map((it) => {
+              const v = variationOf(it.model);
+              return `<div><b>${it.qty}×</b> ${esc(v || shortProduct(it.name))}${v ? `<div style="font-size:12px;color:#64748b">${esc(shortProduct(it.name))}</div>` : ""}</div>`;
+            })
+            .join("")
         : `<div style="color:#94a3b8">Items not synced — check the label</div>`;
       return `${head}<tr style="border-top:1px solid #e2e8f0">
 <td style="padding:10px 8px;vertical-align:top;width:34px"><div style="width:30px;height:30px;border-radius:7px;background:${late ? "#b91c1c" : "#0f172a"};color:#fff;font:700 15px sans-serif;text-align:center;line-height:30px">${i + 1}</div></td>
@@ -91,7 +92,14 @@ export function packingHtml(lines: PackLine[], opts: { from?: string; problems?:
 <div style="font:600 18px sans-serif;color:#0f172a">📦 Packing list — ${lines.length} parcel${lines.length === 1 ? "" : "s"}</div>
 <div style="font:13px sans-serif;color:#64748b;margin-top:4px">Same order as the attached airway bills: #1 is the first page.${opts.from ? ` — ${esc(opts.from)}` : ""}</div>
 ${problems}
-<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#f8fafc;font:13px/1.6 sans-serif;color:#0f172a"><b>Pick list</b><br>${pick.map(([k, q]) => `<b>${q}×</b> ${esc(k)}`).join("<br>")}</div>
+<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#f8fafc;font:13px/1.6 sans-serif;color:#0f172a"><b>Pick list</b>${pick
+    .map(
+      (g) =>
+        `<div style="margin-top:6px"><span style="font-weight:600">${esc(g.product)}</span>${g.lines
+          .map((l) => `<div style="padding-left:14px"><b>${l.qty}×</b> ${esc(l.variation)}</div>`)
+          .join("")}</div>`,
+    )
+    .join("")}</div>
 <table style="width:100%;border-collapse:collapse;margin-top:12px">${rows}</table>
 ${opts.appUrl ? `<div style="margin-top:16px;font:12px sans-serif"><a href="${esc(opts.appUrl)}" style="color:#0369a1">Open OfficeVerse</a> to tick parcels off as you pack.</div>` : ""}
 </div></body></html>`;
@@ -99,6 +107,6 @@ ${opts.appUrl ? `<div style="margin-top:16px;font:12px sans-serif"><a href="${es
 
 export function packingText(lines: PackLine[]) {
   return lines
-    .map((l, i) => `${i + 1}. ${l.overdue ? "[NOT SHIPPED YET] " : ""}${NAME[l.platform]} #${l.id}${l.tracking ? ` (AWB ${l.tracking})` : ""}\n${l.items.map((it) => `   ${it.qty}x ${it.name}${it.model ? ` — ${it.model}` : ""}`).join("\n")}`)
+    .map((l, i) => `${i + 1}. ${l.overdue ? "[NOT SHIPPED YET] " : ""}${NAME[l.platform]} #${l.id}${l.tracking ? ` (AWB ${l.tracking})` : ""}\n${l.items.map((it) => `   ${it.qty}x ${variationOf(it.model) || shortProduct(it.name)}${variationOf(it.model) ? ` (${shortProduct(it.name)})` : ""}`).join("\n")}`)
     .join("\n\n");
 }

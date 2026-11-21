@@ -7,6 +7,7 @@ import { useLive } from "@/lib/integrations/client";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { shortProduct, variationOf } from "@/lib/data/product-names";
 
 type Plat = "shopee" | "lazada";
 interface Purchase {
@@ -23,15 +24,8 @@ const RANGES = [
   { v: 30, label: "Last 30 days" },
   { v: 90, label: "Last 90 days" },
 ];
-/** What the buyer picked: the variation (Lazada's "Color Family:" style prefixes removed), or the product name if there's none. */
-export const variantOf = (i: { name: string; model: string | null }) => {
-  const v = (i.model ?? "")
-    .split(/\s*[,;]\s*(?=[A-Za-z][\w ]{0,24}:)/)
-    .map((part) => part.replace(/^[A-Za-z][\w ]{0,24}:\s*/, "").trim())
-    .filter(Boolean)
-    .join(" · ");
-  return v || i.name;
-};
+/** What the buyer picked: the variation, or a short product name if there's none. */
+export const variantOf = (i: { name: string; model: string | null }) => variationOf(i.model) || shortProduct(i.name, 60);
 const itemText = (i: Purchase["items"][number]) => `${variantOf(i)} × ${i.qty}`;
 const klDay = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date(iso));
 

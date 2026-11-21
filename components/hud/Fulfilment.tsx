@@ -9,6 +9,7 @@ import { formatMYR } from "@/lib/data/demo";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn, timeAgo } from "@/lib/utils";
+import { shortProduct, variationOf } from "@/lib/data/product-names";
 
 type Plat = "shopee" | "lazada";
 interface Order {
@@ -196,9 +197,9 @@ function PackingList({ packing, onBack }: { packing: Packing; onBack: () => void
                   <ul className={cn("mt-1 space-y-0.5 text-sm", isDone ? "text-slate-500 line-through" : "text-slate-800")}>
                     {r.items.length ? (
                       r.items.map((it, n) => (
-                        <li key={n}>
-                          <b>{it.qty}×</b> {it.name}
-                          {it.model ? <span className="text-slate-500"> — {it.model}</span> : null}
+                        <li key={n} title={it.model ? `${it.name} — ${it.model}` : it.name}>
+                          <b>{it.qty}×</b> {variationOf(it.model) || shortProduct(it.name)}
+                          {variationOf(it.model) ? <span className="text-xs text-slate-500"> · {shortProduct(it.name)}</span> : null}
                         </li>
                       ))
                     ) : (
@@ -762,9 +763,9 @@ export function Fulfilment() {
                       </div>
                       <ul className="mt-1 space-y-0.5 text-slate-700">
                         {o.items.map((it, i) => (
-                          <li key={i}>
-                            <b>{it.qty}×</b> {it.name}
-                            {it.model ? <span className="text-slate-500"> — {it.model}</span> : null}
+                          <li key={i} title={it.model ? `${it.name} — ${it.model}` : it.name}>
+                            <b>{it.qty}×</b> {variationOf(it.model) || shortProduct(it.name)}
+                            {variationOf(it.model) ? <span className="text-slate-500"> · {shortProduct(it.name)}</span> : null}
                           </li>
                         ))}
                       </ul>

@@ -33,7 +33,7 @@ test("packing email lists parcels in label order with a pick list", () => {
   ];
   const html = packingHtml(lines, { separate: "lazada" });
   assert.ok(html.indexOf("#A1") < html.indexOf("#B2"));
-  assert.ok(html.includes("<b>3×</b> Filter &lt;Pro&gt; — Std"), "pick list totals per product");
+  assert.ok(/Filter &lt;Pro&gt;<\/span><div[^>]*><b>3×<\/b> Std<\/div>/.test(html), "pick list: product, then merged variation total");
   assert.ok(!html.includes("<Pro>"), "escaped");
   assert.ok(html.includes("separate attachment"));
   assert.match(packingSubject(lines, noon30), /20 Nov — 2 parcels \(6 items\)/);
@@ -49,4 +49,20 @@ test("parcels not shipped yet come first, marked, and are counted in the subject
   assert.ok(html.indexOf("#OLD1") < html.indexOf("New orders") && html.indexOf("New orders") < html.indexOf("#NEW1"));
   assert.match(html, /Not shipped · since 19 Nov · ship by 21 Nov/);
   assert.match(packingSubject(lines, noon30), /1 new \+ 1 not shipped yet \(3 items\)/);
+});
+
+test("pick list: short product names, variation prefixes removed, duplicates merged", async () => {
+  const { pickList, shortProduct, variationOf } = await import("../lib/data/product-names.ts");
+  const shower = "MDBC Hand Showerhead Filter Shower Water Filter High Pressure Power 3 Mode (Water Purifier) 花洒过滤器";
+  assert.equal(variationOf("Variation3:Refill x 10 pcs"), "Refill x 10 pcs");
+  assert.equal(variationOf("Color Family:Red, Size:XL"), "Red · XL");
+  assert.equal(shortProduct("MDBC Washing Machine Water Filter | Anti Dirt Rust Filter 洗衣机过滤器"), "Washing Machine Water Filter");
+  assert.ok(shortProduct(shower).length <= 31);
+  const g = pickList([
+    { name: shower, model: "SH:Refill x 10 pcs", qty: 1 },
+    { name: shower, model: "Variation3:Refill x 10 pcs", qty: 1 },
+    { name: shower, model: "SH:1x Shower Head", qty: 1 },
+  ]);
+  assert.equal(g.length, 1);
+  assert.deepEqual(g[0].lines, [{ variation: "Refill x 10 pcs", qty: 2 }, { variation: "1x Shower Head", qty: 1 }]);
 });
