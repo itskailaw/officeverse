@@ -287,7 +287,9 @@ export function ApprovalCard({ a, showEmployee }: { a: Approval; showEmployee?: 
         >
           <Copy className="h-3 w-3" /> Copy draft
         </button>
-        {a.status === "pending" && a.id.startsWith("cancel-shopee-") ? (
+        {a.status === "pending" && a.id.startsWith("review-shopee-") ? (
+          <ReviewButtons a={a} />
+        ) : a.status === "pending" && a.id.startsWith("cancel-shopee-") ? (
           <CancellationButtons a={a} />
         ) : a.status === "pending" ? (
           <>
@@ -315,6 +317,42 @@ export function ApprovalCard({ a, showEmployee }: { a: Approval; showEmployee?: 
 }
 
 /** Buyer cancellation request: the decision is sent to Shopee straight away. */
+/** Post Mei Ling's reply to a low rating (editable first), or skip it. */
+function ReviewButtons({ a }: { a: Approval }) {
+  const decide = useOffice((s) => s.decideApproval);
+  const toast = useUI((s) => s.toast);
+  const initial = a.draft.split("Reply to post:\n")[1] ?? "";
+  const [text, setText] = useState(initial);
+  const [busy, setBusy] = useState<"post" | "skip" | null>(null);
+  const send = async (action: "post" | "skip") => {
+    setBusy(action);
+    try {
+      const r = await fetch("/api/reviews", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: a.id, action, text }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((j as { error?: string }).error ?? `Request failed (${r.status})`);
+      decide(a.id, action === "post" ? "approved" : "rejected");
+      toast("success", action === "post" ? "Reply posted on Shopee" : "Skipped");
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="w-full space-y-1.5">
+      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} maxLength={500} className="w-full rounded-lg border border-slate-200 bg-panel p-2 text-xs text-slate-800" aria-label="Reply to post" />
+      <div className="flex gap-1.5">
+        <Button size="sm" disabled={busy !== null || !text.trim()} onClick={() => send("post")}>
+          {busy === "post" ? <Loader2 className="animate-spin" /> : <Check />} Post reply
+        </Button>
+        <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => send("skip")}>
+          {busy === "skip" ? <Loader2 className="animate-spin" /> : <X />} Skip
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function CancellationButtons({ a }: { a: Approval }) {
   const decide = useOffice((s) => s.decideApproval);
   const toast = useUI((s) => s.toast);

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { ensurePackingEmail } from "@/lib/integrations/packing-email";
 import { ensureWeeklyReview } from "@/lib/integrations/weekly";
+import { reviewWatch } from "@/lib/integrations/reviews";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,13 @@ export async function GET(req: Request) {
       if (w) results.push({ workspace: r.workspace_id as string, ok: true, result: { weekly: w.sent } });
     } catch (e) {
       results.push({ workspace: r.workspace_id as string, ok: false, error: `weekly: ${e instanceof Error ? e.message : String(e)}` });
+    }
+    // Mei Ling's review watch (Shopee ratings; low ones get a draft reply for approval)
+    try {
+      const rv = await reviewWatch(r.workspace_id as string);
+      if (rv.flagged) results.push({ workspace: r.workspace_id as string, ok: true, result: { reviews: rv.flagged } });
+    } catch (e) {
+      results.push({ workspace: r.workspace_id as string, ok: false, error: `reviews: ${e instanceof Error ? e.message : String(e)}` });
     }
     if (!(r.settings as { packingEmail?: { enabled?: boolean } } | null)?.packingEmail?.enabled) continue;
     try {

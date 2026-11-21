@@ -169,7 +169,12 @@ export async function sendApprovalCards(chatId: string, ws: string, list: { id: 
       text: `${KIND[a.kind] ?? KIND.other} · <b>${escapeHtml(who)}</b> needs your approval\n${escapeHtml(a.summary)}\n\n<blockquote>${escapeHtml(a.draft.slice(0, 2500))}</blockquote>`,
       reply_markup: {
         inline_keyboard: [
-          a.id.startsWith("cancel-")
+          a.id.startsWith("review-")
+            ? [
+                { text: "✅ Post reply", callback_data: `ap:${a.id}:a` },
+                { text: "Skip", callback_data: `ap:${a.id}:r` },
+              ]
+            : a.id.startsWith("cancel-")
             ? [
                 { text: "✅ Accept cancellation", callback_data: `ap:${a.id}:a` },
                 { text: "❌ Reject — ship it", callback_data: `ap:${a.id}:r` },
@@ -217,6 +222,21 @@ export async function notifyNewApprovals(ws: string) {
 
 /** ✅ / ❌ pressed in Telegram. */
 export async function decideFromTelegram(ws: string, approvalId: string, approve: boolean) {
+  if (approvalId.startsWith("review-shopee-")) {
+    const { data: row } = await getAdminSupabase().from("approvals").select("status").eq("workspace_id", ws).eq("id", approvalId).maybeSingle();
+    if (!row || row.status !== "pending") return { ok: false, text: "Already decided (or no longer pending)." };
+    const { postReviewReply, skipReview } = await import("./reviews");
+    try {
+      if (approve) {
+        await postReviewReply(ws, approvalId);
+        return { ok: true, text: "✅ Reply posted on Shopee", summary: "review reply" };
+      }
+      await skipReview(ws, approvalId);
+      return { ok: true, text: "Skipped — no reply posted", summary: "review" };
+    } catch (e) {
+      return { ok: false, text: `Shopee refused: ${(e instanceof Error ? e.message : String(e)).slice(0, 150)}` };
+    }
+  }
   if (approvalId.startsWith("cancel-shopee-")) {
     const { data: row } = await getAdminSupabase().from("approvals").select("status").eq("workspace_id", ws).eq("id", approvalId).maybeSingle();
     if (!row || row.status !== "pending") return { ok: false, text: "Already decided (or no longer pending)." };
