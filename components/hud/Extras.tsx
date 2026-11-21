@@ -1,5 +1,6 @@
 "use client";
 
+import { useTouchLayout } from "@/lib/hooks/useTouchLayout";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, HelpCircle, Map as MapIcon, X } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
@@ -117,9 +118,12 @@ export function Minimap() {
   const svgRef = useRef<SVGSVGElement>(null);
   const dots = useRef<Map<string, SVGCircleElement>>(new Map());
 
+  const touch = useTouchLayout();
   useEffect(() => {
     try {
-      if (localStorage.getItem("ov:minimap") === "0") setOpen(false);
+      const v = localStorage.getItem("ov:minimap");
+      // tablets / phones: folded unless the CEO opened it
+      if (v === "0" || (v === null && (window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 1024))) setOpen(false);
     } catch {}
   }, []);
 
@@ -153,14 +157,22 @@ export function Minimap() {
       <button
         onClick={() => toggle(true)}
         title="Show minimap"
-        className="pointer-events-auto absolute bottom-16 right-3 z-20 grid h-10 w-10 place-items-center rounded-xl border border-panel/70 bg-panel/90 text-slate-600 shadow-lg backdrop-blur hover:bg-slate-100"
+        className={cn(
+          "pointer-events-auto absolute right-3 z-20 grid place-items-center rounded-xl border border-panel/70 bg-panel/90 text-slate-600 shadow-lg backdrop-blur hover:bg-slate-100",
+          touch ? "bottom-[calc(9.25rem+env(safe-area-inset-bottom))] h-11 w-11" : "bottom-16 h-10 w-10",
+        )}
       >
         <MapIcon className="h-4 w-4" />
       </button>
     );
 
   return (
-    <div className="anim-up pointer-events-auto absolute bottom-16 right-3 z-20 hidden rounded-2xl border border-panel/70 bg-panel/90 p-2 shadow-lg backdrop-blur sm:block">
+    <div
+      className={cn(
+        "anim-up pointer-events-auto absolute right-3 z-20 hidden rounded-2xl border border-panel/70 bg-panel/90 p-2 shadow-lg backdrop-blur sm:block",
+        touch ? "bottom-[calc(9.25rem+env(safe-area-inset-bottom))]" : "bottom-16",
+      )}
+    >
       <div className="mb-1 flex items-center justify-between px-0.5">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Floor plan</span>
         <button onClick={() => toggle(false)} className="text-slate-400 hover:text-slate-700" aria-label="Hide minimap">

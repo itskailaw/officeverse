@@ -31,6 +31,7 @@ import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { MusicPlayer } from "./MusicPlayer";
 import { useHealthPolling } from "./SystemHealth";
+import { useTouchLayout } from "@/lib/hooks/useTouchLayout";
 import { openWelcome } from "./WelcomeBrief";
 import { CATALOG } from "@/lib/office/catalog";
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +53,7 @@ function Clock24() {
   return (
     <button
       onClick={openWelcome}
-      className="hidden items-center gap-1 rounded-md px-1.5 py-1 text-xs tabular-nums text-slate-600 hover:bg-slate-100 md:flex"
+      className="hidden items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-1 text-xs tabular-nums text-slate-600 hover:bg-slate-100 md:flex"
       title="Malaysia time — click for today at a glance"
     >
       <Clock className="h-3.5 w-3.5" />
@@ -73,15 +74,16 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
   const liveShopee = !!liveSummary && (liveSummary.platforms.shopee.connected || liveSummary.platforms.lazada.connected);
   const unread = useOffice((s) => s.notifications.filter((n) => !n.read).length);
   const health = useHealthPolling();
+  const touch = useTouchLayout();
   const companies = useOffice((s) => s.companies);
   const ui = useUI();
   return (
     <header className="pointer-events-auto absolute inset-x-3 top-3 z-40 flex h-12 items-center gap-2 rounded-2xl border border-panel/70 bg-panel/90 px-3 shadow-lg backdrop-blur">
       <div className="flex items-center gap-2 pr-2">
         <Logo size={32} />
-        <div className="hidden leading-tight sm:block">
+        <div className="hidden whitespace-nowrap leading-tight sm:block">
           <div className="text-sm font-semibold text-slate-900">OfficeVerse</div>
-          <div className="text-[10px] text-slate-500">Your Business. Your People. Your Universe.</div>
+          <div className="hidden text-[10px] text-slate-500 xl:block">Your Business. Your People. Your Universe.</div>
         </div>
       </div>
       <CompanySwitcher />
@@ -100,6 +102,8 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
       {ui.mode === "build" && <Badge variant="warning">BUILD MODE</Badge>}
       <div className="ml-auto flex items-center gap-1">
         <Clock24 />
+        {!touch && (
+        <>
         <Button
           variant="ghost"
           size="sm"
@@ -122,6 +126,8 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         >
           <Tag />
         </Button>
+        </>
+        )}
         <MusicPlayer />
         <ApprovalsButton />
         <div className="relative">
@@ -134,10 +140,12 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
             </span>
           )}
         </div>
-        <Button size="sm" onClick={() => ui.set({ dialog: "dashboard", dashboardTab: "overview" })}>
-          <LayoutDashboard />
-          <span className="hidden sm:inline">Dashboard</span>
-        </Button>
+        {!touch && (
+          <Button size="sm" onClick={() => ui.set({ dialog: "dashboard", dashboardTab: "overview" })}>
+            <LayoutDashboard />
+            <span className="hidden sm:inline">Dashboard</span>
+          </Button>
+        )}
         <div className="relative">
           <Button variant="ghost" size="icon" title={health ? "Settings — System health needs a look" : "Settings"} onClick={() => ui.set({ dialog: "settings" })}>
             <Settings />
@@ -226,6 +234,7 @@ export function NotificationsPanel() {
 
 export function Toolbar() {
   const ui = useUI();
+  const touch = useTouchLayout();
   const live = useOffice((s) => s.meetings.some((m) => m.status === "in_progress"));
   const items: { icon: React.ReactNode; label: string; active?: boolean; onClick: () => void; disabled?: boolean }[] = [
     { icon: <MousePointer2 />, label: "Live mode — click floor to walk", active: ui.mode === "live", onClick: () => ui.set({ mode: "live", selectedFurnitureId: null }) },
@@ -244,7 +253,8 @@ export function Toolbar() {
           disabled={it.disabled}
           onClick={it.onClick}
           className={cn(
-            "group relative grid h-10 w-10 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 [&_svg]:h-[18px] [&_svg]:w-[18px]",
+            "group relative grid place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 [&_svg]:h-[18px] [&_svg]:w-[18px]",
+            touch ? "h-12 w-12" : "h-10 w-10",
             it.active && "bg-navy text-white hover:bg-navy",
           )}
         >
@@ -267,13 +277,19 @@ const JUMPS = [
 
 export function CameraControls() {
   const camera = useUI((s) => s.camera);
-  const btn = "grid h-9 w-9 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 [&_svg]:h-4 [&_svg]:w-4";
+  const touch = useTouchLayout();
+  const btn = cn("grid place-items-center rounded-xl text-slate-600 hover:bg-slate-100 [&_svg]:h-4 [&_svg]:w-4", touch ? "h-11 w-11" : "h-9 w-9");
   return (
-    <div className="pointer-events-auto absolute bottom-3 right-3 z-20 flex items-center gap-0.5 rounded-2xl border border-panel/70 bg-panel/90 p-1 shadow-lg backdrop-blur">
+    <div
+      className={cn(
+        "pointer-events-auto absolute right-3 z-20 flex items-center gap-0.5 rounded-2xl border border-panel/70 bg-panel/90 p-1 shadow-lg backdrop-blur",
+        touch ? "bottom-[calc(5.5rem+env(safe-area-inset-bottom))]" : "bottom-3",
+      )}
+    >
       {JUMPS.map((j) => (
         <button
           key={j.label}
-          className="h-9 rounded-xl px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          className={cn("rounded-xl px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100", touch ? "h-11" : "h-9")}
           title={`Fly to: ${j.title}`}
           onClick={() => camera({ kind: "focus", x: j.x, z: j.z, zoom: j.zoom })}
         >

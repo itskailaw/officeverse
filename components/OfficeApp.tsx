@@ -14,6 +14,7 @@ import { Fulfilment } from "@/components/hud/Fulfilment";
 import { Purchases } from "@/components/hud/Purchases";
 import { SubtitleStudio } from "@/components/hud/SubtitleStudio";
 import { WelcomeBrief } from "@/components/hud/WelcomeBrief";
+import { TabBar } from "@/components/hud/TabBar";
 import { useServiceWorker } from "@/components/hud/AppInstall";
 import { bootLiveData, watchLiveData } from "@/lib/integrations/client";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
@@ -217,6 +218,7 @@ export default function OfficeApp() {
         <BuildPanel />
         <CameraControls />
         <Minimap />
+        <TabBar />
         <TourButton />
       </div>
       <WelcomeTour />
