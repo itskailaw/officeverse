@@ -36,6 +36,7 @@ import { TeamTable } from "./TeamTable";
 import { StatusBadge, TaskRow } from "./EmployeePanel";
 import { ApprovalCard } from "./AIWork";
 import { ProfitPanel, ReturnsPanel } from "./ProfitReturns";
+import { Scorecards } from "./Scorecards";
 import { liveSources, useLive, type LiveSummary, type PlatformFigures } from "@/lib/integrations/client";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
@@ -86,6 +87,7 @@ export function ExecutiveDashboard() {
               <CompaniesManager />
             </TabsContent>
             <TabsContent value="team">
+              <Scorecards />
               <TeamTable />
             </TabsContent>
             <TabsContent value="approvals">

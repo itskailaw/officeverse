@@ -225,3 +225,30 @@ Rules:
     .slice(0, 4)
     .map((l) => l.slice(0, 240));
 }
+
+/** 2-4 short observations for the Monday weekly review, from pre-computed facts only. */
+export async function weeklyNotes(facts: unknown, assistant = { name: "Sophia Chen", title: "Executive Assistant" }): Promise<string[]> {
+  const system = `You are ${assistant.name}, ${assistant.title} to the CEO of Water Guardian Solution (MDBC water filters on Shopee and Lazada Malaysia).
+Each Monday the CEO gets last week's figures compared with the week before; you add 2 to 4 short notes on what matters.
+Rules:
+- Use ONLY the facts given. Never invent numbers, causes or products. Quote figures exactly as given.
+- Focus on: the biggest change (which platform), products slowing down, cancellations/returns if notable, one practical suggestion for this week.
+- Each note: one sentence, max 25 words, English. Output only the notes, one per line, no bullets or numbering.`;
+  const out = await loop({
+    model: resolveModel("default"),
+    system: [{ type: "text", text: system }],
+    messages: [{ role: "user", content: `<facts>${JSON.stringify(facts).slice(0, 8000)}</facts>` }],
+    tools: [],
+    effort: "low",
+    maxIterations: 1,
+    outputBudget: 3000,
+    exec: () => ({ content: "", isError: true }),
+  });
+  if (out.refused || !out.text) return [];
+  return out.text
+    .split("\n")
+    .map((l) => l.replace(/^\s*(?:[-*•]|\d{1,2}[.)])\s+/, "").trim())
+    .filter((l) => l.length > 3)
+    .slice(0, 4)
+    .map((l) => l.slice(0, 240));
+}

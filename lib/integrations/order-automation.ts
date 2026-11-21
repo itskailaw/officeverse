@@ -7,6 +7,7 @@ import { requireShopeeConfig, shopPost } from "./shopee/api";
 import { validToken as shopeeToken } from "./shopee/sync";
 import { escapeHtml, sendTelegram } from "./telegram";
 import { pushText, sendPush } from "./webpush";
+import { getWsState, setWsState } from "./ws-state";
 import { sendApprovalCards } from "./telegram-office";
 import { inHours } from "./order-rules";
 
@@ -44,7 +45,7 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
       if (!rows.some((r) => r.provider === p && r.status !== "expired")) continue;
       const { data } = await sb
         .from("marketplace_orders")
-        .select("external_order_id, raw")
+        .select("external_order_id, raw, pay_time, ordered_at")
         .eq("workspace_id", ws)
         .eq("platform", p)
         .in("status", [...STATUS[p].toProcess])
@@ -62,6 +63,15 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
       conn.last_sync_summary = { ...(conn.last_sync_summary ?? {}), autoTried: nextTried };
       await updateIntegration(conn.id, { last_sync_summary: conn.last_sync_summary });
       const res = p === "shopee" ? await shipShopee(ws, ids) : await shipLazada(ws, ids);
+      // Farid's scorecard: how long after payment each order got confirmed
+      try {
+        const paidAt = new Map(todo.map((o) => [o.external_order_id as string, Date.parse(((o.pay_time ?? o.ordered_at) as string) ?? "")]));
+        const okIds = res.filter((r) => r.ok).map((r) => r.orderId);
+        const mins = okIds.map((id) => (Date.now() - (paidAt.get(id) ?? Date.now())) / 60000).filter((m) => Number.isFinite(m) && m >= 0 && m < 7 * 1440);
+        const key = `farid:${new Date().toISOString().slice(0, 7)}`;
+        const cur = await getWsState<{ confirmed: number; failed: number; minutes: number[] }>(ws, key, { confirmed: 0, failed: 0, minutes: [] });
+        await setWsState(ws, key, { confirmed: cur.confirmed + okIds.length, failed: cur.failed + (res.length - okIds.length), minutes: [...cur.minutes, ...mins].slice(-500) });
+      } catch {}
       const ok = res.filter((r) => r.ok);
       const bad = res.filter((r) => !r.ok);
       out.arranged += ok.length;

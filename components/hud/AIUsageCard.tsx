@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useOffice } from "@/lib/store/office-store";
 
 // USD per million tokens [input, output] — estimates only; the Anthropic Console is authoritative.
-const PRICES: Record<string, [number, number]> = {
+export const PRICES: Record<string, [number, number]> = {
   "claude-opus-5-5": [4, 20],
   "claude-sonnet-5-5": [2, 10],
   "claude-haiku-5-5": [0.1, 0.5],

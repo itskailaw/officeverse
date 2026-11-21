@@ -3,6 +3,7 @@ export const STAFF_ACTIONS = {
   send_packing_email: { label: "Email the airway bills + packing list now", short: "Send airway bills", who: ["emp-orders"] },
   check_orders: { label: "Check for new orders and confirm them now", short: "Check orders now", who: ["emp-orders"] },
   send_briefing: { label: "Send today's briefing to Telegram now", short: "Send briefing", who: ["emp-ea"] },
+  send_weekly: { label: "Send the weekly review (last 7 days vs the week before) now", short: "Send weekly review", who: ["emp-ea"] },
 } as const;
 export type StaffAction = keyof typeof STAFF_ACTIONS;
 export interface ProposedAction {

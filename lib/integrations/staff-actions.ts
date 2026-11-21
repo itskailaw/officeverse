@@ -19,6 +19,11 @@ export async function runStaffAction(ws: string, action: StaffAction): Promise<{
           text: r.arranged || r.failed ? `📦 Checked — ${r.arranged} confirmed${r.failed ? `, ${r.failed} need you` : ""}.` : "📦 Checked — no new orders waiting (or automatic confirmation is off).",
         };
       }
+      case "send_weekly": {
+        const { sendWeeklyReview } = await import("./weekly");
+        const r = await sendWeeklyReview(ws);
+        return { ok: true, text: r.sent ? "📊 Done — the weekly review is on your Telegram / email." : "📊 Weekly review made, but there's nowhere to send it — link Telegram or save an email address." };
+      }
       case "send_briefing": {
         await sendBriefing(ws, { refresh: true });
         return { ok: true, text: "☀️ Done — today's briefing is on your Telegram." };
