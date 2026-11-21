@@ -6,6 +6,8 @@ export interface PackingSettings {
   time: string;
   to: string;
   paper?: "thermal" | "a6" | "a5" | "a4" | "original";
+  /** daily: once a day at `time`; instant: right after Farid confirms new orders */
+  mode?: "daily" | "instant";
 }
 export interface PackLine {
   platform: "shopee" | "lazada";
@@ -19,8 +21,8 @@ export const klDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: 
 export const klHM = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: KL, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
 
 /** Is today's scheduled email due? `today` = today's automatic attempts (newest first). */
-export function packingDue(now: Date, s: Pick<PackingSettings, "enabled" | "time" | "to"> | null | undefined, today: { status: string; sent_at: string }[]): boolean {
-  if (!s?.enabled || !s.to || !/^\d{2}:\d{2}$/.test(s.time)) return false;
+export function packingDue(now: Date, s: Pick<PackingSettings, "enabled" | "time" | "to" | "mode"> | null | undefined, today: { status: string; sent_at: string }[]): boolean {
+  if (!s?.enabled || !s.to || !/^\d{2}:\d{2}$/.test(s.time) || s.mode === "instant") return false;
   if (klHM(now) < s.time) return false;
   const mine = today.filter((r) => klDate(new Date(r.sent_at)) === klDate(now));
   if (mine.some((r) => r.status === "sent" || r.status === "empty")) return false;

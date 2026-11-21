@@ -22,6 +22,8 @@ test("packing email is due after the chosen time, once a day", () => {
   assert.equal(packingDue(noon30, s, [f, f, f]), false);
   assert.equal(packingDue(noon30, { ...s, enabled: false }, []), false);
   assert.equal(packingDue(noon30, { ...s, to: "" }, []), false);
+  // instant mode: no daily email (Farid emails right after confirming instead)
+  assert.equal(packingDue(noon30, { ...s, mode: "instant" }, []), false);
 });
 
 test("packing email lists parcels in label order with a pick list", () => {

@@ -245,7 +245,7 @@ export interface OfficeSettings {
   /** reviewer track record: deliberate test mistakes caught, and mistakes the CEO reported as missed */
   qaStats?: Record<string, { planted: number; caught: number; missed: number; jobs: number }>;
   /** Farid's daily packing-list email with the merged airway bills */
-  packingEmail?: { enabled: boolean; time: string; to: string; paper?: "thermal" | "a6" | "a5" | "a4" | "original" };
+  packingEmail?: { enabled: boolean; time: string; to: string; paper?: "thermal" | "a6" | "a5" | "a4" | "original"; mode?: "daily" | "instant" };
   /** floor-plan version the saved furniture belongs to (see LAYOUT_VERSION) */
   layoutVersion?: number;
   /** the CEO's saved start view: look-at point, camera offset, and zoom relative to "fit the office" (so it suits any screen) */

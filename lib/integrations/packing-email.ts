@@ -31,49 +31,66 @@ export interface PackingResult {
  * Farid's packing email: every arranged order (To ship) that hasn't been emailed before, as a numbered
  * packing list in the body plus ONE merged airway-bill PDF for Shopee + Lazada in the same order.
  */
-export async function sendPackingEmail(ws: string, opts: { manual?: boolean; to?: string } = {}): Promise<PackingResult> {
+export async function sendPackingEmail(
+  ws: string,
+  opts: {
+    manual?: boolean;
+    to?: string;
+    /** orders Farid just confirmed (our copy may still say "to process" until the next sync) */
+    include?: { platform: Plat; id: string }[];
+    /** instant mode: no log row and no email when there's nothing new; stay quiet if labels aren't ready yet */
+    instant?: boolean;
+  } = {},
+): Promise<PackingResult> {
   const sb = getAdminSupabase();
   const settings = await packingSettings(ws);
   const to = (opts.to ?? settings?.to ?? "").trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) throw new HttpError(400, "Add the email address to send the packing list to.");
+
+  // orders already emailed in the last 3 weeks
+  const { data: prev, error: prevErr } = await sb
+    .from("packing_emails")
+    .select("orders, status, sent_at")
+    .eq("workspace_id", ws)
+    .gte("sent_at", new Date(Date.now() - 21 * 86400000).toISOString());
+  if (prevErr) throw new Error(/relation|does not exist/i.test(prevErr.message) ? "Run the 0006_packing_email.sql migration in Supabase first." : prevErr.message);
+  const done = new Set((prev ?? []).filter((r) => r.status === "sent").flatMap((r) => ((r.orders as { platform: string; id: string }[]) ?? []).map((o) => `${o.platform}:${o.id}`)));
+  // another run is sending right now (push and the 10-minute check can overlap)
+  if (opts.instant && (prev ?? []).some((r) => r.status === "sending" && Date.now() - Date.parse(r.sent_at as string) < 3 * 60_000)) return { status: "empty", count: 0, problems: [] };
+
+  const conns = await listIntegrations(ws);
+  const plats = (["shopee", "lazada"] as Plat[]).filter((p) => conns.some((r) => r.provider === p && r.status !== "expired" && r.status !== "disconnected"));
+  const { data: rows, error } = await sb
+    .from("marketplace_orders")
+    .select("platform, external_order_id, status, ordered_at, pay_time, items")
+    .eq("workspace_id", ws)
+    .in("platform", plats.length ? plats : ["none"])
+    .in("status", plats.flatMap((p) => [...STATUS[p].awaitingPickup, ...STATUS[p].toProcess]))
+    .limit(400);
+  if (error) throw new Error(error.message);
+  const include = new Set((opts.include ?? []).map((o) => `${o.platform}:${o.id}`));
+  // Shopee's own order: paid time, oldest first
+  const todo = (rows ?? [])
+    .filter((o) => {
+      const k = `${o.platform}:${o.external_order_id}`;
+      return !done.has(k) && (STATUS[o.platform as Plat].awaitingPickup.has(o.status as string) || include.has(k));
+    })
+    .sort((a, b) => Date.parse((a.pay_time ?? a.ordered_at) as string) - Date.parse((b.pay_time ?? b.ordered_at) as string));
+  if (!todo.length && opts.instant) return { status: "empty", count: 0, problems: [] };
 
   const { data: log, error: logErr } = await sb
     .from("packing_emails")
     .insert({ workspace_id: ws, status: "sending", recipient: to, manual: !!opts.manual })
     .select("id")
     .single();
-  if (logErr) throw new Error(/relation|does not exist/i.test(logErr.message) ? "Run the 0006_packing_email.sql migration in Supabase first." : logErr.message);
+  if (logErr) throw new Error(logErr.message);
   const finish = (patch: Record<string, unknown>) => sb.from("packing_emails").update(patch).eq("id", log.id);
 
   try {
-    // orders already emailed in the last 3 weeks
-    const { data: prev } = await sb
-      .from("packing_emails")
-      .select("orders")
-      .eq("workspace_id", ws)
-      .eq("status", "sent")
-      .gte("sent_at", new Date(Date.now() - 21 * 86400000).toISOString());
-    const done = new Set((prev ?? []).flatMap((r) => ((r.orders as { platform: string; id: string }[]) ?? []).map((o) => `${o.platform}:${o.id}`)));
-
-    const conns = await listIntegrations(ws);
-    const plats = (["shopee", "lazada"] as Plat[]).filter((p) => conns.some((r) => r.provider === p && r.status !== "expired" && r.status !== "disconnected"));
-    const { data: rows, error } = await sb
-      .from("marketplace_orders")
-      .select("platform, external_order_id, status, ordered_at, pay_time, items")
-      .eq("workspace_id", ws)
-      .in("platform", plats.length ? plats : ["none"])
-      .in("status", plats.flatMap((p) => [...STATUS[p].awaitingPickup]))
-      .limit(300);
-    if (error) throw new Error(error.message);
-    // Shopee's own order: paid time, oldest first
-    const todo = (rows ?? [])
-      .filter((o) => STATUS[o.platform as Plat].awaitingPickup.has(o.status as string) && !done.has(`${o.platform}:${o.external_order_id}`))
-      .sort((a, b) => Date.parse((a.pay_time ?? a.ordered_at) as string) - Date.parse((b.pay_time ?? b.ordered_at) as string));
     if (!todo.length) {
       await finish({ status: "empty" });
       return { status: "empty", count: 0, problems: [] };
     }
-
     const itemsOf = new Map(todo.map((o) => [`${o.platform}:${o.external_order_id}`, ((o.items as PackLine["items"] | null) ?? []).map((i) => ({ name: i.name, model: i.model ?? null, qty: Number(i.qty) || 1 }))]));
     const bundle = await buildLabels(ws, todo.map((o) => ({ platform: o.platform as Plat, id: o.external_order_id as string })), settings?.paper ?? "thermal");
     const lines: PackLine[] = [...bundle.sequence, ...(bundle.html?.sequence ?? [])].map((x) => ({ ...x, items: itemsOf.get(`${x.platform}:${x.id}`) ?? [] }));
@@ -97,7 +114,11 @@ export async function sendPackingEmail(ws: string, opts: { manual?: boolean; to?
   } catch (e) {
     const msg = labelErrText(e);
     await finish({ status: "failed", error: msg.slice(0, 1000) });
-    // tell the owner on Telegram when the scheduled email fails
+    // instant mode: labels not ready yet (tracking number still coming) — the next check tries again quietly
+    const notReady = /tracking number|not packed yet|still preparing|arrange the shipment first/i.test(msg);
+    const failedRecently = (prev ?? []).some((r) => r.status === "failed" && Date.now() - Date.parse(r.sent_at as string) < 60 * 60_000);
+    if (opts.instant && (notReady || failedRecently)) throw e;
+    // tell the owner on Telegram when an automatic email fails
     if (!opts.manual) {
       const tg = (await listIntegrations(ws, "telegram")).find((r) => r.status === "connected" && r.shop_id);
       if (tg?.shop_id) await sendTelegram(tg.shop_id, `📦 <b>Farid:</b> today's packing-list email didn't go out — ${escapeHtml(msg)}`).catch(() => {});

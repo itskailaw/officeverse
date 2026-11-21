@@ -257,12 +257,14 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
     <div className={cn("flex flex-wrap items-center gap-3 border-b px-5 py-2 text-xs", cfg.enabled ? "border-sky-100 bg-sky-50/70" : "border-slate-100 bg-slate-50/70")}>
       <Mail className="h-4 w-4 text-slate-500" />
       <div className="min-w-0 flex-1">
-        <div className="font-semibold text-slate-800">Daily packing list by email</div>
+        <div className="font-semibold text-slate-800">Packing list & airway bills by email</div>
         <div className="text-[11px] text-slate-500">
           {status && !status.configured ? (
             <span className="font-medium text-amber-700">Email isn&apos;t set up yet — add RESEND_API_KEY in Vercel, then redeploy.</span>
           ) : cfg.enabled ? (
-            `On — every day at ${cfg.time}: new To-ship parcels + one merged airway-bill PDF (Shopee & Lazada).`
+            cfg.mode === "instant"
+              ? "On — right after Farid confirms new orders: their airway bills (one merged PDF) + packing list, emailed within a minute."
+              : `On — every day at ${cfg.time}: new To-ship parcels + one merged airway-bill PDF (Shopee & Lazada).`
           ) : (
             "Off — Farid can email new parcels and their airway bills to you every day."
           )}
@@ -278,10 +280,21 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
         className="h-7 w-48 rounded-md border border-slate-200 bg-panel px-2 text-[11px]"
         aria-label="Send the packing list to"
       />
-      <label className="flex items-center gap-1 text-[11px] text-slate-500">
-        at
-        <input type="time" value={cfg.time} onChange={(e) => set({ time: e.target.value || "12:00" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]" />
-      </label>
+      <select
+        value={cfg.mode ?? "daily"}
+        onChange={(e) => set({ mode: e.target.value as "daily" | "instant" })}
+        className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]"
+        aria-label="When to email"
+      >
+        <option value="instant">Right after Farid confirms</option>
+        <option value="daily">Once a day</option>
+      </select>
+      {(cfg.mode ?? "daily") === "daily" && (
+        <label className="flex items-center gap-1 text-[11px] text-slate-500">
+          at
+          <input type="time" value={cfg.time} onChange={(e) => set({ time: e.target.value || "12:00" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]" />
+        </label>
+      )}
       <Button size="sm" variant="outline" onClick={sendNow} disabled={busy || !valid} title="Email the new To-ship parcels now">
         {busy ? <Loader2 className="animate-spin" /> : <Send />} Send now
       </Button>
@@ -292,7 +305,7 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
         onClick={() => {
           if (!cfg.enabled && !valid) return toast("error", "Enter the email address first");
           set({ enabled: !cfg.enabled });
-          toast("success", cfg.enabled ? "Daily packing email off" : `Daily packing email on — every day at ${cfg.time}`);
+          toast("success", cfg.enabled ? "Packing email off" : cfg.mode === "instant" ? "Packing email on — right after Farid confirms new orders" : `Packing email on — every day at ${cfg.time}`);
         }}
         className={cn("relative h-6 w-11 rounded-full transition", cfg.enabled ? "bg-sky-500" : "bg-slate-300")}
       >

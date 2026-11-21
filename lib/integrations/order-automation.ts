@@ -31,9 +31,10 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
   const tg = rows.find((r) => r.provider === "telegram" && r.status === "connected");
   const { data: lay } = await sb.from("office_layouts").select("settings").eq("workspace_id", ws).maybeSingle();
   const auto = (lay?.settings as { autoArrange?: { enabled?: boolean; start?: string; end?: string } } | null)?.autoArrange;
-  const out = { arranged: 0, failed: 0, cancellations: 0 };
+  const out = { arranged: 0, failed: 0, cancellations: 0, emailed: 0 };
   // what Farid saw on this run, per platform — shown in the Fulfilment window so the CEO can tell he's working
   const seen: Partial<Record<Plat, { waiting: number; tried: number; arranged: number; failed: number }>> = {};
+  const confirmed: { platform: Plat; id: string }[] = [];
   const state = !auto?.enabled ? "off" : inHours(new Date(), auto.start ?? "00:00", auto.end ?? "23:59") ? "on" : "outside_hours";
 
   // ── 1. auto-arrange new paid orders ──
@@ -65,14 +66,34 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
       out.arranged += ok.length;
       out.failed += bad.length;
       seen[p] = { ...seen[p]!, arranged: ok.length, failed: bad.length };
+      confirmed.push(...ok.map((r) => ({ platform: p, id: r.orderId })));
       if (ok.length || bad.length) {
         const lines = [
           ok.length ? `📦 <b>Farid confirmed ${ok.length} new ${NAME[p]} order${ok.length > 1 ? "s" : ""}</b> (drop-off arranged)` : "",
           ...bad.slice(0, 5).map((b) => `⚠️ ${NAME[p]} #${escapeHtml(b.orderId)}: ${escapeHtml(b.message)} — please arrange it yourself`),
         ].filter(Boolean);
-        if (tg?.shop_id) await sendTelegram(tg.shop_id, lines.join("\n") + (ok.length ? "\nPrint the airway bills: Dashboard → To ship → Print labels." : "")).catch(() => {});
+        const pe0 = (lay?.settings as { packingEmail?: { enabled?: boolean; mode?: string } } | null)?.packingEmail;
+        const next = pe0?.enabled && pe0.mode === "instant" ? "\nI'll email you the airway bills + packing list in a minute." : "\nPrint the airway bills: Dashboard → To ship → Print labels.";
+        if (tg?.shop_id) await sendTelegram(tg.shop_id, lines.join("\n") + (ok.length ? next : "")).catch(() => {});
         await notify(ws, bad.length ? "important" : "info", `${NAME[p]}: ${ok.length} order${ok.length === 1 ? "" : "s"} confirmed${bad.length ? `, ${bad.length} need you` : ""}`, lines.map((l) => l.replace(/<[^>]+>/g, "")).join("\n"));
       }
+    }
+  }
+
+  // ── 1b. instant packing email: airway bills + packing list right after confirming ──
+  const pe = (lay?.settings as { packingEmail?: { enabled?: boolean; mode?: string; to?: string } } | null)?.packingEmail;
+  if (pe?.enabled && pe.mode === "instant" && pe.to) {
+    try {
+      // give the marketplace a moment to issue tracking numbers for what was just confirmed
+      if (confirmed.length) await new Promise((r) => setTimeout(r, 15_000));
+      const { sendPackingEmail } = await import("./packing-email");
+      const r = await sendPackingEmail(ws, { include: confirmed, instant: true });
+      if (r.status === "sent") {
+        out.emailed = r.count;
+        if (tg?.shop_id) await sendTelegram(tg.shop_id, `📧 <b>Farid:</b> airway bills + packing list for ${r.count} parcel${r.count === 1 ? "" : "s"} sent to your email.`).catch(() => {});
+      }
+    } catch (e) {
+      console.error("[orders] instant packing email:", e instanceof Error ? e.message : e);
     }
   }
 
