@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, CheckSquare, Megaphone, Package, PackageCheck, RotateCcw, TrendingDown, TrendingUp, X } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
@@ -13,6 +13,10 @@ import { cn } from "@/lib/utils";
 const SEEN_KEY = "ov:welcome-seen"; // sessionStorage: once per sign-in session
 const PREF_KEY = "ov:welcome-off"; // localStorage: "don't show when I sign in"
 const LAST_VISIT = "ov:last-visit";
+const SHOWN_KEY = "ov:welcome-shown-at"; // localStorage: when it was last shown
+
+/** Open the pop-up from anywhere (e.g. the clock in the top bar). */
+export const openWelcome = () => window.dispatchEvent(new Event("ov:open-welcome"));
 
 const FESTIVE: Record<string, string> = { raya: "Selamat Hari Raya! 🌙", cny: "Gong Xi Fa Cai! 🧧", deepavali: "Happy Deepavali! 🪔", kobe: "Happy Kobe Day — Mamba mentality 🐍" };
 
@@ -88,30 +92,59 @@ export function WelcomeBrief() {
   const [open, setOpen] = useState(false);
   const [lastVisit, setLastVisit] = useState<number | null>(null);
   const [off, setOff] = useState(false);
+  const mountedAt = useRef(Date.now());
 
-  // decide once: after sign-in data has loaded (or a few seconds in demo mode), once per session
+  // show on sign-in: first open of the day, or 3+ hours since it was last shown — never over the tour or another window
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    let seen = false;
+    const t = setInterval(() => setTick((n) => n + 1), 2000);
+    const manual = () => setOpen(true);
+    window.addEventListener("ov:open-welcome", manual);
+    // the installed app often stays open in the background: coming back after 3+ hours counts as opening it again
+    let hiddenAt = 0;
+    const onVis = () => {
+      if (document.hidden) hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 3 * 3600_000) {
+        try {
+          sessionStorage.removeItem(SEEN_KEY);
+        } catch {}
+        mountedAt.current = Date.now();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("ov:open-welcome", manual);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+  useEffect(() => {
+    if (open) return;
+    let due = false;
     try {
-      seen = !!sessionStorage.getItem(SEEN_KEY);
       setOff(localStorage.getItem(PREF_KEY) === "1");
-      if (localStorage.getItem(PREF_KEY) === "1") seen = true;
-      if (!localStorage.getItem("ov:tour-done")) seen = true; // first visit: the welcome tour comes first
       const lv = Number(localStorage.getItem(LAST_VISIT));
-      if (lv) setLastVisit(lv);
-    } catch {}
-    if (seen) return;
+      if (lv && !lastVisit) setLastVisit(lv);
+      // every sign-in / fresh open of OfficeVerse (once per open — not on every window you close)
+      due =
+        localStorage.getItem(PREF_KEY) !== "1" &&
+        !sessionStorage.getItem(SEEN_KEY) &&
+        !!localStorage.getItem("ov:tour-done"); // the first-visit tour goes first; we show right after it
+    } catch {
+      due = false;
+    }
+    if (!due || dialog) return; // wait for any open window to close
     // show as soon as the marketplace summary has loaded; otherwise after a short wait (demo mode / not connected)
-    const wait = summary ? 1200 : settings.demoMode ? 2500 : 7000;
-    const t = setTimeout(() => {
-      if (useUI.getState().dialog) return; // don't cover something the CEO already opened
-      setOpen(true);
-      try {
-        sessionStorage.setItem(SEEN_KEY, "1");
-      } catch {}
-    }, wait);
-    return () => clearTimeout(t);
-  }, [summary, settings.demoMode]);
+    const startedAt = mountedAt.current;
+    const wait = summary ? 800 : settings.demoMode ? 2500 : 4000;
+    if (Date.now() - startedAt < wait) return; // checked again on the next tick
+    setOpen(true);
+    try {
+      sessionStorage.setItem(SEEN_KEY, "1");
+      localStorage.setItem(SHOWN_KEY, String(Date.now()));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary, settings.demoMode, dialog, tick, open]);
   useEffect(() => {
     const save = () => {
       try {

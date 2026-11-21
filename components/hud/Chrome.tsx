@@ -31,6 +31,7 @@ import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { MusicPlayer } from "./MusicPlayer";
 import { useHealthPolling } from "./SystemHealth";
+import { openWelcome } from "./WelcomeBrief";
 import { CATALOG } from "@/lib/office/catalog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,10 +50,14 @@ function Clock24() {
   }, []);
   if (!now) return null;
   return (
-    <span className="hidden items-center gap-1 text-xs tabular-nums text-slate-600 md:flex" title="Malaysia time (Asia/Kuala_Lumpur)">
+    <button
+      onClick={openWelcome}
+      className="hidden items-center gap-1 rounded-md px-1.5 py-1 text-xs tabular-nums text-slate-600 hover:bg-slate-100 md:flex"
+      title="Malaysia time — click for today at a glance"
+    >
       <Clock className="h-3.5 w-3.5" />
       {klTime(now, { weekday: "short", hour: "2-digit", minute: "2-digit" })} MYT
-    </span>
+    </button>
   );
 }
 

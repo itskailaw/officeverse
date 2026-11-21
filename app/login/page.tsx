@@ -25,6 +25,10 @@ export default function LoginPage() {
     setBusy(false);
     if (res.error) return setMsg({ kind: "error", text: res.error.message });
     if (mode === "signup" && !res.data.session) return setMsg({ kind: "info", text: "Check your inbox to confirm your email, then sign in." });
+    // a fresh sign-in always gets the "today at a glance" pop-up
+    try {
+      sessionStorage.removeItem("ov:welcome-seen");
+    } catch {}
     router.replace("/office");
   };
 
