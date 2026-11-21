@@ -15,6 +15,7 @@ import { AppearanceEditor } from "./EmployeeEditor";
 import { IntegrationsPanel } from "./Integrations";
 import { AIUsageCard } from "./AIUsageCard";
 import { SystemHealthCard } from "./SystemHealth";
+import { AppInstallCard } from "./AppInstall";
 
 const MAX_UPLOAD = 5 * 1024 * 1024;
 const ALLOWED = ["image/png", "image/jpeg", "image/webp"];
@@ -305,6 +306,7 @@ export function SettingsDialog() {
               <StatusRow label="Marketplace integrations" ok={false} okText="" offText="0 connected (Phase 3)" />
             </div>
             <SystemHealthCard />
+            <AppInstallCard />
             <AIUsageCard />
             <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
               <Button variant="outline" size="sm" onClick={exportData}>

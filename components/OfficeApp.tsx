@@ -14,6 +14,7 @@ import { Fulfilment } from "@/components/hud/Fulfilment";
 import { Purchases } from "@/components/hud/Purchases";
 import { SubtitleStudio } from "@/components/hud/SubtitleStudio";
 import { WelcomeBrief } from "@/components/hud/WelcomeBrief";
+import { useServiceWorker } from "@/components/hud/AppInstall";
 import { bootLiveData, watchLiveData } from "@/lib/integrations/client";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { ensureWorkspace, startSync } from "@/lib/data/sync";
@@ -70,6 +71,7 @@ function useThemeClass() {
 type Phase = "booting" | "auth-required" | "ready" | "error";
 
 export default function OfficeApp() {
+  useServiceWorker();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("booting");
   const [error, setError] = useState<string | null>(null);

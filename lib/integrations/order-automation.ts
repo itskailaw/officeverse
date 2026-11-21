@@ -6,6 +6,7 @@ import { shipLazada, shipShopee } from "./fulfil";
 import { requireShopeeConfig, shopPost } from "./shopee/api";
 import { validToken as shopeeToken } from "./shopee/sync";
 import { escapeHtml, sendTelegram } from "./telegram";
+import { pushText, sendPush } from "./webpush";
 import { sendApprovalCards } from "./telegram-office";
 import { inHours } from "./order-rules";
 
@@ -75,6 +76,12 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
         const pe0 = (lay?.settings as { packingEmail?: { enabled?: boolean; mode?: string } } | null)?.packingEmail;
         const next = pe0?.enabled && pe0.mode === "instant" ? "\nI'll email you the airway bills + packing list in a minute." : "\nPrint the airway bills: Dashboard → To ship → Print labels.";
         if (tg?.shop_id) await sendTelegram(tg.shop_id, lines.join("\n") + (ok.length ? next : "")).catch(() => {});
+        await sendPush(ws, {
+          title: bad.length ? `${NAME[p]}: ${bad.length} order${bad.length > 1 ? "s" : ""} need you` : `Farid confirmed ${ok.length} ${NAME[p]} order${ok.length > 1 ? "s" : ""}`,
+          body: pushText(lines.join("\n")),
+          url: "/office",
+          tag: `orders-${p}`,
+        });
         await notify(ws, bad.length ? "important" : "info", `${NAME[p]}: ${ok.length} order${ok.length === 1 ? "" : "s"} confirmed${bad.length ? `, ${bad.length} need you` : ""}`, lines.map((l) => l.replace(/<[^>]+>/g, "")).join("\n"));
       }
     }
@@ -135,6 +142,7 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
     out.cancellations += fresh.length;
     if (fresh.length) {
       if (tg?.shop_id) await sendApprovalCards(tg.shop_id, ws, fresh).catch(() => {});
+      await sendPush(ws, { title: `🛑 ${fresh.length} cancellation request${fresh.length > 1 ? "s" : ""}`, body: fresh.map((a) => a.summary).join("\n"), url: "/office", tag: "cancel" });
       await notify(ws, "critical", `${fresh.length} cancellation request${fresh.length > 1 ? "s" : ""} need your decision`, fresh.map((a) => a.summary).join("\n"));
     }
   }
@@ -157,6 +165,7 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
         open.slice(0, 5).map((r) => `• Order #${escapeHtml(String(r.order_id ?? r.external_id))}${r.reason ? ` — ${escapeHtml(String(r.reason).slice(0, 80))}` : ""}`).join("\n") +
         `\nLazada doesn't let apps answer these — open Lazada Seller Center → Orders → Cancellation to accept or reject.`;
       if (tg.shop_id) await sendTelegram(tg.shop_id, msg).catch(() => {});
+      await sendPush(ws, { title: `🛑 ${open.length} Lazada cancellation request${open.length > 1 ? "s" : ""}`, body: pushText(msg), url: "/office", tag: "cancel-lazada" });
       await notify(ws, "critical", `${open.length} Lazada cancellation request${open.length > 1 ? "s" : ""}`, msg.replace(/<[^>]+>/g, ""));
       await updateIntegration(tg.id, {
         last_sync_summary: { ...(tg.last_sync_summary ?? {}), lzCancelAlerted: [...seen, ...open.map((r) => String(r.external_id))].slice(-300) },

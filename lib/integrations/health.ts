@@ -4,6 +4,7 @@ import { aiConfigured } from "@/lib/ai/server/guard";
 import { emailConfigured } from "./email";
 import { listIntegrations, updateIntegration } from "./store";
 import { escapeHtml, sendTelegram, telegramToken } from "./telegram";
+import { pushText, sendPush } from "./webpush";
 import { ago, schedulerCheck, storeChecks, transitions, type Check } from "./health-rules";
 
 const klDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(d);
@@ -122,6 +123,7 @@ export async function healthWatch(ws: string) {
       ...fixed.map((c) => `🟢 <b>${escapeHtml(c.label)}</b> is working again.`),
     ];
     await sendTelegram(tg.shop_id, `🛠 <b>${escapeHtml(who)} (IT):</b>\n${lines.join("\n")}`).catch(() => {});
+    if (broke.length) await sendPush(ws, { title: `🛠 ${who}: ${broke.length} system problem${broke.length > 1 ? "s" : ""}`, body: pushText(lines.join("\n")), url: "/office", tag: "health" });
   }
   await updateIntegration(tg.id, { last_sync_summary: { ...(tg.last_sync_summary ?? {}), health: next } });
   return checks;

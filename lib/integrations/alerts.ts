@@ -3,6 +3,7 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 import { listIntegrations, updateIntegration } from "./store";
 import { liveSummary, STATUS } from "./summary";
 import { escapeHtml, sendTelegram } from "./telegram";
+import { pushText, sendPush } from "./webpush";
 import { decideAlerts, type AlertState } from "./alert-rules";
 
 /**
@@ -48,6 +49,7 @@ export async function checkAlerts(workspaceId: string) {
   for (const m of messages) {
     try {
       await sendTelegram(tg.shop_id, m);
+      await sendPush(workspaceId, { title: "OfficeVerse alert", body: pushText(m), url: "/office", tag: `alert-${sent}` });
       sent++;
     } catch (e) {
       console.error("[alerts] telegram send failed", e instanceof Error ? e.message : e);
