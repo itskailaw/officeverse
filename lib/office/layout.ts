@@ -204,9 +204,10 @@ export const FURNITURE: FurnitureItem[] = [
   f("cor-bean-2", "bean_bag", "corridor", 31.2, 14.25, PI, { color: "#8b5cf6" }),
   f("cor-bean-3", "bean_bag", "corridor", 32.3, 14.25, PI, { color: "#f59e0b" }),
   f("cor-bean-4", "bean_bag", "corridor", 45.6, 14.25, PI, { color: "#0ea5e9" }),
-  f("cor-bike-1", "bike", "corridor", 17, 14.5, HALF, { color: "#ef4444" }),
-  f("cor-bike-2", "bike", "corridor", 37.6, 14.5, HALF, { color: "#facc15" }),
-  f("cor-bike-3", "bike", "corridor", 50.6, 14.5, HALF, { color: "#22c55e" }),
+  // wall-side sofas along Main Street (back against the wall, facing the hallway)
+  f("cor-bike-1", "sofa", "corridor", 17, 14.52, PI, { color: "#1e3a5f" }),
+  f("cor-bike-2", "sofa", "corridor", 37.6, 14.52, PI, { color: "#0f766e" }),
+  f("cor-bike-3", "sofa", "corridor", 50.6, 14.52, PI, { color: "#1e3a5f" }),
   f("cor-cooler", "water_cooler", "corridor", 0.45, 13, HALF),
 
   // ── Reception & lobby ──
@@ -365,8 +366,16 @@ const MOVED: { id: string; from: [number, number]; to: [number, number] }[] = [
   { id: "ceo-visitor-1", from: [46.6, 5.4], to: [46.8, 5.85] },
   { id: "ceo-visitor-2", from: [45.4, 5.4], to: [45.2, 5.85] },
 ];
+/** Default pieces that became a different piece of furniture (same id) — e.g. the hallway bikes became sofas. */
+const SWAPPED: { id: string; fromType: string; to: { type: string; x: number; z: number; rot: number; color?: string } }[] = [
+  { id: "cor-bike-1", fromType: "bike", to: { type: "sofa", x: 17, z: 14.52, rot: Math.PI, color: "#1e3a5f" } },
+  { id: "cor-bike-2", fromType: "bike", to: { type: "sofa", x: 37.6, z: 14.52, rot: Math.PI, color: "#0f766e" } },
+  { id: "cor-bike-3", fromType: "bike", to: { type: "sofa", x: 50.6, z: 14.52, rot: Math.PI, color: "#1e3a5f" } },
+];
 export function applyLayoutMoves<T extends { id: string; x: number; z: number }>(furniture: T[]): T[] {
   return furniture.map((f) => {
+    const sw = SWAPPED.find((x) => x.id === f.id && (f as unknown as { type?: string }).type === x.fromType);
+    if (sw) return { ...f, ...sw.to };
     const m = MOVED.find((x) => x.id === f.id && Math.abs(f.x - x.from[0]) < 0.01 && Math.abs(f.z - x.from[1]) < 0.01);
     return m ? { ...f, x: m.to[0], z: m.to[1] } : f;
   });
