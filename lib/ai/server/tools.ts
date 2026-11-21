@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { ApprovalKind, Permission } from "@/lib/data/types";
 import type { ApprovalRequest, EmployeeBrief, OfficeContext } from "@/lib/ai/protocol";
 import { DEMO_LABEL, demoAmare, demoArtides, demoEcommerce } from "@/lib/data/demo";
+import { actionsFor, isStaffAction, STAFF_ACTIONS, type ProposedAction } from "@/lib/ai/actions";
 
 type Tool = Anthropic.Beta.BetaTool;
 
@@ -24,6 +25,8 @@ const APPROVAL_KINDS: ApprovalKind[] = ["payment", "ad_campaign", "product_updat
 export interface ToolState {
   approvals: ApprovalRequest[];
   missingData: string | null;
+  /** actions proposed in chat — shown to the CEO with Approve / Cancel */
+  actions?: ProposedAction[];
 }
 
 export function allowedMetrics(e: EmployeeBrief) {
@@ -101,6 +104,20 @@ export function buildTools(e: EmployeeBrief, mode: "task" | "chat"): Tool[] {
         },
       },
     );
+  }
+  const acts = actionsFor(e.id);
+  if (mode === "chat" && acts.length) {
+    tools.push({
+      name: "propose_action",
+      description:
+        "Offer to run one of these OfficeVerse actions for the CEO. It does NOT run now: the CEO sees an Approve button under your reply and it runs only if they tap it. Use it when the CEO asks you to do one of these, then say in your reply that they just need to tap Approve.\n" +
+        acts.map((a) => `- ${a}: ${STAFF_ACTIONS[a].label}`).join("\n"),
+      input_schema: {
+        type: "object",
+        properties: { action: { type: "string", enum: acts }, note: { type: "string", description: "One short line on what will happen, e.g. '3 parcels are waiting in To ship'." } },
+        required: ["action"],
+      },
+    });
   }
   return tools;
 }
@@ -237,6 +254,14 @@ export function runTool(name: string, input: unknown, e: EmployeeBrief, ctx: Off
       return { content: JSON.stringify(ctx.team) };
     case "get_recent_tasks":
       return { content: JSON.stringify(ctx.recentTasks) };
+    case "propose_action": {
+      const action = args.action;
+      if (!isStaffAction(action) || !actionsFor(e.id).includes(action)) return { content: "That action isn't available to you.", isError: true };
+      state.actions = state.actions ?? [];
+      if (state.actions.some((x) => x.action === action)) return { content: "Already offered." };
+      state.actions.push({ action, label: STAFF_ACTIONS[action].label, note: String(args.note ?? "").slice(0, 200) });
+      return { content: "Offered. The CEO now sees an Approve button under your reply; nothing has run yet." };
+    }
     case "request_approval": {
       const kind = String(args.kind ?? "other") as ApprovalKind;
       const summary = String(args.summary ?? "").slice(0, 500);

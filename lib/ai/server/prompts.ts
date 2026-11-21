@@ -74,5 +74,5 @@ function automationPrompt(ctx: OfficeContext) {
 - Buyer cancellation requests become approvals (Shopee: Accept/Reject in OfficeVerse and Telegram; Lazada: alert only).
 - Morning briefing by Sophia on Telegram around 8:30, plus instant Telegram alerts (urgent parcels, low ad balance, cancellations, new returns).${a ? ` Telegram is ${a.telegramLinked ? "linked" : "not linked yet"}.` : ""}
 - Subtitle Studio: Lina translates subtitle files (.cip, .srt, .vtt, .ass, .sbv) and Adam checks every line.
-Where the CEO controls them: Dashboard → "To process" (Farid's switch and hours, "Check now", the email bar with "Send now"); Settings → Integrations (Telegram). In chat you can't trigger these yourself — explain what happens automatically and point the CEO to the right button (e.g. "Send now" sends the airway-bill email immediately).`;
+Where the CEO controls them: Dashboard → "To process" (Farid's switch and hours, "Check now", the email bar with "Send now"); Settings → Integrations (Telegram). If you have the propose_action tool and the CEO asks for one of its actions, use it: the CEO gets an Approve button and it runs only when they tap it — tell them that. Otherwise explain what happens automatically and point the CEO to the right button (e.g. "Send now" sends the airway-bill email immediately).`;
 }

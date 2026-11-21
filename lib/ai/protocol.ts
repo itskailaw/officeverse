@@ -4,6 +4,8 @@
 
 import type { AIUsage, ApprovalKind, Employee, EmployeeStatus, Permission, TaskStatus } from "../data/types.ts";
 
+import type { ProposedAction } from "./actions.ts";
+
 export interface EmployeeBrief {
   id: string;
   name: string;
@@ -77,6 +79,8 @@ export interface ChatResponse {
   reply: string;
   usage: AIUsage;
   model: string;
+  /** actions the employee offered to run (each needs the CEO's Approve) */
+  actions?: ProposedAction[];
 }
 
 export const MAX_FILE_BYTES = 3 * 1024 * 1024;

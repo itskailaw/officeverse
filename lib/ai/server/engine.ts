@@ -191,7 +191,7 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
     exec: (name, input) => runTool(name, input, req.employee, req.context, state),
   });
   if (out.refused) return { reply: "Sorry, I can't help with that request.", usage: out.usage, model: out.model };
-  return { reply: (out.text || "…") + (out.note ? `\n\n_${out.note}_` : ""), usage: out.usage, model: out.model };
+  return { reply: (out.text || "…") + (out.note ? `\n\n_${out.note}_` : ""), usage: out.usage, model: out.model, actions: state.actions ?? [] };
 }
 
 /**

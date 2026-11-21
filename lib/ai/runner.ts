@@ -5,6 +5,7 @@
 // notifications and office behaviour.
 
 import { useOffice } from "@/lib/store/office-store";
+import { useActionCards } from "@/lib/store/action-cards";
 import { useUI } from "@/lib/store/ui-store";
 import type { Employee } from "@/lib/data/types";
 import { getSim } from "@/lib/office/runtime";
@@ -211,6 +212,9 @@ export async function sendChat(employeeId: string, text: string, situation?: str
     message: text,
     situation,
   });
-  if (!situation) useOffice.getState().addChatMessage({ employeeId, role: "employee", content: res.reply, usage: res.usage, model: res.model });
+  if (!situation) {
+    const id = useOffice.getState().addChatMessage({ employeeId, role: "employee", content: res.reply, usage: res.usage, model: res.model });
+    if (res.actions?.length) useActionCards.getState().add(id, res.actions);
+  }
   return res.reply;
 }

@@ -114,6 +114,7 @@ export async function answerFromTelegram(ws: string, chatId: string, text: strin
   let reply: string;
   let usage: unknown = null;
   let model: string | null = null;
+  let actions: { action: string; label: string; note: string }[] = [];
   try {
     const r = await chat({
       employee: office.brief(emp),
@@ -125,6 +126,7 @@ export async function answerFromTelegram(ws: string, chatId: string, text: strin
     reply = r.reply;
     usage = r.usage;
     model = r.model;
+    actions = r.actions ?? [];
   } catch (e) {
     await sendTelegram(chatId, `⚠️ ${escapeHtml(e instanceof Error ? e.message : String(e))}`);
     return;
@@ -135,6 +137,15 @@ export async function answerFromTelegram(ws: string, chatId: string, text: strin
     { workspace_id: ws, id: `tg-${t}-e`, employee_id: emp.id, role: "employee", content: reply.slice(0, 20000), usage, model, created_at: new Date(t + 1).toISOString() },
   ]);
   await sendTelegram(chatId, `<b>${escapeHtml(emp.name)}</b> · <i>${escapeHtml(emp.title)}</i>\n${mdToTelegram(reply)}`);
+  // actions the employee offered: one card each, runs only on ✅
+  for (const a of actions.slice(0, 3)) {
+    await tg("sendMessage", {
+      chat_id: chatId,
+      parse_mode: "HTML",
+      text: `🟦 <b>${escapeHtml(a.label)}</b>${a.note ? `\n${escapeHtml(a.note)}` : ""}`,
+      reply_markup: { inline_keyboard: [[{ text: "✅ Approve", callback_data: `act:${a.action}` }, { text: "✖ Not now", callback_data: "act:x" }]] },
+    }).catch(() => {});
+  }
 }
 
 const KIND: Record<string, string> = {

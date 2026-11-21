@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, ChevronDown, ChevronUp, Copy, FileUp, Loader2, Paperclip, Play, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
+import { useActionCards } from "@/lib/store/action-cards";
 import type { Approval, Employee, Task } from "@/lib/data/types";
 import { checkAI, enqueueTask, MAX_FILES, readUpload, runTask, sendChat } from "@/lib/ai/runner";
 import { ACCEPTED_FILE_TYPES, type UploadedFile } from "@/lib/ai/protocol";
@@ -345,6 +346,51 @@ function CancellationButtons({ a }: { a: Approval }) {
   );
 }
 
+/** Approve / Cancel for actions a staff member offered in this message. Runs only on Approve (owner). */
+function ActionCards({ messageId }: { messageId: string }) {
+  const cards = useActionCards((s) => s.byMessage[messageId]);
+  const update = useActionCards((s) => s.update);
+  const toast = useUI((s) => s.toast);
+  if (!cards?.length) return null;
+  const run = async (action: string) => {
+    update(messageId, action, { status: "running" });
+    try {
+      const r = await fetch("/api/actions/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; text?: string; error?: string };
+      if (!r.ok) throw new Error(j.error ?? `Request failed (${r.status})`);
+      update(messageId, action, { status: j.ok ? "done" : "failed", result: j.text });
+      toast(j.ok ? "success" : "error", j.text ?? "Done");
+      useOffice.getState().recordAudit("staff_action", "action", null, `${action}: ${j.text ?? ""}`);
+    } catch (e) {
+      update(messageId, action, { status: "failed", result: e instanceof Error ? e.message : String(e) });
+    }
+  };
+  return (
+    <div className="mt-2 space-y-1.5">
+      {cards.map((c) => (
+        <div key={c.action} className="rounded-xl border border-sky-200 bg-panel p-2 text-xs">
+          <div className="font-semibold text-slate-800">{c.label}</div>
+          {c.note && <div className="text-[11px] text-slate-500">{c.note}</div>}
+          {c.status === "pending" || c.status === "running" ? (
+            <div className="mt-1.5 flex gap-1.5">
+              <Button size="sm" onClick={() => void run(c.action)} disabled={c.status === "running"}>
+                {c.status === "running" ? <Loader2 className="animate-spin" /> : <Check />} Approve
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => update(messageId, c.action, { status: "cancelled" })} disabled={c.status === "running"}>
+                <X /> Not now
+              </Button>
+            </div>
+          ) : (
+            <div className={cn("mt-1 text-[11px] font-medium", c.status === "done" ? "text-emerald-700" : c.status === "failed" ? "text-red-700" : "text-slate-400")}>
+              {c.status === "cancelled" ? "Not run" : c.result}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Small copy-to-clipboard button for a staff message or task result (shows on hover; always on touch screens). */
 function CopyButton({ text }: { text: string }) {
   const [done, setDone] = useState(false);
@@ -421,6 +467,7 @@ export function ChatPanel({ emp }: { emp: Employee }) {
           <div key={m.id} className={cn("flex", m.role === "ceo" ? "justify-end" : "justify-start")}>
             <div className={cn("group relative max-w-[88%] select-text rounded-2xl px-3 py-2", m.role === "ceo" ? "rounded-br-sm bg-navy text-white" : "rounded-bl-sm bg-slate-100")}>
               {m.role === "ceo" ? <p className="whitespace-pre-wrap text-[13px]">{m.content}</p> : <Markdown>{m.content}</Markdown>}
+              {m.role !== "ceo" && <ActionCards messageId={m.id} />}
               {m.role !== "ceo" && <CopyButton text={m.content} />}
             </div>
           </div>

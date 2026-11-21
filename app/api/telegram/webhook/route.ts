@@ -1,8 +1,10 @@
+import { isStaffAction } from "@/lib/ai/actions";
+import { runStaffAction } from "@/lib/integrations/staff-actions";
 import { after, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { saveIntegration } from "@/lib/integrations/store";
-import { sendTelegram, tg, verifyLinkCode, webhookSecret } from "@/lib/integrations/telegram";
+import { escapeHtml, sendTelegram, tg, verifyLinkCode, webhookSecret } from "@/lib/integrations/telegram";
 import { answerFromTelegram, decideFromTelegram, sendApprovalCards, workspaceForChat } from "@/lib/integrations/telegram-office";
 import { sendBriefing } from "@/lib/integrations/briefing-send";
 
@@ -39,6 +41,19 @@ export async function POST(req: Request) {
     const chat = String(cb.message.chat.id);
     try {
       const ws = await workspaceForChat(chat);
+      const act = /^act:(\w{1,40})$/.exec(cb.data);
+      if (ws && act) {
+        // a staff action card: ✅ runs it, ✖ dismisses it
+        await tg("editMessageReplyMarkup", { chat_id: chat, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => {});
+        if (act[1] === "x" || !isStaffAction(act[1])) {
+          await tg("answerCallbackQuery", { callback_query_id: cb.id, text: "OK, not now." });
+        } else {
+          await tg("answerCallbackQuery", { callback_query_id: cb.id, text: "On it…" });
+          const r = await runStaffAction(ws, act[1]);
+          await sendTelegram(chat, escapeHtml(r.text));
+        }
+        return NextResponse.json({ ok: true });
+      }
       const m = /^ap:([\w-]{1,60}):([ar])$/.exec(cb.data);
       if (!ws || !m) {
         await tg("answerCallbackQuery", { callback_query_id: cb.id, text: "Not allowed." });
