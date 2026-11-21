@@ -5,6 +5,7 @@ import { emailConfigured } from "./email";
 import { listIntegrations, updateIntegration } from "./store";
 import { escapeHtml, sendTelegram, telegramToken } from "./telegram";
 import { pushText, sendPush } from "./webpush";
+import { getWsState, setWsState } from "./ws-state";
 import { ago, schedulerCheck, storeChecks, transitions, type Check } from "./health-rules";
 
 const klDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(d);
@@ -112,19 +113,20 @@ export async function systemHealth(ws: string): Promise<Check[]> {
 export async function healthWatch(ws: string) {
   const checks = await systemHealth(ws);
   const tg = (await listIntegrations(ws, "telegram")).find((r) => r.status === "connected" && r.shop_id);
-  if (!tg?.shop_id) return checks;
-  const prev = ((tg.last_sync_summary as { health?: Record<string, Check["level"]> } | null)?.health ?? {}) as Record<string, Check["level"]>;
+  // memory of what was already said: the workspace state table (works without Telegram), else the Telegram row
+  const fromState = await getWsState<Record<string, Check["level"]> | null>(ws, "health", null);
+  const prev = fromState ?? (((tg?.last_sync_summary as { health?: Record<string, Check["level"]> } | null)?.health ?? {}) as Record<string, Check["level"]>);
   const { broke, fixed, next } = transitions(prev, checks);
-  if (broke.length || fixed.length) {
+  const remembered = (await setWsState(ws, "health", next)) || (tg ? (await updateIntegration(tg.id, { last_sync_summary: { ...(tg.last_sync_summary ?? {}), health: next } }), true) : false);
+  if ((broke.length || fixed.length) && remembered) {
     const { data: emp } = await getAdminSupabase().from("employees").select("name").eq("workspace_id", ws).eq("id", "emp-it").maybeSingle();
     const who = ((emp?.name as string | undefined) ?? "IT").split(" ")[0];
     const lines = [
       ...broke.map((c) => `🔴 <b>${escapeHtml(c.label)}</b>: ${escapeHtml(c.detail)}${c.fix ? `\n   ↳ ${escapeHtml(c.fix)}` : ""}`),
       ...fixed.map((c) => `🟢 <b>${escapeHtml(c.label)}</b> is working again.`),
     ];
-    await sendTelegram(tg.shop_id, `🛠 <b>${escapeHtml(who)} (IT):</b>\n${lines.join("\n")}`).catch(() => {});
+    if (tg?.shop_id) await sendTelegram(tg.shop_id, `🛠 <b>${escapeHtml(who)} (IT):</b>\n${lines.join("\n")}`).catch(() => {});
     if (broke.length) await sendPush(ws, { title: `🛠 ${who}: ${broke.length} system problem${broke.length > 1 ? "s" : ""}`, body: pushText(lines.join("\n")), url: "/office", tag: "health" });
   }
-  await updateIntegration(tg.id, { last_sync_summary: { ...(tg.last_sync_summary ?? {}), health: next } });
   return checks;
 }
