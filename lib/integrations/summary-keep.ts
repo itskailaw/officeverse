@@ -2,7 +2,7 @@ import "server-only";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
 /** Fields of an integration's last_sync_summary that belong to automation, not to the sync itself — carried over by every sync. */
-const KEEP = ["autoTried", "lastPushAt", "autoRun"] as const;
+const KEEP = ["autoTried", "lastPushAt", "autoRun", "lastScheduledAt"] as const;
 
 export function keptSummary(prev: Record<string, unknown> | null | undefined) {
   const out: Record<string, unknown> = {};

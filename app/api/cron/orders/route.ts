@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { checkOrdersNow } from "@/lib/integrations/order-check";
+import { healthWatch } from "@/lib/integrations/health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,10 @@ export async function GET(req: Request) {
   const results: { workspace: string; ok: boolean; result?: unknown; error?: string }[] = [];
   for (const ws of [...new Set((data ?? []).map((r) => r.workspace_id as string))]) {
     try {
-      results.push({ workspace: ws, ok: true, result: await checkOrdersNow(ws, "schedule") });
+      const result = await checkOrdersNow(ws, "schedule");
+      // Ethan (IT) watches system health and tells the CEO when something breaks or recovers
+      await healthWatch(ws).catch((e) => console.error("[health]", e instanceof Error ? e.message : e));
+      results.push({ workspace: ws, ok: true, result });
     } catch (e) {
       results.push({ workspace: ws, ok: false, error: e instanceof Error ? e.message : String(e) });
     }

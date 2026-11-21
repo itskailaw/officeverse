@@ -30,6 +30,7 @@ import {
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { MusicPlayer } from "./MusicPlayer";
+import { useHealthPolling } from "./SystemHealth";
 import { CATALOG } from "@/lib/office/catalog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
   const liveSummary = useLive((s) => s.summary);
   const liveShopee = !!liveSummary && (liveSummary.platforms.shopee.connected || liveSummary.platforms.lazada.connected);
   const unread = useOffice((s) => s.notifications.filter((n) => !n.read).length);
+  const health = useHealthPolling();
   const companies = useOffice((s) => s.companies);
   const ui = useUI();
   return (
@@ -131,9 +133,12 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
           <LayoutDashboard />
           <span className="hidden sm:inline">Dashboard</span>
         </Button>
-        <Button variant="ghost" size="icon" title="Settings" onClick={() => ui.set({ dialog: "settings" })}>
-          <Settings />
-        </Button>
+        <div className="relative">
+          <Button variant="ghost" size="icon" title={health ? "Settings — System health needs a look" : "Settings"} onClick={() => ui.set({ dialog: "settings" })}>
+            <Settings />
+          </Button>
+          {health && <span className={cn("pointer-events-none absolute right-1 top-1 h-2.5 w-2.5 rounded-full ring-2 ring-white", health === "bad" ? "bg-red-600" : "bg-amber-500")} />}
+        </div>
         {authLabel}
       </div>
     </header>

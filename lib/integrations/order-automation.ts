@@ -101,7 +101,7 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
   for (const conn of rows.filter((r) => r.provider === "shopee" || r.provider === "lazada")) {
     const { data: cur } = await sb.from("integrations").select("last_sync_summary").eq("id", conn.id).maybeSingle();
     const sum = (cur?.last_sync_summary ?? conn.last_sync_summary ?? {}) as Record<string, unknown>;
-    await updateIntegration(conn.id, { last_sync_summary: { ...sum, autoRun: { at: new Date().toISOString(), source, state, ...(seen[conn.provider as Plat] ?? {}) } } });
+    await updateIntegration(conn.id, { last_sync_summary: { ...sum, autoRun: { at: new Date().toISOString(), source, state, ...(seen[conn.provider as Plat] ?? {}) }, ...(source === "schedule" ? { lastScheduledAt: new Date().toISOString() } : {}) } });
   }
 
   // ── 2a. Shopee: buyer cancellation requests → approvals with accept / reject ──
