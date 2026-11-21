@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   applicationName: "OfficeVerse",
   // installed to the home screen on iPhone / iPad: full screen, own icon
   appleWebApp: { capable: true, title: "OfficeVerse", statusBarStyle: "black-translucent" },
-  icons: { icon: [{ url: "/icon-192.png", sizes: "192x192" }], apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }] },
+  icons: { icon: [{ url: "/icon-192.png?v=2", sizes: "192x192" }], apple: [{ url: "/apple-touch-icon.png?v=2", sizes: "180x180" }] },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#1e3a5f" };

@@ -13,8 +13,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
-      icon: "/icon-192.png",
-      badge: "/badge-96.png",
+      icon: "/icon-192.png?v=2",
+      badge: "/badge-96.png?v=2",
       tag: data.tag || undefined,
       renotify: !!data.tag,
       data: { url: data.url || "/office" },
