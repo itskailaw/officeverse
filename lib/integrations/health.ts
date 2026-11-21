@@ -105,7 +105,7 @@ export async function systemHealth(ws: string): Promise<Check[]> {
 
   // setup
   checks.push({ key: "ai", area: "Setup", label: "AI engine", level: aiConfigured() ? "ok" : "bad", detail: aiConfigured() ? "Key configured." : "AI key is missing — staff can't reply.", fix: aiConfigured() ? undefined : "Vercel → AI_API_KEY" });
-  checks.push({ key: "cron", area: "Setup", label: "Scheduled jobs secret", level: process.env.CRON_SECRET ? "ok" : "bad", detail: process.env.CRON_SECRET ? "Set." : "CRON_SECRET is missing — scheduled jobs are refused.", fix: process.env.CRON_SECRET ? undefined : "Vercel → CRON_SECRET (same value as the GitHub secret), then Redeploy" });
+  checks.push({ key: "cron", area: "Setup", label: "Scheduled jobs secret", level: process.env.CRON_SECRET ? "ok" : "bad", detail: process.env.CRON_SECRET ? "Set." : "CRON_SECRET is missing — scheduled jobs are refused.", fix: process.env.CRON_SECRET ? undefined : "Vercel → CRON_SECRET (same value as in your scheduler), then Redeploy" });
   return checks;
 }
 

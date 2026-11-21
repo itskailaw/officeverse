@@ -64,7 +64,7 @@ export function schedulerCheck(lastScheduled: string | null, now = Date.now()): 
     label: "10-minute order check",
     level: m > 60 ? "bad" : m > 25 ? "warn" : "ok",
     detail: lastScheduled ? `Last ran ${ago(m)}.` : "Hasn't run yet.",
-    fix: m > 25 ? "GitHub → repo → Actions → Daily jobs: check it's enabled and the CRON_SECRET secret matches Vercel" : undefined,
+    fix: m > 25 ? "cron-job.org: check the \"orders\" job is enabled and its Authorization header matches CRON_SECRET in Vercel" : undefined,
   };
 }
 
