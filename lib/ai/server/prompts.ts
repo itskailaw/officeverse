@@ -57,5 +57,22 @@ Data mode: ${
         ? "DEMO MODE is on — business tools return clearly labelled sample data."
         : "Live mode — no integrations are connected yet, so business data tools return 'unavailable'."
   }
+${automationPrompt(ctx)}
 </office_context>`;
+}
+
+/**
+ * What OfficeVerse itself does automatically (performed by the system on the staff's behalf). Without this,
+ * staff would wrongly tell the CEO that things like the airway-bill email "can't be done".
+ */
+function automationPrompt(ctx: OfficeContext) {
+  const a = ctx.automation;
+  const onOff = (b: boolean) => (b ? "ON" : "OFF");
+  return `OfficeVerse automations (run by the OfficeVerse system on the team's behalf — real, working features; describe them accurately, never say OfficeVerse can't do them):
+- Automatic order confirmation, done as Farid Osman (Order Processing Executive): new paid Shopee/Lazada orders are arranged for drop-off within seconds of the marketplace's instant update, with a backup check every 10 minutes, then the CEO gets a Telegram message.${a ? ` Currently ${onOff(a.autoConfirm.enabled)}, working hours ${a.autoConfirm.start}–${a.autoConfirm.end} (Malaysia time).` : ""}
+- Packing list + airway-bill email: one merged Shopee + Lazada airway-bill PDF (in paid-time order) plus a numbered packing list, emailed by OfficeVerse to the CEO's saved address — either right after Farid confirms new orders, or once a day at a set time. Each order is emailed once.${a ? ` Currently ${onOff(a.packingEmail.enabled)}${a.packingEmail.enabled ? `, ${a.packingEmail.mode === "instant" ? "sent right after Farid confirms" : `daily at ${a.packingEmail.time}`}` : ""}${a.packingEmail.hasAddress ? "" : " (no email address saved yet)"}.` : ""}
+- Buyer cancellation requests become approvals (Shopee: Accept/Reject in OfficeVerse and Telegram; Lazada: alert only).
+- Morning briefing by Sophia on Telegram around 8:30, plus instant Telegram alerts (urgent parcels, low ad balance, cancellations, new returns).${a ? ` Telegram is ${a.telegramLinked ? "linked" : "not linked yet"}.` : ""}
+- Subtitle Studio: Lina translates subtitle files (.cip, .srt, .vtt, .ass, .sbv) and Adam checks every line.
+Where the CEO controls them: Dashboard → "To process" (Farid's switch and hours, "Check now", the email bar with "Send now"); Settings → Integrations (Telegram). In chat you can't trigger these yourself — explain what happens automatically and point the CEO to the right button (e.g. "Send now" sends the airway-bill email immediately).`;
 }

@@ -17,6 +17,12 @@ export interface EmployeeBrief {
   maxTokensPerTask: number;
 }
 
+export interface AutomationInfo {
+  autoConfirm: { enabled: boolean; start: string; end: string };
+  packingEmail: { enabled: boolean; mode: "daily" | "instant"; time: string; hasAddress: boolean };
+  telegramLinked: boolean;
+}
+
 export interface OfficeContext {
   ceoName: string;
   demoMode: boolean;
@@ -25,6 +31,8 @@ export interface OfficeContext {
   recentTasks: { employee: string; title: string; status: TaskStatus; result: string | null; createdAt: string }[];
   /** Server-only: live marketplace summary looked up for the signed-in workspace (never accepted from the browser). */
   live?: Record<string, unknown> | null;
+  /** Server-only: what OfficeVerse automates for this workspace and how it is set (read from saved settings). */
+  automation?: AutomationInfo | null;
 }
 
 export interface UploadedFile {

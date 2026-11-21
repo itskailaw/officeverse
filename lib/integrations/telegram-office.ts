@@ -5,6 +5,7 @@ import type { Permission } from "@/lib/data/types";
 import { aiConfigured, rateLimit } from "@/lib/ai/server/guard";
 import { chat } from "@/lib/ai/server/engine";
 import { liveSummary } from "./summary";
+import { automationFrom } from "./live";
 import { listIntegrations, updateIntegration } from "./store";
 import { escapeHtml, sendTelegram, tg } from "./telegram";
 import { mdToTelegram, pickRecipient } from "./telegram-format";
@@ -103,7 +104,12 @@ export async function answerFromTelegram(ws: string, chatId: string, text: strin
     .order("created_at", { ascending: false })
     .limit(12);
   const history = ((hist ?? []) as { role: "ceo" | "employee"; content: string }[]).reverse();
-  const context = { ...office.context, live: (await liveSummary(sb, ws, { serviceRole: true }).catch(() => null)) as unknown as Record<string, unknown> | null };
+  const { data: lay } = await sb.from("office_layouts").select("settings").eq("workspace_id", ws).maybeSingle();
+  const context = {
+    ...office.context,
+    live: (await liveSummary(sb, ws, { serviceRole: true }).catch(() => null)) as unknown as Record<string, unknown> | null,
+    automation: automationFrom(lay?.settings as Record<string, unknown> | null, true),
+  };
 
   let reply: string;
   let usage: unknown = null;
