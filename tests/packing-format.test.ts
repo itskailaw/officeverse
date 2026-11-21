@@ -38,3 +38,15 @@ test("packing email lists parcels in label order with a pick list", () => {
   assert.ok(html.includes("separate attachment"));
   assert.match(packingSubject(lines, noon30), /20 Nov — 2 parcels \(6 items\)/);
 });
+
+test("parcels not shipped yet come first, marked, and are counted in the subject", () => {
+  const lines = [
+    { platform: "shopee" as const, id: "OLD1", tracking: "SPX9", items: [{ name: "Filter", model: null, qty: 1 }], overdue: { since: "2026-11-19T04:00:00Z", shipBy: "2026-11-21T10:00:00Z" } },
+    { platform: "lazada" as const, id: "NEW1", tracking: null, items: [{ name: "Cartridge", model: null, qty: 2 }] },
+  ];
+  const html = packingHtml(lines);
+  assert.ok(html.indexOf("Not shipped yet — pack these first") < html.indexOf("#OLD1"));
+  assert.ok(html.indexOf("#OLD1") < html.indexOf("New orders") && html.indexOf("New orders") < html.indexOf("#NEW1"));
+  assert.match(html, /Not shipped · since 19 Nov · ship by 21 Nov/);
+  assert.match(packingSubject(lines, noon30), /1 new \+ 1 not shipped yet \(3 items\)/);
+});

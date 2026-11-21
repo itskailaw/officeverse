@@ -87,7 +87,7 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
       // give the marketplace a moment to issue tracking numbers for what was just confirmed
       if (confirmed.length) await new Promise((r) => setTimeout(r, 15_000));
       const { sendPackingEmail } = await import("./packing-email");
-      const r = await sendPackingEmail(ws, { include: confirmed, instant: true });
+      const r = await sendPackingEmail(ws, { include: confirmed, instant: true, allowCarryOnly: state === "on" });
       if (r.status === "sent") {
         out.emailed = r.count;
         if (tg?.shop_id) await sendTelegram(tg.shop_id, `📧 <b>Farid:</b> airway bills + packing list for ${r.count} parcel${r.count === 1 ? "" : "s"} sent to your email.`).catch(() => {});

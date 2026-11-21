@@ -14,6 +14,8 @@ export interface PackLine {
   id: string;
   tracking: string | null;
   items: { name: string; model: string | null; qty: number }[];
+  /** emailed before and still not shipped: first emailed at, ship-by deadline */
+  overdue?: { since: string; shipBy: string | null };
 }
 
 const KL = "Asia/Kuala_Lumpur";
@@ -36,10 +38,17 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const NAME = { shopee: "Shopee", lazada: "Lazada" } as const;
 const COLOR = { shopee: "#eb6834", lazada: "#2a78d6" } as const;
 
+const fmt = (iso: string, withTime = false) =>
+  new Intl.DateTimeFormat("en-MY", { timeZone: KL, day: "numeric", month: "short", ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}) }).format(new Date(iso));
+
 export function packingSubject(lines: PackLine[], now = new Date()) {
   const d = new Intl.DateTimeFormat("en-MY", { timeZone: KL, day: "numeric", month: "short" }).format(now);
   const n = lines.length;
-  return `Packing list ${d} — ${n} parcel${n === 1 ? "" : "s"} (${lines.reduce((a, l) => a + l.items.reduce((b, i) => b + i.qty, 0), 0)} items)`;
+  const late = lines.filter((l) => l.overdue).length;
+  const items = lines.reduce((a, l) => a + l.items.reduce((b, i) => b + i.qty, 0), 0);
+  return late
+    ? `Packing list ${d} — ${n - late} new + ${late} not shipped yet (${items} items)`
+    : `Packing list ${d} — ${n} parcel${n === 1 ? "" : "s"} (${items} items)`;
 }
 
 /** Email body: numbered parcels in the same order as the attached airway bills, plus a pick-list total. */
@@ -53,16 +62,24 @@ export function packingHtml(lines: PackLine[], opts: { from?: string; problems?:
   const firstSep = opts.separate ? lines.findIndex((l) => l.platform === opts.separate) : -1;
   const rows = lines
     .map((l, i) => {
+      const late = l.overdue;
+      const sectionHead =
+        late && i === 0
+          ? `<tr><td colspan="3" style="padding:12px 8px 4px;font:700 12px sans-serif;color:#b91c1c;text-transform:uppercase;letter-spacing:.04em">⚠️ Not shipped yet — pack these first</td></tr>`
+          : !late && i > 0 && lines[i - 1].overdue
+            ? `<tr><td colspan="3" style="padding:14px 8px 4px;font:700 12px sans-serif;color:#0f766e;text-transform:uppercase;letter-spacing:.04em">New orders</td></tr>`
+            : "";
       const head =
-        i === firstSep
+        sectionHead +
+        (i === firstSep
           ? `<tr><td colspan="3" style="padding:14px 8px 4px;font:600 11px sans-serif;color:#64748b;text-transform:uppercase;letter-spacing:.04em">${NAME[l.platform]} labels — separate attachment</td></tr>`
-          : "";
+          : "");
       const items = l.items.length
         ? l.items.map((it) => `<div><b>${it.qty}×</b> ${esc(it.name)}${it.model ? ` <span style="color:#64748b">— ${esc(it.model)}</span>` : ""}</div>`).join("")
         : `<div style="color:#94a3b8">Items not synced — check the label</div>`;
       return `${head}<tr style="border-top:1px solid #e2e8f0">
-<td style="padding:10px 8px;vertical-align:top;width:34px"><div style="width:30px;height:30px;border-radius:7px;background:#0f172a;color:#fff;font:700 15px sans-serif;text-align:center;line-height:30px">${i + 1}</div></td>
-<td style="padding:10px 8px;vertical-align:top;white-space:nowrap;font:12px sans-serif;color:#334155"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLOR[l.platform]}"></span> <b>${NAME[l.platform]}</b><br><span style="font-family:monospace;color:#64748b">#${esc(l.id)}</span>${l.tracking ? `<br><span style="font-family:monospace;font-size:11px;color:#64748b">AWB ${esc(l.tracking)}</span>` : ""}</td>
+<td style="padding:10px 8px;vertical-align:top;width:34px"><div style="width:30px;height:30px;border-radius:7px;background:${late ? "#b91c1c" : "#0f172a"};color:#fff;font:700 15px sans-serif;text-align:center;line-height:30px">${i + 1}</div></td>
+<td style="padding:10px 8px;vertical-align:top;white-space:nowrap;font:12px sans-serif;color:#334155"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLOR[l.platform]}"></span> <b>${NAME[l.platform]}</b><br><span style="font-family:monospace;color:#64748b">#${esc(l.id)}</span>${l.tracking ? `<br><span style="font-family:monospace;font-size:11px;color:#64748b">AWB ${esc(l.tracking)}</span>` : ""}${late ? `<br><span style="display:inline-block;margin-top:3px;padding:1px 6px;border-radius:4px;background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:600">Not shipped · since ${fmt(late.since)}${late.shipBy ? ` · ship by ${fmt(late.shipBy, true)}` : ""}</span>` : ""}</td>
 <td style="padding:10px 8px;vertical-align:top;font:14px/1.45 sans-serif;color:#0f172a">${items}</td></tr>`;
     })
     .join("");
@@ -82,6 +99,6 @@ ${opts.appUrl ? `<div style="margin-top:16px;font:12px sans-serif"><a href="${es
 
 export function packingText(lines: PackLine[]) {
   return lines
-    .map((l, i) => `${i + 1}. ${NAME[l.platform]} #${l.id}${l.tracking ? ` (AWB ${l.tracking})` : ""}\n${l.items.map((it) => `   ${it.qty}x ${it.name}${it.model ? ` — ${it.model}` : ""}`).join("\n")}`)
+    .map((l, i) => `${i + 1}. ${l.overdue ? "[NOT SHIPPED YET] " : ""}${NAME[l.platform]} #${l.id}${l.tracking ? ` (AWB ${l.tracking})` : ""}\n${l.items.map((it) => `   ${it.qty}x ${it.name}${it.model ? ` — ${it.model}` : ""}`).join("\n")}`)
     .join("\n\n");
 }

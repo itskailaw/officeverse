@@ -4,6 +4,7 @@ import { HttpError } from "@/lib/ai/server/guard";
 import { listIntegrations } from "./store";
 import { STATUS } from "./summary";
 import { buildLabels, labelErrText, type Plat } from "./labels";
+import { mergePdfs } from "./fulfil";
 import { sendEmail } from "./email";
 import { syncShopee } from "./shopee/sync";
 import { syncLazada } from "./lazada/sync";
@@ -40,6 +41,8 @@ export async function sendPackingEmail(
     include?: { platform: Plat; id: string }[];
     /** instant mode: no log row and no email when there's nothing new; stay quiet if labels aren't ready yet */
     instant?: boolean;
+    /** instant mode: may an email go out just for parcels still not shipped (e.g. the first check of the working day)? */
+    allowCarryOnly?: boolean;
   } = {},
 ): Promise<PackingResult> {
   const sb = getAdminSupabase();
@@ -54,7 +57,18 @@ export async function sendPackingEmail(
     .eq("workspace_id", ws)
     .gte("sent_at", new Date(Date.now() - 21 * 86400000).toISOString());
   if (prevErr) throw new Error(/relation|does not exist/i.test(prevErr.message) ? "Run the 0006_packing_email.sql migration in Supabase first." : prevErr.message);
-  const done = new Set((prev ?? []).filter((r) => r.status === "sent").flatMap((r) => ((r.orders as { platform: string; id: string }[]) ?? []).map((o) => `${o.platform}:${o.id}`)));
+  // when each order was first / last emailed
+  const emailed = new Map<string, { first: number; last: number }>();
+  for (const r of prev ?? []) {
+    if (r.status !== "sent") continue;
+    const t = Date.parse(r.sent_at as string);
+    for (const o of (r.orders as { platform: string; id: string }[]) ?? []) {
+      const k = `${o.platform}:${o.id}`;
+      const e = emailed.get(k);
+      emailed.set(k, { first: Math.min(e?.first ?? t, t), last: Math.max(e?.last ?? t, t) });
+    }
+  }
+  const done = new Set(emailed.keys());
   // another run is sending right now (push and the 10-minute check can overlap)
   if (opts.instant && (prev ?? []).some((r) => r.status === "sending" && Date.now() - Date.parse(r.sent_at as string) < 3 * 60_000)) return { status: "empty", count: 0, problems: [] };
 
@@ -62,7 +76,7 @@ export async function sendPackingEmail(
   const plats = (["shopee", "lazada"] as Plat[]).filter((p) => conns.some((r) => r.provider === p && r.status !== "expired" && r.status !== "disconnected"));
   const { data: rows, error } = await sb
     .from("marketplace_orders")
-    .select("platform, external_order_id, status, ordered_at, pay_time, items")
+    .select("platform, external_order_id, status, ordered_at, pay_time, ship_by, items")
     .eq("workspace_id", ws)
     .in("platform", plats.length ? plats : ["none"])
     .in("status", plats.flatMap((p) => [...STATUS[p].awaitingPickup, ...STATUS[p].toProcess]))
@@ -76,7 +90,15 @@ export async function sendPackingEmail(
       return !done.has(k) && (STATUS[o.platform as Plat].awaitingPickup.has(o.status as string) || include.has(k));
     })
     .sort((a, b) => Date.parse((a.pay_time ?? a.ordered_at) as string) - Date.parse((b.pay_time ?? b.ordered_at) as string));
-  if (!todo.length && opts.instant) return { status: "empty", count: 0, problems: [] };
+  // parcels emailed before but still waiting for pickup: re-sent (same label) at most once a day, most urgent first
+  const DAY_MS = 20 * 3600_000;
+  const carry = (rows ?? [])
+    .filter((o) => {
+      const e = emailed.get(`${o.platform}:${o.external_order_id}`);
+      return e && STATUS[o.platform as Plat].awaitingPickup.has(o.status as string) && Date.now() - e.last > DAY_MS;
+    })
+    .sort((a, b) => Date.parse((a.ship_by ?? a.ordered_at) as string) - Date.parse((b.ship_by ?? b.ordered_at) as string));
+  if (opts.instant && !todo.length && (!carry.length || !opts.allowCarryOnly)) return { status: "empty", count: 0, problems: [] };
 
   const { data: log, error: logErr } = await sb
     .from("packing_emails")
@@ -87,13 +109,40 @@ export async function sendPackingEmail(
   const finish = (patch: Record<string, unknown>) => sb.from("packing_emails").update(patch).eq("id", log.id);
 
   try {
-    if (!todo.length) {
+    if (!todo.length && !carry.length) {
       await finish({ status: "empty" });
       return { status: "empty", count: 0, problems: [] };
     }
-    const itemsOf = new Map(todo.map((o) => [`${o.platform}:${o.external_order_id}`, ((o.items as PackLine["items"] | null) ?? []).map((i) => ({ name: i.name, model: i.model ?? null, qty: Number(i.qty) || 1 }))]));
-    const bundle = await buildLabels(ws, todo.map((o) => ({ platform: o.platform as Plat, id: o.external_order_id as string })), settings?.paper ?? "thermal");
-    const lines: PackLine[] = [...bundle.sequence, ...(bundle.html?.sequence ?? [])].map((x) => ({ ...x, items: itemsOf.get(`${x.platform}:${x.id}`) ?? [] }));
+    const all = [...carry, ...todo];
+    const itemsOf = new Map(all.map((o) => [`${o.platform}:${o.external_order_id}`, ((o.items as PackLine["items"] | null) ?? []).map((i) => ({ name: i.name, model: i.model ?? null, qty: Number(i.qty) || 1 }))]));
+    const overdueOf = new Map(
+      carry.map((o) => [`${o.platform}:${o.external_order_id}`, { since: new Date(emailed.get(`${o.platform}:${o.external_order_id}`)!.first).toISOString(), shipBy: (o.ship_by as string | null) ?? null }]),
+    );
+    const paper = settings?.paper ?? "thermal";
+    const ref = (list: typeof all) => list.map((o) => ({ platform: o.platform as Plat, id: o.external_order_id as string }));
+    // two batches so the PDF has every not-yet-shipped parcel first, then the new ones
+    const parts = [] as Awaited<ReturnType<typeof buildLabels>>[];
+    const problemsCarry: string[] = [];
+    if (carry.length) {
+      try {
+        parts.push(await buildLabels(ws, ref(carry), paper));
+      } catch (e) {
+        problemsCarry.push(`Not-shipped-yet parcels: ${labelErrText(e)}`);
+      }
+    }
+    if (todo.length) parts.push(await buildLabels(ws, ref(todo), paper));
+    const pdfs = parts.map((b) => b.pdf).filter((x): x is ArrayBuffer => !!x);
+    const bundle = {
+      pdf: pdfs.length > 1 ? await mergePdfs(pdfs) : (pdfs[0] ?? null),
+      sequence: parts.flatMap((b) => b.sequence),
+      html: parts.find((b) => b.html)?.html ?? null,
+      problems: [...problemsCarry, ...parts.flatMap((b) => b.problems)],
+    };
+    const lines: PackLine[] = [...bundle.sequence, ...(bundle.html?.sequence ?? [])].map((x) => ({
+      ...x,
+      items: itemsOf.get(`${x.platform}:${x.id}`) ?? [],
+      overdue: overdueOf.get(`${x.platform}:${x.id}`),
+    }));
     if (!lines.length) throw new Error(bundle.problems.join(" · ") || "No airway bills came back.");
 
     const day = klDate(new Date());
