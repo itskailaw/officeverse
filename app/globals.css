@@ -91,3 +91,8 @@ body {
   50% { transform: scaleY(1); }
 }
 [class*="animate-[ovEq"] { transform-origin: bottom; }
+
+/* The office canvas blocks text selection (so dragging the view doesn't highlight things);
+   messages, reports and dialog text stay selectable. */
+[role="dialog"] p, [role="dialog"] li, [role="dialog"] td, [role="dialog"] pre, [role="dialog"] code,
+.prose, .select-text, .select-text * { -webkit-user-select: text; user-select: text; }

@@ -75,7 +75,12 @@ export function TaskRow({ t, showEmployee, defaultOpen }: { t: Task; showEmploye
         <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
           {t.instructions && <p className="whitespace-pre-wrap text-xs text-slate-600">{t.instructions}</p>}
           {t.fileNames && t.fileNames.length > 0 && <p className="text-[11px] text-slate-500">Files: {t.fileNames.join(", ")}</p>}
-          {t.result && <Markdown>{t.result}</Markdown>}
+          {t.result && (
+            <div className="group relative select-text">
+              <Markdown>{t.result}</Markdown>
+              <CopyButton text={t.result} />
+            </div>
+          )}
           {t.usage && (
             <p className="text-[10px] text-slate-400">
               {t.model} · {t.usage.input.toLocaleString()} in / {t.usage.output.toLocaleString()} out tokens
@@ -340,6 +345,35 @@ function CancellationButtons({ a }: { a: Approval }) {
   );
 }
 
+/** Small copy-to-clipboard button for a staff message or task result (shows on hover; always on touch screens). */
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      onClick={async (e) => {
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          // older browsers: select a hidden textarea and copy
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+        }
+        setDone(true);
+        setTimeout(() => setDone(false), 1500);
+      }}
+      className="mt-1 flex items-center gap-1 text-[10px] font-medium text-slate-400 opacity-100 transition hover:text-slate-700 sm:opacity-0 sm:group-hover:opacity-100"
+      aria-label="Copy message"
+    >
+      {done ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} {done ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
 // ------------------------------------------------------------------ chat
 export function ChatPanel({ emp }: { emp: Employee }) {
   const all = useOffice((s) => s.chatMessages);
@@ -385,8 +419,9 @@ export function ChatPanel({ emp }: { emp: Employee }) {
         )}
         {messages.map((m) => (
           <div key={m.id} className={cn("flex", m.role === "ceo" ? "justify-end" : "justify-start")}>
-            <div className={cn("max-w-[88%] rounded-2xl px-3 py-2", m.role === "ceo" ? "rounded-br-sm bg-navy text-white" : "rounded-bl-sm bg-slate-100")}>
+            <div className={cn("group relative max-w-[88%] select-text rounded-2xl px-3 py-2", m.role === "ceo" ? "rounded-br-sm bg-navy text-white" : "rounded-bl-sm bg-slate-100")}>
               {m.role === "ceo" ? <p className="whitespace-pre-wrap text-[13px]">{m.content}</p> : <Markdown>{m.content}</Markdown>}
+              {m.role !== "ceo" && <CopyButton text={m.content} />}
             </div>
           </div>
         ))}
