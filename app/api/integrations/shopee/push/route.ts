@@ -26,9 +26,15 @@ export async function POST(req: Request) {
   if (!cfg) return NextResponse.json({ error: "Shopee isn't configured" }, { status: 503 });
   const raw = await req.text();
   const given = req.headers.get("authorization");
-  if (!candidateUrls(req).some((url) => sameSignature(shopeePushSignature(cfg.partnerKey, url, raw), given))) {
-    console.warn("[shopee push] rejected: bad signature");
-    return NextResponse.json({ error: "bad signature" }, { status: 401 });
+  // Shopee signs pushes with the app's "Live Push Partner Key" (shown in Push Mechanism once verified);
+  // older apps used the API partner key — accept either.
+  const keys = [process.env.SHOPEE_PUSH_PARTNER_KEY?.trim(), cfg.partnerKey].filter((k): k is string => !!k);
+  const valid = keys.some((k) => candidateUrls(req).some((url) => sameSignature(shopeePushSignature(k, url, raw), given)));
+  if (!valid) {
+    // Answer 2xx anyway (Shopee's verification test needs it) but do nothing: a push is only a "please sync"
+    // signal, and unsigned ones are ignored. Set SHOPEE_PUSH_PARTNER_KEY so real pushes are recognised.
+    console.warn("[shopee push] ignored: signature didn't match — set SHOPEE_PUSH_PARTNER_KEY to the Live Push Partner Key");
+    return new NextResponse(null, { status: 204 });
   }
   let msg: { shop_id?: number | string; code?: number } = {};
   try {
