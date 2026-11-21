@@ -1,5 +1,5 @@
 /** Pure helpers for the daily packing-list email (no server imports — unit tested). */
-import { pickList, shortProduct, variationOf } from "../data/product-names.ts";
+import { displayOf, pickList } from "../data/product-names.ts";
 
 export interface PackingSettings {
   enabled: boolean;
@@ -14,7 +14,7 @@ export interface PackLine {
   platform: "shopee" | "lazada";
   id: string;
   tracking: string | null;
-  items: { name: string; model: string | null; qty: number }[];
+  items: { name: string; model: string | null; qty: number; sku?: string | null }[];
   /** emailed before and still not shipped: first emailed at, ship-by deadline */
   overdue?: { since: string; shipBy: string | null };
 }
@@ -53,8 +53,8 @@ export function packingSubject(lines: PackLine[], now = new Date()) {
 }
 
 /** Email body: numbered parcels in the same order as the attached airway bills, plus a pick-list total. */
-export function packingHtml(lines: PackLine[], opts: { from?: string; problems?: string[]; separate?: "shopee" | "lazada" | null; appUrl?: string } = {}) {
-  const pick = pickList(lines.flatMap((l) => l.items));
+export function packingHtml(lines: PackLine[], opts: { from?: string; problems?: string[]; separate?: "shopee" | "lazada" | null; appUrl?: string; names?: Map<string, string> } = {}) {
+  const pick = pickList(lines.flatMap((l) => l.items), opts.names);
   const firstSep = opts.separate ? lines.findIndex((l) => l.platform === opts.separate) : -1;
   const rows = lines
     .map((l, i) => {
@@ -73,8 +73,8 @@ export function packingHtml(lines: PackLine[], opts: { from?: string; problems?:
       const items = l.items.length
         ? l.items
             .map((it) => {
-              const v = variationOf(it.model);
-              return `<div><b>${it.qty}×</b> ${esc(v || shortProduct(it.name))}${v ? `<div style="font-size:12px;color:#64748b">${esc(shortProduct(it.name))}</div>` : ""}</div>`;
+              const d = displayOf(it, opts.names);
+              return `<div><b>${it.qty}×</b> ${esc(d.main)}${d.sub ? `<div style="font-size:12px;color:#64748b">${esc(d.sub)}</div>` : ""}</div>`;
             })
             .join("")
         : `<div style="color:#94a3b8">Items not synced — check the label</div>`;
@@ -105,8 +105,8 @@ ${opts.appUrl ? `<div style="margin-top:16px;font:12px sans-serif"><a href="${es
 </div></body></html>`;
 }
 
-export function packingText(lines: PackLine[]) {
+export function packingText(lines: PackLine[], names?: Map<string, string>) {
   return lines
-    .map((l, i) => `${i + 1}. ${l.overdue ? "[NOT SHIPPED YET] " : ""}${NAME[l.platform]} #${l.id}${l.tracking ? ` (AWB ${l.tracking})` : ""}\n${l.items.map((it) => `   ${it.qty}x ${variationOf(it.model) || shortProduct(it.name)}${variationOf(it.model) ? ` (${shortProduct(it.name)})` : ""}`).join("\n")}`)
+    .map((l, i) => `${i + 1}. ${l.overdue ? "[NOT SHIPPED YET] " : ""}${NAME[l.platform]} #${l.id}${l.tracking ? ` (AWB ${l.tracking})` : ""}\n${l.items.map((it) => { const d = displayOf(it, names); return `   ${it.qty}x ${d.main}${d.sub ? ` (${d.sub})` : ""}`; }).join("\n")}`)
     .join("\n\n");
 }

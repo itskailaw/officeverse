@@ -30,6 +30,15 @@ export interface PickItem {
   name: string;
   model: string | null;
   qty: number;
+  sku?: string | null;
+}
+
+/** What to call an item for the packer: its pack name (from Stock) if set, else the variation, else a short product name. */
+export function displayOf(i: { name: string; model?: string | null; sku?: string | null }, names?: Map<string, string>) {
+  const key = (i.sku ?? "").trim() ? `sku:${(i.sku ?? "").trim()}` : `${shortProduct(i.name, 60)}|${variationOf(i.model)}`.toLowerCase();
+  const pack = names?.get(key);
+  const v = variationOf(i.model);
+  return { main: pack || v || shortProduct(i.name), sub: pack || v ? shortProduct(i.name) : "", pack: !!pack };
 }
 export interface PickGroup {
   product: string;
@@ -38,11 +47,12 @@ export interface PickGroup {
 }
 
 /** Pick list grouped by product, variations merged and sorted by quantity. */
-export function pickList(items: PickItem[]): PickGroup[] {
+export function pickList(items: PickItem[], names?: Map<string, string>): PickGroup[] {
   const groups = new Map<string, Map<string, number>>();
   for (const i of items) {
-    const p = shortProduct(i.name);
-    const v = variationOf(i.model) || "—";
+    const d = displayOf(i, names);
+    const p = d.pack ? "Your pack names" : shortProduct(i.name);
+    const v = d.pack ? d.main : variationOf(i.model) || "—";
     const g = groups.get(p) ?? new Map<string, number>();
     g.set(v, (g.get(v) ?? 0) + i.qty);
     groups.set(p, g);

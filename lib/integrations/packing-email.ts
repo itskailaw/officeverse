@@ -5,6 +5,7 @@ import { listIntegrations } from "./store";
 import { STATUS } from "./summary";
 import { buildLabels, labelErrText, type Plat } from "./labels";
 import { mergePdfs } from "./fulfil";
+import { packNames, type StockItem } from "@/lib/data/stock";
 import { sendEmail } from "./email";
 import { syncShopee } from "./shopee/sync";
 import { syncLazada } from "./lazada/sync";
@@ -114,11 +115,14 @@ export async function sendPackingEmail(
       return { status: "empty", count: 0, problems: [] };
     }
     const all = [...carry, ...todo];
-    const itemsOf = new Map(all.map((o) => [`${o.platform}:${o.external_order_id}`, ((o.items as PackLine["items"] | null) ?? []).map((i) => ({ name: i.name, model: i.model ?? null, qty: Number(i.qty) || 1 }))]));
+    const itemsOf = new Map(all.map((o) => [`${o.platform}:${o.external_order_id}`, ((o.items as PackLine["items"] | null) ?? []).map((i) => ({ name: i.name, model: i.model ?? null, sku: i.sku ?? null, qty: Number(i.qty) || 1 }))]));
     const overdueOf = new Map(
       carry.map((o) => [`${o.platform}:${o.external_order_id}`, { since: new Date(emailed.get(`${o.platform}:${o.external_order_id}`)!.first).toISOString(), shipBy: (o.ship_by as string | null) ?? null }]),
     );
     const paper = settings?.paper ?? "thermal";
+    // pack names the CEO set in Stock
+    const { data: lay } = await sb.from("office_layouts").select("settings").eq("workspace_id", ws).maybeSingle();
+    const names = packNames(((lay?.settings as { stock?: StockItem[] } | null)?.stock ?? []) as StockItem[]);
     const ref = (list: typeof all) => list.map((o) => ({ platform: o.platform as Plat, id: o.external_order_id as string }));
     // two batches so the PDF has every not-yet-shipped parcel first, then the new ones
     const parts = [] as Awaited<ReturnType<typeof buildLabels>>[];
@@ -154,8 +158,8 @@ export async function sendPackingEmail(
       to,
       fromName: "Farid · OfficeVerse",
       subject: packingSubject(lines),
-      html: packingHtml(lines, { from: "Farid, Order Processing", problems: bundle.problems, separate: bundle.html?.platform ?? null, appUrl: appUrl() }),
-      text: packingText(lines),
+      html: packingHtml(lines, { from: "Farid, Order Processing", problems: bundle.problems, separate: bundle.html?.platform ?? null, appUrl: appUrl(), names }),
+      text: packingText(lines, names),
       attachments,
     });
     await finish({ status: "sent", orders: lines.map((l) => ({ platform: l.platform, id: l.id })), error: bundle.problems.length ? bundle.problems.join(" · ").slice(0, 1000) : null });

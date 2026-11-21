@@ -36,7 +36,7 @@ export async function GET() {
         paidAt: ((o.pay_time as string | null) ?? (o.ordered_at as string)) as string,
         paidKnown: !!o.pay_time,
         shipBy: (o.ship_by as string) ?? null,
-        items: ((o.items as { name: string; model?: string | null; qty: number }[] | null) ?? []).map((i) => ({ name: i.name, model: i.model ?? null, qty: i.qty })),
+        items: ((o.items as { name: string; model?: string | null; sku?: string | null; qty: number }[] | null) ?? []).map((i) => ({ name: i.name, model: i.model ?? null, sku: i.sku ?? null, qty: i.qty })),
       }));
     return NextResponse.json({ orders }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {

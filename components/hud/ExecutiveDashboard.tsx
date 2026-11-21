@@ -604,6 +604,9 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
           >
             {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync now
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setUI({ dialog: "stock" })} title="Stock levels and pack names">
+            <Package /> Stock
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

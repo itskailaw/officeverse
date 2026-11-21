@@ -9,7 +9,8 @@ import { formatMYR } from "@/lib/data/demo";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn, timeAgo } from "@/lib/utils";
-import { shortProduct, variationOf } from "@/lib/data/product-names";
+import { displayOf } from "@/lib/data/product-names";
+import { packNames } from "@/lib/data/stock";
 
 type Plat = "shopee" | "lazada";
 interface Order {
@@ -22,7 +23,7 @@ interface Order {
   paidAt: string;
   paidKnown: boolean;
   shipBy: string | null;
-  items: { name: string; model: string | null; qty: number }[];
+  items: { name: string; model: string | null; qty: number; sku?: string | null }[];
 }
 const NAME: Record<Plat, string> = { shopee: "Shopee", lazada: "Lazada" };
 
@@ -135,6 +136,8 @@ function writeJSON(k: string, v: unknown) {
 
 /** Tick-off list that follows the printed airway bills top to bottom. */
 function PackingList({ packing, onBack }: { packing: Packing; onBack: () => void }) {
+  const stock = useOffice((s) => s.settings.stock);
+  const names = useMemo(() => packNames(stock), [stock]);
   const [packed, setPacked] = useState<Set<string>>(() => new Set(readJSON<string[]>(PACKED_KEY, [])));
   const k = (r: PackRow) => `${r.platform}:${r.id}`;
   const toggle = (r: PackRow) =>
@@ -198,8 +201,8 @@ function PackingList({ packing, onBack }: { packing: Packing; onBack: () => void
                     {r.items.length ? (
                       r.items.map((it, n) => (
                         <li key={n} title={it.model ? `${it.name} — ${it.model}` : it.name}>
-                          <b>{it.qty}×</b> {variationOf(it.model) || shortProduct(it.name)}
-                          {variationOf(it.model) ? <span className="text-xs text-slate-500"> · {shortProduct(it.name)}</span> : null}
+                          <b>{it.qty}×</b> {displayOf(it, names).main}
+                          {displayOf(it, names).sub ? <span className="text-xs text-slate-500"> · {displayOf(it, names).sub}</span> : null}
                         </li>
                       ))
                     ) : (
@@ -441,6 +444,8 @@ function AutoArrangeBar() {
 
 /** To process → arrange drop-off; To ship → print shipping labels. Owner only. */
 export function Fulfilment() {
+  const stockForNames = useOffice((s) => s.settings.stock);
+  const names = useMemo(() => packNames(stockForNames), [stockForNames]);
   const open = useUI((s) => s.dialog === "fulfil");
   const stage = useUI((s) => s.fulfilStage);
   const set = useUI((s) => s.set);
@@ -766,8 +771,8 @@ export function Fulfilment() {
                       <ul className="mt-1 space-y-0.5 text-slate-700">
                         {o.items.map((it, i) => (
                           <li key={i} title={it.model ? `${it.name} — ${it.model}` : it.name}>
-                            <b>{it.qty}×</b> {variationOf(it.model) || shortProduct(it.name)}
-                            {variationOf(it.model) ? <span className="text-slate-500"> · {shortProduct(it.name)}</span> : null}
+                            <b>{it.qty}×</b> {displayOf(it, names).main}
+                            {displayOf(it, names).sub ? <span className="text-slate-500"> · {displayOf(it, names).sub}</span> : null}
                           </li>
                         ))}
                       </ul>

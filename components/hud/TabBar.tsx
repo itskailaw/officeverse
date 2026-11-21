@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, CalendarPlus, Hammer, Layers, LayoutDashboard, Lightbulb, MoreHorizontal, Package, Settings, Tag, UserPlus, Users, X } from "lucide-react";
+import { Boxes, Building2, CalendarPlus, Hammer, Layers, LayoutDashboard, Lightbulb, MoreHorizontal, Package, Settings, Tag, UserPlus, Users, X } from "lucide-react";
 import { useUI } from "@/lib/store/ui-store";
 import { useOffice } from "@/lib/store/office-store";
 import { useLive } from "@/lib/integrations/client";
@@ -77,6 +77,10 @@ export function TabBar() {
               {sheetItem("Hire", <UserPlus />, () => {
                 close();
                 ui.set({ dialog: "hire" });
+              })}
+              {sheetItem("Stock", <Boxes />, () => {
+                close();
+                ui.set({ dialog: "stock" });
               })}
               {sheetItem("Settings", <Settings />, () => {
                 close();
