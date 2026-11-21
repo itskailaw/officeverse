@@ -6,6 +6,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { OrbitControls, OrthographicCamera } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useOffice } from "@/lib/store/office-store";
+import { useWeather } from "@/lib/office/weather";
 import { useUI } from "@/lib/store/ui-store";
 import { CEO_ID } from "@/lib/data/seed";
 import type { FurnitureItem, LightingMode, Room } from "@/lib/data/types";
@@ -66,13 +67,67 @@ function skyTexture(top: string, bottom: string) {
   return t;
 }
 
+/** Overcast version of a sky colour (rainy KL afternoons). */
+function overcast(hex: string, amt: number) {
+  const c = new THREE.Color(hex);
+  c.lerp(new THREE.Color("#8a94a3"), amt);
+  return `#${c.getHexString()}`;
+}
+
+/** Rain over the office and street when it's raining in Kuala Lumpur right now. */
+function Rain() {
+  const raining = useWeather((s) => !!s.w?.raining);
+  const storm = useWeather((s) => !!s.w?.storm);
+  const N = storm ? 2600 : 1600;
+  const geo = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const p = new Float32Array(N * 6);
+    for (let i = 0; i < N; i++) {
+      const x = -20 + Math.random() * (OFFICE_W + 60);
+      const z = -15 + Math.random() * (OFFICE_D + 45);
+      const y = Math.random() * 24;
+      p.set([x, y, z, x - 0.05, y - 0.7, z], i * 6);
+    }
+    g.setAttribute("position", new THREE.BufferAttribute(p, 3));
+    return g;
+  }, [N]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  useFrame((_, dt) => {
+    if (!raining) return;
+    const a = geo.getAttribute("position") as THREE.BufferAttribute;
+    const arr = a.array as Float32Array;
+    const fall = Math.min(dt, 0.05) * (storm ? 30 : 22);
+    for (let i = 0; i < N; i++) {
+      const o = i * 6;
+      arr[o + 1] -= fall;
+      arr[o + 4] -= fall;
+      if (arr[o + 4] < 0) {
+        const y = 20 + Math.random() * 4;
+        arr[o + 1] = y;
+        arr[o + 4] = y - 0.7;
+      }
+    }
+    a.needsUpdate = true;
+  });
+  if (!raining) return null;
+  return (
+    <lineSegments geometry={geo} frustumCulled={false}>
+      <lineBasicMaterial color="#c7d7ea" transparent opacity={0.45} depthWrite={false} />
+    </lineSegments>
+  );
+}
+
 function Lighting({ lm }: { lm: Exclude<LightingMode, "auto"> }) {
   const { scene } = useThree();
+  const cloudy = useWeather((s) => !!s.w?.cloudy);
+  const raining = useWeather((s) => !!s.w?.raining);
   useEffect(() => {
-    const tex = skyTexture(...SKY[lm]);
+    const [top, bottom] = SKY[lm];
+    const amt = raining ? 0.55 : cloudy ? 0.3 : 0;
+    const tex = skyTexture(amt && lm !== "night" ? overcast(top, amt) : top, amt && lm !== "night" ? overcast(bottom, amt) : bottom);
     scene.background = tex;
     return () => tex.dispose();
-  }, [lm, scene]);
+  }, [lm, scene, cloudy, raining]);
   const sunRef = useRef<THREE.DirectionalLight>(null);
   useEffect(() => {
     if (sunRef.current) {
@@ -221,6 +276,7 @@ function CameraRig() {
     w.__ovSim = getSim();
     w.__ovLive = useLive;
     w.__ovUI = useUI;
+    w.__ovWeather = useWeather;
     w.__ovProject = (x: number, y: number, z: number) => {
       const v = new THREE.Vector3(x, y, z).project(camera);
       return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height };
@@ -677,6 +733,7 @@ export default function OfficeScene() {
       />
       <CameraRig />
       <Lighting lm={lm} />
+      <Rain />
       <Suspense fallback={null}>
         <Building walls={settings.walls} wallColor={settings.wallColor} accent={settings.accentColor} wood={settings.floorWood} night={night} brands={brands} />
         <FurnitureLayer night={night} brands={brands} />

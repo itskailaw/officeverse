@@ -8,7 +8,7 @@ import { useLive } from "@/lib/integrations/client";
 import { useTouchLayout } from "@/lib/hooks/useTouchLayout";
 import { cn } from "@/lib/utils";
 
-const LIGHT_CYCLE = ["day", "evening", "night"] as const;
+const LIGHT_CYCLE = ["auto", "day", "evening", "night"] as const;
 const WALL_CYCLE = ["cutaway", "full", "hidden"] as const;
 const WALL_LABEL = { cutaway: "Cut-away", full: "Walls up", hidden: "Walls down" } as const;
 
@@ -66,7 +66,7 @@ export function TabBar() {
               </button>
             </div>
             <div className="grid grid-cols-4 gap-2">
-              {sheetItem(`Light: ${settings.lighting}`, <Lightbulb />, () => update({ lighting: LIGHT_CYCLE[(LIGHT_CYCLE.indexOf(settings.lighting as (typeof LIGHT_CYCLE)[number]) + 1) % 3] }))}
+              {sheetItem(`Light: ${settings.lighting}`, <Lightbulb />, () => update({ lighting: LIGHT_CYCLE[(LIGHT_CYCLE.indexOf(settings.lighting as (typeof LIGHT_CYCLE)[number]) + 1) % 4] }))}
               {sheetItem(WALL_LABEL[settings.walls as keyof typeof WALL_LABEL] ?? "Walls", <Layers />, () => update({ walls: WALL_CYCLE[(WALL_CYCLE.indexOf(settings.walls as (typeof WALL_CYCLE)[number]) + 1) % 3] }))}
               {sheetItem("Name tags", <Tag />, () => update({ showNameTags: !settings.showNameTags }), settings.showNameTags)}
               {sheetItem(ui.mode === "build" ? "Build: on" : "Build mode", <Hammer />, () => ui.set({ mode: ui.mode === "build" ? "live" : "build", selectedEmployeeId: null, selectedFurnitureId: null }), ui.mode === "build")}

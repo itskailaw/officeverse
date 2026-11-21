@@ -96,3 +96,9 @@ body {
    messages, reports and dialog text stay selectable. */
 [role="dialog"] p, [role="dialog"] li, [role="dialog"] td, [role="dialog"] pre, [role="dialog"] code,
 .prose, .select-text, .select-text * { -webkit-user-select: text; user-select: text; }
+
+/* record-day confetti */
+@keyframes ovConfetti {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0.9; }
+}

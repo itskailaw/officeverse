@@ -16,6 +16,8 @@ import { SubtitleStudio } from "@/components/hud/SubtitleStudio";
 import { WelcomeBrief } from "@/components/hud/WelcomeBrief";
 import { TabBar } from "@/components/hud/TabBar";
 import { StockDialog } from "@/components/hud/StockDialog";
+import { TeamMoments } from "@/components/hud/Atmosphere";
+import { CommandPalette } from "@/components/hud/CommandPalette";
 import { useServiceWorker } from "@/components/hud/AppInstall";
 import { bootLiveData, watchLiveData } from "@/lib/integrations/client";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
@@ -187,6 +189,8 @@ export default function OfficeApp() {
       <SubtitleStudio />
       <WelcomeBrief />
       <StockDialog />
+      <TeamMoments />
+      <CommandPalette />
       <Toasts />
     </>
   );

@@ -313,6 +313,21 @@ export class OfficeSim {
     return false;
   }
 
+  /** Lunch at the kopitiam: a longer break at a free pantry seat (falls back to any break spot). */
+  startLunch(id: string) {
+    const a = this.agents.get(id);
+    if (!a || a.isCEO || a.intent !== "desk") return false;
+    const spots = this.freeSeats("lounge", "kopitiam");
+    if (!spots.length) return this.startBreak(id);
+    const spot = spots[Math.floor(Math.random() * spots.length)];
+    if (this.goToSeat(id, spot.id, "break")) {
+      a.timer = rand(70, 110);
+      this.emit({ agentId: id, type: "break_start" });
+      return true;
+    }
+    return false;
+  }
+
   /** Send attendees (and the CEO) to the meeting table. Returns seat assignment. */
   callMeeting(ids: string[], ceoId?: string) {
     const assigned: Record<string, string> = {};

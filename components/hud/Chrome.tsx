@@ -26,6 +26,7 @@ import {
   Clock,
   Layers,
   Pin,
+  Search,
 } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
@@ -33,6 +34,8 @@ import { MusicPlayer } from "./MusicPlayer";
 import { useHealthPolling } from "./SystemHealth";
 import { useTouchLayout } from "@/lib/hooks/useTouchLayout";
 import { openWelcome } from "./WelcomeBrief";
+import { WeatherChip } from "./Atmosphere";
+import { openCommandPalette } from "./CommandPalette";
 import { CATALOG } from "@/lib/office/catalog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,7 +96,7 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         </Badge>
       )}
       {settings.demoMode ? (
-        <Badge variant="demo" title={liveShopee ? "Demo mode is on: areas without live data show labelled sample data" : "Business metrics shown are labelled sample data"}>
+        <Badge variant="demo" className="whitespace-nowrap" title={liveShopee ? "Demo mode is on: areas without live data show labelled sample data" : "Business metrics shown are labelled sample data"}>
           {liveShopee ? "DEMO ON" : "DEMO MODE"}
         </Badge>
       ) : (
@@ -101,6 +104,10 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
       )}
       {ui.mode === "build" && <Badge variant="warning">BUILD MODE</Badge>}
       <div className="ml-auto flex items-center gap-1">
+        <Button variant="ghost" size="icon" title="Quick actions (⌘K / Ctrl+K)" onClick={openCommandPalette} aria-label="Quick actions">
+          <Search />
+        </Button>
+        <WeatherChip />
         <Clock24 />
         {!touch && (
         <>
