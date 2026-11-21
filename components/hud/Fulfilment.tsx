@@ -256,8 +256,8 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
     : null;
   return (
     <div className={cn("flex flex-wrap items-center gap-3 border-b px-5 py-2 text-xs", cfg.enabled ? "border-sky-100 bg-sky-50/70" : "border-slate-100 bg-slate-50/70")}>
-      <Mail className="h-4 w-4 text-slate-500" />
-      <div className="min-w-0 flex-1">
+      <Mail className="h-4 w-4 shrink-0 self-start text-slate-500 sm:self-center" />
+      <div className="min-w-[16rem] flex-1">
         <div className="font-semibold text-slate-800">Packing list & airway bills by email</div>
         <div className="text-[11px] text-slate-500">
           {status && !status.configured ? (
@@ -272,19 +272,20 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
           {lastText && <span className={cn("ml-1", last?.status === "failed" && "text-red-700")} title={last?.error ?? undefined}>· {lastText}{last?.status === "failed" && last.error ? ` — ${last.error.slice(0, 120)}` : ""}</span>}
         </div>
       </div>
+      <div className="flex flex-wrap items-center gap-2">
       <input
         type="email"
         value={to}
         onChange={(e) => setTo(e.target.value)}
         onBlur={() => to.trim() !== cfg.to && set({})}
         placeholder="you@example.com"
-        className="h-7 w-48 rounded-md border border-slate-200 bg-panel px-2 text-[11px]"
+        className="h-7 w-52 rounded-md border border-slate-200 bg-panel px-2 text-[11px] text-slate-800 placeholder:text-slate-400"
         aria-label="Send the packing list to"
       />
       <select
         value={cfg.mode ?? "daily"}
         onChange={(e) => set({ mode: e.target.value as "daily" | "instant" })}
-        className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]"
+        className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px] text-slate-800"
         aria-label="When to email"
       >
         <option value="instant">Right after Farid confirms</option>
@@ -293,7 +294,7 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
       {(cfg.mode ?? "daily") === "daily" && (
         <label className="flex items-center gap-1 text-[11px] text-slate-500">
           at
-          <input type="time" value={cfg.time} onChange={(e) => set({ time: e.target.value || "12:00" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]" />
+          <input type="time" value={cfg.time} onChange={(e) => set({ time: e.target.value || "12:00" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px] text-slate-800" />
         </label>
       )}
       <Button size="sm" variant="outline" onClick={sendNow} disabled={busy || !valid} title="Email the new To-ship parcels now">
@@ -312,6 +313,7 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
       >
         <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", cfg.enabled ? "left-[22px]" : "left-0.5")} />
       </button>
+      </div>
     </div>
   );
 }
@@ -415,9 +417,9 @@ function AutoArrangeBar() {
       </div>
       <label className="flex items-center gap-1 text-[11px] text-slate-500">
         from
-        <input type="time" value={auto.start} onChange={(e) => set({ start: e.target.value || "00:00" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]" />
+        <input type="time" value={auto.start} onChange={(e) => set({ start: e.target.value || "00:00" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px] text-slate-800" />
         to
-        <input type="time" value={auto.end} onChange={(e) => set({ end: e.target.value || "23:59" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px]" />
+        <input type="time" value={auto.end} onChange={(e) => set({ end: e.target.value || "23:59" })} className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px] text-slate-800" />
       </label>
       <button
         role="switch"

@@ -13,6 +13,7 @@ import { KobeDay } from "@/components/hud/KobeDay";
 import { Fulfilment } from "@/components/hud/Fulfilment";
 import { Purchases } from "@/components/hud/Purchases";
 import { SubtitleStudio } from "@/components/hud/SubtitleStudio";
+import { WelcomeBrief } from "@/components/hud/WelcomeBrief";
 import { bootLiveData, watchLiveData } from "@/lib/integrations/client";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase/client";
 import { ensureWorkspace, startSync } from "@/lib/data/sync";
@@ -180,6 +181,7 @@ export default function OfficeApp() {
       <Fulfilment />
       <Purchases />
       <SubtitleStudio />
+      <WelcomeBrief />
       <Toasts />
     </>
   );
