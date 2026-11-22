@@ -4,7 +4,7 @@
 
 export type FestiveTheme = "raya" | "cny" | "deepavali" | "kobe";
 
-const DAYS: Record<Exclude<FestiveTheme, "kobe">, { start: string; days: number }[]> = {
+export const FESTIVE_DAYS: Record<Exclude<FestiveTheme, "kobe">, { start: string; days: number }[]> = {
   cny: [
     { start: "2026-02-17", days: 3 },
     { start: "2027-02-06", days: 3 },
@@ -30,7 +30,7 @@ const klDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/K
 export function festiveTheme(now = new Date()): FestiveTheme | null {
   const today = klDate(now);
   if (today.slice(5) === "08-24") return "kobe";
-  for (const [theme, list] of Object.entries(DAYS) as [Exclude<FestiveTheme, "kobe">, { start: string; days: number }[]][]) {
+  for (const [theme, list] of Object.entries(FESTIVE_DAYS) as [Exclude<FestiveTheme, "kobe">, { start: string; days: number }[]][]) {
     for (const { start, days } of list) {
       const end = klDate(new Date(Date.parse(`${start}T12:00:00+08:00`) + (days - 1) * 86400 * 1000));
       if (today >= start && today <= end) return theme;

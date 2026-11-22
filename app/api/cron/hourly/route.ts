@@ -3,6 +3,7 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 import { ensurePackingEmail } from "@/lib/integrations/packing-email";
 import { ensureWeeklyReview } from "@/lib/integrations/weekly";
 import { reviewWatch } from "@/lib/integrations/reviews";
+import { campaignWatch } from "@/lib/integrations/campaigns";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +52,13 @@ export async function GET(req: Request) {
           ok: false,
           error: `reviews: ${e instanceof Error ? e.message : String(e)}`,
         });
+      }
+      // Hafiz's sale-event reminders (11.11, Raya, …)
+      try {
+        const c = await campaignWatch(r.workspace_id as string);
+        if (c.reminded) results.push({ workspace: r.workspace_id as string, ok: true, result: { campaigns: c.reminded } });
+      } catch (e) {
+        results.push({ workspace: r.workspace_id as string, ok: false, error: `campaigns: ${e instanceof Error ? e.message : String(e)}` });
       }
       if (!(r.settings as { packingEmail?: { enabled?: boolean } } | null)?.packingEmail?.enabled) continue;
       try {

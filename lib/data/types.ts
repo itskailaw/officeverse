@@ -244,6 +244,10 @@ export interface OfficeSettings {
   autoArrange?: { enabled: boolean; start: string; end: string };
   /** reviewer track record: deliberate test mistakes caught, and mistakes the CEO reported as missed */
   qaStats?: Record<string, { planted: number; caught: number; missed: number; jobs: number }>;
+  /** Marketing Studio: facts about the shop the AI may use (warranty, delivery, install help…) */
+  shopNotes?: string;
+  /** Marketing Studio: saved campaign plans by event id */
+  campaignPlans?: Record<string, { plan: string; at: string }>;
   /** stock counts per product (pack names come from here too) */
   stock?: import("./stock.ts").StockItem[];
   /** Farid's daily packing-list email with the merged airway bills */

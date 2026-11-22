@@ -100,7 +100,7 @@ export async function systemHealth(ws: string): Promise<Check[]> {
       label: "Morning briefing",
       level: briefedToday ? "ok" : klHour >= 10 ? "bad" : "ok",
       detail: briefedToday ? "Sent today." : klHour >= 10 ? "Today's briefing hasn't gone out." : "Due around 8:30.",
-      fix: briefedToday || klHour < 10 ? undefined : "Send /briefing to the bot; check GitHub Actions → Daily jobs",
+      fix: briefedToday || klHour < 10 ? undefined : "Send /briefing to the bot; check the Briefing job in cron-job.org",
     });
 
   // setup

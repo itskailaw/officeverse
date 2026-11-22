@@ -11,6 +11,7 @@ import { ACCEPTED_FILE_TYPES, type UploadedFile } from "@/lib/ai/protocol";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Markdown } from "@/components/ui/markdown";
+import { openMarketing } from "./MarketingStudio";
 import { cn, timeAgo } from "@/lib/utils";
 
 export const TASK_STATUS: Record<Task["status"], { label: string; cls: string }> = {
@@ -189,6 +190,19 @@ export function TaskComposer({ emp }: { emp: Employee }) {
           <span aria-hidden>🎬</span>
           <span className="flex-1">
             <b>Subtitle job</b> — upload .cip / .srt / .vtt / .ass / .sbv. Lina translates, Adam checks every line, you download the file.
+          </span>
+          <span className="font-semibold">Open →</span>
+        </button>
+      )}
+      {(["emp-mkt-spec", "emp-cs", "emp-ads", "emp-social"].includes(emp.id) || emp.departmentId === "dept-marketing") && (
+        <button
+          type="button"
+          onClick={() => openMarketing(emp.id === "emp-cs" ? "reply" : emp.id === "emp-mkt-spec" || emp.id === "emp-ads" ? "listing" : "campaign")}
+          className="flex w-full items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-left text-xs text-sky-900 hover:bg-sky-100"
+        >
+          <span aria-hidden>📣</span>
+          <span className="flex-1">
+            <b>Marketing Studio</b> — listing writer (English & Malay), buyer chat replies, and sale-event campaign plans.
           </span>
           <span className="font-semibold">Open →</span>
         </button>

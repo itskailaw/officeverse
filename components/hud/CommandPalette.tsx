@@ -6,6 +6,7 @@ import { useUI } from "@/lib/store/ui-store";
 import { useOffice } from "@/lib/store/office-store";
 import { useMusic } from "@/lib/audio/music";
 import { openWelcome } from "./WelcomeBrief";
+import { openMarketing } from "./MarketingStudio";
 import { cn } from "@/lib/utils";
 
 interface Cmd {
@@ -63,6 +64,9 @@ export function CommandPalette() {
       { id: "team", label: "Team & scorecards", hint: "Everyone's work this month", keywords: "staff employees scorecards", run: () => ui().set({ dialog: "dashboard", dashboardTab: "team" }) },
       { id: "glance", label: "Today at a glance", hint: "Parcels, sales, alerts", keywords: "welcome summary today", run: () => openWelcome() },
       { id: "subtitles", label: "Subtitle Studio", hint: "Lina translates, Adam checks", keywords: "translate srt cip amare", run: () => ui().set({ dialog: "subtitles" }) },
+      { id: "listing", label: "Write a product listing", hint: "Hafiz · English & Malay", keywords: "marketing title description keywords seo shopee lazada", run: () => openMarketing("listing") },
+      { id: "reply", label: "Draft a buyer reply", hint: "Mei Ling · chat answers", keywords: "customer chat message answer question", run: () => openMarketing("reply") },
+      { id: "campaign", label: "Sale campaigns", hint: "11.11, Raya, payday… with plans", keywords: "campaign festive 11.11 12.12 raya cny voucher calendar", run: () => openMarketing("campaign") },
       { id: "meeting", label: "Call a meeting", hint: "Gather staff in the boardroom", run: () => ui().set({ dialog: "meeting-call" }) },
       { id: "hire", label: "Hire an AI employee", hint: "Add someone to the team", run: () => ui().set({ dialog: "hire" }) },
       { id: "settings", label: "Settings", hint: "Integrations, system health, app & notifications", keywords: "health telegram notifications install", run: () => ui().set({ dialog: "settings" }) },

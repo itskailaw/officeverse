@@ -13,6 +13,7 @@ import { KobeDay } from "@/components/hud/KobeDay";
 import { Fulfilment } from "@/components/hud/Fulfilment";
 import { Purchases } from "@/components/hud/Purchases";
 import { SubtitleStudio } from "@/components/hud/SubtitleStudio";
+import { MarketingStudio } from "@/components/hud/MarketingStudio";
 import { WelcomeBrief } from "@/components/hud/WelcomeBrief";
 import { TabBar } from "@/components/hud/TabBar";
 import { StockDialog } from "@/components/hud/StockDialog";
@@ -187,6 +188,7 @@ export default function OfficeApp() {
       <Fulfilment />
       <Purchases />
       <SubtitleStudio />
+      <MarketingStudio />
       <WelcomeBrief />
       <StockDialog />
       <TeamMoments />
