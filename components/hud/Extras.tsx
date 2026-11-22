@@ -18,23 +18,9 @@ export function Logo({ size = 32 }: { size?: number }) {
   if (logo)
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={logo} alt="Company logo" style={{ height: size, width: size }} className="rounded-lg bg-panel object-contain p-0.5 ring-1 ring-slate-200" />;
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-label="OfficeVerse">
-      <defs>
-        <linearGradient id="ov-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#2b5a8f" />
-          <stop offset="1" stopColor="#13263f" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="8" fill="url(#ov-g)" />
-      {/* isometric building */}
-      <path d="M16 6l9 5v10l-9 5-9-5V11z" fill="#f8fafc" opacity="0.12" />
-      <path d="M16 8.5l7 3.9-7 3.9-7-3.9z" fill="#f8fafc" />
-      <path d="M9 12.4l7 3.9v7.7l-7-3.9z" fill="#b07d4f" />
-      <path d="M23 12.4l-7 3.9v7.7l7-3.9z" fill="#7dd3fc" />
-      <circle cx="16" cy="5.2" r="1.6" fill="#fbbf24" />
-    </svg>
-  );
+  // the app icon (HQ by day and night) — same image as the home-screen icon
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/icon-192.png?v=2" alt="OfficeVerse" width={size} height={size} style={{ height: size, width: size }} className="shrink-0" />;
 }
 
 /** Company switcher with brand colour dots. */

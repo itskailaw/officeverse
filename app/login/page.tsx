@@ -36,7 +36,8 @@ export default function LoginPage() {
     <div className="grid h-dvh place-items-center overflow-auto bg-gradient-to-br from-navy-dark via-navy to-slate-800 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-panel p-6 shadow-2xl">
         <div className="mb-5 flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-navy font-bold text-white">OV</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon-192.png?v=2" alt="OfficeVerse" width={40} height={40} className="h-10 w-10" />
           <div>
             <div className="text-lg font-semibold text-slate-900">OfficeVerse</div>
             <div className="text-xs text-slate-500">Your Business. Your People. Your Universe.</div>
