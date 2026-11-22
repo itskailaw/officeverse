@@ -22,7 +22,7 @@ import { Character } from "./Character";
 import { festiveTheme } from "@/lib/office/festive";
 import { BirthdayDecor, FestiveDecor } from "./OfficeLife";
 import { shootMiniHoop } from "./FunFurniture";
-import { ceoMonitorTexture, meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
+import { ceoMonitorTexture, logoScreenTexture, meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
 /** Display pieces that zoom the camera in when clicked. */
 const SHOWCASE = new Set(["sneaker_wall", "kobe_cabinet", "jersey_frame", "aquarium"]);
@@ -404,8 +404,12 @@ function FurnitureLayer({ night, brands }: { night: boolean; brands: Record<stri
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const ceoTex = useMemo(() => ceoMonitorTexture(settings.demoMode, liveSummary), [settings.demoMode, liveSummary, tick]);
   useEffect(() => () => ceoTex.dispose(), [ceoTex]);
-  const logo = useTextureImage(settings.logoUrl);
+  // your uploaded logo, or the OfficeVerse app icon
+  const logo = useTextureImage(settings.logoUrl || "/icon-512.png?v=2");
   const recTex = useMemo(() => receptionTexture(companies, logo), [companies, logo]);
+  // the receptionist's own monitor shows the logo as a screensaver
+  const deskTex = useMemo(() => logoScreenTexture(logo), [logo]);
+  useEffect(() => () => deskTex.dispose(), [deskTex]);
   const meetTex = useMemo(() => meetingTexture(liveMeeting), [liveMeeting]);
   useEffect(() => () => perfTex.dispose(), [perfTex]);
   useEffect(() => () => recTex.dispose(), [recTex]);
@@ -451,7 +455,7 @@ function FurnitureLayer({ night, brands }: { night: boolean; brands: Record<stri
         const d = drag && drag.id === item.id ? drag : null;
         const x = d ? d.x : item.x;
         const z = d ? d.z : item.z;
-        const tex = item.type === "perf_screen" ? perfTex : item.type === "exec_desk" ? ceoTex : item.id === "rec-logo" ? recTex : item.id === "meet-screen" ? meetTex : null;
+        const tex = item.type === "perf_screen" ? perfTex : item.type === "exec_desk" ? ceoTex : item.id === "rec-logo" ? recTex : item.type === "reception_desk" ? deskTex : item.id === "meet-screen" ? meetTex : null;
         const interactive = item.id === CEO_DESK_ID || item.type === "perf_screen" || item.id === MEETING_TABLE_ID || item.type === "mini_hoop" || SHOWCASE.has(item.type) || mode === "build";
         const [w, dd] = sizeOf(item);
         return (

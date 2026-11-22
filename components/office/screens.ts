@@ -153,6 +153,29 @@ export function receptionTexture(companies: Company[], logo?: HTMLImageElement |
   });
 }
 
+/** Small screen with the logo centred on navy (the receptionist's monitor). */
+export function logoScreenTexture(logo?: HTMLImageElement | null) {
+  return makeScreenTexture(
+    (g, w, h) => {
+      const grad = g.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, "#0f1f36");
+      grad.addColorStop(1, "#1e3a5f");
+      g.fillStyle = grad;
+      g.fillRect(0, 0, w, h);
+      if (logo) {
+        const s = Math.min((h * 0.62) / logo.height, (w * 0.5) / logo.width);
+        g.drawImage(logo, (w - logo.width * s) / 2, h * 0.1, logo.width * s, logo.height * s);
+      }
+      g.fillStyle = "#f8fafc";
+      g.font = "700 46px system-ui, sans-serif";
+      g.textAlign = "center";
+      g.fillText("Welcome", w / 2, h * 0.88);
+    },
+    512,
+    300,
+  );
+}
+
 export function meetingTexture(topic: string | null) {
   return makeScreenTexture((g, w) => {
     header(g, w, "Meeting Room", topic ? "In session" : "Available");

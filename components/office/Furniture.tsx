@@ -74,13 +74,13 @@ function Desk({ w = 1.4, d = 0.7, top = P.white, legs = P.navy }: { w?: number; 
   );
 }
 
-function Monitor({ z = 0.16, x = 0, on = true }: { z?: number; x?: number; on?: boolean }) {
+function Monitor({ z = 0.16, x = 0, on = true, tex }: { z?: number; x?: number; on?: boolean; tex?: THREE.Texture | null }) {
   return (
     <group position={[x, 0, z]}>
       <B p={[0, 0.77, 0.02]} s={[0.2, 0.02, 0.14]} c={P.darkGrey} />
       <B p={[0, 0.88, 0.04]} s={[0.04, 0.2, 0.03]} c={P.darkGrey} />
       <B p={[0, 1.02, 0]} s={[0.62, 0.38, 0.03]} c="#111827" />
-      {on && <Screen p={[0, 1.02, -0.017]} s={[0.58, 0.34]} r={[0, Math.PI, 0]} />}
+      {on && <Screen p={[0, 1.02, -0.017]} s={[0.58, 0.34]} r={[0, Math.PI, 0]} tex={tex} />}
     </group>
   );
 }
@@ -320,7 +320,7 @@ function PerfScreen({ tex }: { tex: THREE.Texture | null }) {
   );
 }
 
-function ReceptionDesk() {
+function ReceptionDesk({ tex }: { tex: THREE.Texture | null }) {
   return (
     <group>
       <B p={[0, 0.55, 0.22]} s={[3.2, 1.1, 0.24]} c={P.white} m={mat(P.white, { rough: 0.3 })} />
@@ -329,7 +329,7 @@ function ReceptionDesk() {
       <B p={[0, 0.74, -0.1]} s={[3.0, 0.04, 0.5]} c={P.woodLight} />
       <B p={[-1.55, 0.37, -0.1]} s={[0.06, 0.74, 0.5]} c={P.white} />
       <B p={[1.55, 0.37, -0.1]} s={[0.06, 0.74, 0.5]} c={P.white} />
-      <Monitor z={0.0} x={0.3} />
+      <Monitor z={0.0} x={0.3} tex={tex} />
       <group position={[0, 0, -0.62]}>
         <OfficeChair />
       </group>
@@ -685,7 +685,7 @@ export const FurnitureVisual = memo(function FurnitureVisual({ item, frames, scr
     case "perf_screen":
       return <PerfScreen tex={screenTex ?? null} />;
     case "reception_desk":
-      return <ReceptionDesk />;
+      return <ReceptionDesk tex={screenTex ?? null} />;
     case "server_rack":
       return <ServerRack />;
     case "filing_cabinet":
