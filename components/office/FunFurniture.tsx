@@ -10,7 +10,10 @@ import type { FurnitureItem } from "@/lib/data/types";
 import { getSim } from "@/lib/office/runtime";
 import { useOffice } from "@/lib/store/office-store";
 import { isKobeDay } from "@/lib/office/kobeday";
+import { useWeather } from "@/lib/office/weather";
 import { WALL_HEIGHT } from "./Building";
+import { CATALOG } from "@/lib/office/catalog";
+import { EotmFrame } from "./OfficeLife";
 import { mat, makeScreenTexture } from "./materials";
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -18,6 +21,7 @@ const CYL = new THREE.CylinderGeometry(0.5, 0.5, 1, 20);
 const SPH = new THREE.SphereGeometry(0.5, 16, 12);
 const TORUS = new THREE.TorusGeometry(0.5, 0.06, 8, 24);
 const PLANE = new THREE.PlaneGeometry(1, 1);
+const CONE = new THREE.ConeGeometry(0.5, 1, 12, 1, true);
 
 type V3 = [number, number, number];
 const B = ({ p, s, c, m, r, shadow = true }: { p: V3; s: V3; c?: string; m?: THREE.Material; r?: V3; shadow?: boolean }) => (
@@ -225,9 +229,38 @@ function Arcade({ color = "#ec4899", night }: { color?: string; night?: boolean 
 }
 
 // ---------------------------------------------------------------- pantry
-function CoffeeBar({ w, night }: { w: number; night?: boolean }) {
+/** Puffs of steam that rise while `active` (the Kopi O machine and the microwave). */
+function Steam({ active, p }: { active: () => boolean; p: V3 }) {
+  const g = useRef<THREE.Group>(null);
+  const m = useMemo(() => new THREE.MeshStandardMaterial({ color: "#f8fafc", transparent: true, opacity: 0, depthWrite: false }), []);
+  useEffect(() => () => m.dispose(), [m]);
+  const level = useRef(0);
+  useFrame(({ clock }, dt) => {
+    level.current += ((active() ? 1 : 0) - level.current) * Math.min(1, dt * 2);
+    m.opacity = 0.45 * level.current;
+    if (!g.current) return;
+    g.current.visible = level.current > 0.02;
+    g.current.children.forEach((c, i) => {
+      const t = (clock.elapsedTime * 0.6 + i / 3) % 1;
+      c.position.set(Math.sin((t + i) * 5) * 0.05, t * 0.55, 0);
+      c.scale.setScalar(0.06 + t * 0.12);
+    });
+  });
+  return (
+    <group ref={g} position={p}>
+      {[0, 1, 2].map((i) => (
+        <mesh key={i} geometry={SPH} material={m} />
+      ))}
+    </group>
+  );
+}
+
+function CoffeeBar({ item, w, night }: { item: FurnitureItem; w: number; night?: boolean }) {
+  const seats = CATALOG.coffee_bar.seats.length;
   return (
     <group>
+      <Steam active={() => occupied(item.id, seats) > 0} p={[-1.2, 1.55, -0.05]} />
+      <B p={[-1.2, 1.34, 0.08]} s={[0.36, 0.08, 0.01]} c="#7c2d12" shadow={false} />
       <B p={[0, 0.5, 0]} s={[w, 1.0, 0.8]} c="#7c4a24" />
       <B p={[0, 1.02, 0.05]} s={[w + 0.1, 0.05, 0.95]} c="#e7e5e4" />
       {/* espresso machine + teh tarik pots */}
@@ -1017,7 +1050,7 @@ export function FunVisual({ item, w, d, night }: { item: FurnitureItem; w: numbe
     case "arcade":
       return <Arcade color={item.color} night={night} />;
     case "coffee_bar":
-      return <CoffeeBar w={w} night={night} />;
+      return <CoffeeBar item={item} w={w} night={night} />;
     case "snack_shelf":
       return <SnackShelf w={w} />;
     case "bean_bag":
@@ -1074,6 +1107,20 @@ export function FunVisual({ item, w, d, night }: { item: FurnitureItem; w: numbe
       return <Vanity w={w} />;
     case "wc_sign":
       return <WcSign female={item.label === "F"} />;
+    case "prayer_mat":
+      return <PrayerMat color={item.color} />;
+    case "qibla_sign":
+      return <QiblaSign />;
+    case "shoe_rack":
+      return <ShoeRack />;
+    case "quran_stand":
+      return <QuranStand />;
+    case "pantry_counter":
+      return <PantryCounter item={item} night={night} />;
+    case "umbrella_stand":
+      return <UmbrellaStand />;
+    case "eotm_frame":
+      return <EotmFrame />;
     case "neon_sign":
       return <NeonSign w={w} text={item.label ?? "OPEN"} color={item.color} night={night} />;
     default:
@@ -1214,6 +1261,156 @@ function WcSign({ female }: { female: boolean }) {
         <meshBasicMaterial map={tex} toneMapped={false} />
       </mesh>
       <B p={[0, 0.36, 0]} s={[0.02, 0.12, 0.02]} c="#94a3b8" shadow={false} />
+    </group>
+  );
+}
+
+// ------------------------------------------------------------------ surau
+function PrayerMat({ color = "#065f46" }: { color?: string }) {
+  return (
+    <group>
+      <B p={[0, 0.012, 0]} s={[0.7, 0.012, 1.15]} c={color} shadow={false} />
+      <B p={[0, 0.02, 0]} s={[0.58, 0.004, 1.0]} c="#fbbf24" shadow={false} />
+      <B p={[0, 0.024, 0]} s={[0.52, 0.004, 0.94]} c={color} shadow={false} />
+      {/* mihrab arch at the head end (local -z, towards the qibla) */}
+      <mesh geometry={CYL} material={mat("#fbbf24")} position={[0, 0.026, -0.3]} scale={[0.3, 0.004, 0.3]} />
+      <mesh geometry={CYL} material={mat(color)} position={[0, 0.029, -0.3]} scale={[0.24, 0.004, 0.24]} />
+      {/* fringe */}
+      {[-0.6, 0.6].map((z, i) => (
+        <B key={i} p={[0, 0.01, z]} s={[0.66, 0.006, 0.06]} c="#f5f5f4" shadow={false} />
+      ))}
+    </group>
+  );
+}
+
+function QiblaSign() {
+  const tex = useMemo(
+    () =>
+      makeScreenTexture(
+        (g, W, H) => {
+          g.fillStyle = "#064e3b";
+          g.beginPath();
+          g.roundRect(0, 0, W, H, 24);
+          g.fill();
+          g.strokeStyle = "#fbbf24";
+          g.lineWidth = 8;
+          g.strokeRect(14, 14, W - 28, H - 28);
+          g.fillStyle = "#fbbf24";
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          g.font = "700 64px serif";
+          g.fillText("قبلة", W / 2, H * 0.36);
+          g.font = "800 46px system-ui, sans-serif";
+          g.fillText("▲ KIBLAT", W / 2, H * 0.72);
+        },
+        512,
+        320,
+      ),
+    [],
+  );
+  useEffect(() => () => tex.dispose(), [tex]);
+  const y = useWallY(0.38, 1.7);
+  return (
+    <group position={[0, y, 0]}>
+      <mesh geometry={PLANE} position={[0, 0, 0.02]} scale={[0.6, 0.38, 1]}>
+        <meshBasicMaterial map={tex} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function ShoeRack() {
+  const shoes = ["#111827", "#f8fafc", "#7c2d12", "#1e3a8a", "#be185d"];
+  return (
+    <group>
+      <B p={[0, 0.2, 0]} s={[1.0, 0.4, 0.34]} c="#a16207" />
+      <B p={[0, 0.21, 0.02]} s={[0.94, 0.02, 0.3]} c="#78350f" />
+      {shoes.map((c, i) => (
+        <group key={i} position={[-0.38 + i * 0.19, i % 2 ? 0.25 : 0.43, 0.02]}>
+          <B p={[0, 0.03, 0]} s={[0.12, 0.06, 0.24]} c={c} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function QuranStand() {
+  return (
+    <group>
+      <B p={[0, 0.45, 0]} s={[0.8, 0.9, 0.32]} c="#78350f" />
+      {[0.22, 0.58].map((y, r) => (
+        <group key={r}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <B key={i} p={[-0.3 + i * 0.12, y + 0.12, 0.06]} s={[0.08, 0.24, 0.2]} c={i % 3 === 0 ? "#065f46" : i % 3 === 1 ? "#7f1d1d" : "#1e3a8a"} />
+          ))}
+        </group>
+      ))}
+      {/* rehal (folding book rest) with an open Quran on top */}
+      <B p={[-0.12, 0.98, 0.02]} s={[0.26, 0.03, 0.22]} r={[0, 0, 0.5]} c="#a16207" />
+      <B p={[0.12, 0.98, 0.02]} s={[0.26, 0.03, 0.22]} r={[0, 0, -0.5]} c="#a16207" />
+      <B p={[-0.11, 1.02, 0.02]} s={[0.22, 0.012, 0.18]} r={[0, 0, 0.5]} c="#fefce8" shadow={false} />
+      <B p={[0.11, 1.02, 0.02]} s={[0.22, 0.012, 0.18]} r={[0, 0, -0.5]} c="#fefce8" shadow={false} />
+    </group>
+  );
+}
+
+// ------------------------------------------------------------------ pantry
+/** Counter with a microwave (lights up and hums while someone heats lunch), kettle and toaster. */
+function PantryCounter({ item, night }: { item: FurnitureItem; night?: boolean }) {
+  const glow = useRef<THREE.MeshStandardMaterial>(null);
+  const plate = useRef<THREE.Mesh>(null);
+  const busy = () => occupied(item.id, 1) > 0;
+  useFrame(({ clock }) => {
+    const on = busy();
+    if (glow.current) glow.current.emissiveIntensity = on ? 1.2 : night ? 0.05 : 0;
+    if (plate.current && on) plate.current.rotation.y = clock.elapsedTime * 1.5;
+  });
+  return (
+    <group>
+      <B p={[0, 0.45, 0]} s={[1.8, 0.9, 0.6]} c="#f5f5f4" />
+      <B p={[0, 0.92, 0]} s={[1.84, 0.05, 0.64]} c="#57534e" />
+      {[-0.45, 0.45].map((x, i) => (
+        <B key={i} p={[x, 0.45, 0.302]} s={[0.86, 0.84, 0.01]} c="#e7e5e4" shadow={false} />
+      ))}
+      {/* microwave */}
+      <group position={[0.35, 0.95, -0.05]}>
+        <B p={[0, 0.17, 0]} s={[0.56, 0.34, 0.4]} c="#d6d3d1" />
+        <mesh geometry={BOX} position={[-0.06, 0.17, 0.201]} scale={[0.36, 0.24, 0.005]}>
+          <meshStandardMaterial ref={glow} color="#1f2937" emissive="#fde68a" emissiveIntensity={0} />
+        </mesh>
+        <mesh ref={plate} geometry={CYL} material={mat("#94a3b8")} position={[-0.06, 0.07, 0.02]} scale={[0.22, 0.01, 0.22]} />
+        <B p={[0.21, 0.17, 0.201]} s={[0.1, 0.24, 0.005]} c="#475569" shadow={false} />
+        <Steam active={busy} p={[-0.06, 0.36, 0.1]} />
+      </group>
+      {/* kettle and toaster */}
+      <C p={[-0.45, 1.07, -0.05]} s={[0.18, 0.24, 0.18]} c="#334155" />
+      <B p={[-0.45, 1.2, -0.05]} s={[0.1, 0.03, 0.04]} c="#111827" />
+      <B p={[-0.15, 1.03, -0.08]} s={[0.24, 0.16, 0.14]} c="#dc2626" />
+    </group>
+  );
+}
+
+// ------------------------------------------------------------------ rain
+/** Umbrella stand by the entrance; on rainy days, umbrellas in it and a wet-floor sign. */
+function UmbrellaStand() {
+  const raining = useWeather((s) => !!s.w?.raining);
+  const colors = ["#1e3a5f", "#dc2626", "#fdb927", "#0f766e"];
+  return (
+    <group>
+      <C p={[0, 0.3, 0]} s={[0.34, 0.6, 0.34]} c="#334155" />
+      {(raining ? colors : colors.slice(0, 1)).map((c, i) => (
+        <group key={i} position={[Math.cos(i * 1.6) * 0.08, 0, Math.sin(i * 1.6) * 0.08]} rotation={[Math.sin(i) * 0.15, 0, Math.cos(i) * 0.15]}>
+          <C p={[0, 0.65, 0]} s={[0.03, 1.0, 0.03]} c="#111827" />
+          <mesh geometry={CONE} material={mat(c)} position={[0, 0.78, 0]} scale={[0.09, 0.55, 0.09]} castShadow />
+        </group>
+      ))}
+      {raining && (
+        <group position={[-0.75, 0, 0.1]} rotation={[0, 0.4, 0]}>
+          <B p={[0, 0.35, 0.06]} s={[0.36, 0.7, 0.02]} r={[0.17, 0, 0]} c="#facc15" />
+          <B p={[0, 0.35, -0.06]} s={[0.36, 0.7, 0.02]} r={[-0.17, 0, 0]} c="#facc15" />
+          <B p={[0, 0.42, 0.13]} s={[0.22, 0.12, 0.005]} r={[0.17, 0, 0]} c="#111827" shadow={false} />
+        </group>
+      )}
     </group>
   );
 }

@@ -133,12 +133,21 @@ export function EmployeeEditor() {
   const editing = dialog === "edit-employee" ? employees.find((e) => e.id === editId) : undefined;
   const [form, setForm] = useState(blankEmployee());
   const [respText, setRespText] = useState("");
+  const [dates, setDates] = useState<{ birthday?: string; joinedOn?: string }>({});
+  const saveDates = (id: string) => {
+    const s = useOffice.getState();
+    const all = s.settings.staffDates ?? {};
+    const cur = all[id] ?? {};
+    if (cur.birthday === dates.birthday && cur.joinedOn === dates.joinedOn) return;
+    s.updateSettings({ staffDates: { ...all, [id]: { birthday: dates.birthday, joinedOn: dates.joinedOn } } });
+  };
 
   useEffect(() => {
     if (!open) return;
     const base = editing ? { ...editing } : blankEmployee();
     setForm(base);
     setRespText(base.responsibilities.join("\n"));
+    setDates((editing && useOffice.getState().settings.staffDates?.[editing.id]) || {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editId]);
 
@@ -168,11 +177,13 @@ export function EmployeeEditor() {
         const w = assignWs(editing.id, workstationId);
         if (!w.ok) return toast("error", w.error);
       }
+      saveDates(editing.id);
       toast("success", `${data.name} updated`);
       setUI({ dialog: null, editEmployeeId: null });
     } else {
       const r = hire(data);
       if (!r.ok) return toast("error", r.error);
+      if (r.id) saveDates(r.id);
       toast("success", `${data.name} hired — walking to their desk`);
       setUI({ dialog: null, selectedEmployeeId: r.id ?? null });
     }
@@ -234,6 +245,21 @@ export function EmployeeEditor() {
               <div>
                 <Label>Ends</Label>
                 <Input type="time" value={form.workingHours.end} onChange={(e) => patch({ workingHours: { ...form.workingHours, end: e.target.value } })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Birthday</Label>
+                <Input
+                  type="date"
+                  value={dates.birthday ? `2000-${dates.birthday}` : ""}
+                  onChange={(e) => setDates((d) => ({ ...d, birthday: e.target.value ? e.target.value.slice(5) : undefined }))}
+                  title="Only the day and month are used — cake and balloons at their desk"
+                />
+              </div>
+              <div>
+                <Label>Joined on</Label>
+                <Input type="date" value={dates.joinedOn ?? ""} onChange={(e) => setDates((d) => ({ ...d, joinedOn: e.target.value || undefined }))} title="For work anniversaries" />
               </div>
             </div>
           </div>

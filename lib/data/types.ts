@@ -244,6 +244,8 @@ export interface OfficeSettings {
   autoArrange?: { enabled: boolean; start: string; end: string };
   /** reviewer track record: deliberate test mistakes caught, and mistakes the CEO reported as missed */
   qaStats?: Record<string, { planted: number; caught: number; missed: number; jobs: number }>;
+  /** staff birthdays ("MM-DD") and join dates (YYYY-MM-DD), by employee id — kept here so no database change is needed */
+  staffDates?: Record<string, { birthday?: string; joinedOn?: string }>;
   /** Marketing Studio: facts about the shop the AI may use (warranty, delivery, install help…) */
   shopNotes?: string;
   /** Marketing Studio: saved campaign plans by event id */
@@ -311,6 +313,13 @@ export type FurnitureType =
   | "urinal"
   | "vanity"
   | "wc_sign"
+  | "prayer_mat"
+  | "qibla_sign"
+  | "shoe_rack"
+  | "quran_stand"
+  | "pantry_counter"
+  | "eotm_frame"
+  | "umbrella_stand"
   | "bench"
   | "bbq"
   | "phone_booth"

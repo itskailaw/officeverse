@@ -174,6 +174,13 @@ export const CATALOG: Record<FurnitureType, CatalogEntry> = {
   urinal: { label: "Urinal", size: [0.45, 0.35], blocks: true, seats: [{ lx: 0, lz: 0.5, f: Math.PI, alx: 0, alz: 0.5, kind: "lounge", sit: false }], movable: true },
   vanity: { label: "Washbasin & mirror", size: [1.3, 0.5], blocks: true, seats: [{ lx: 0, lz: 0.62, f: Math.PI, alx: 0, alz: 0.62, kind: "lounge", sit: false }], movable: true },
   wc_sign: { label: "Restroom sign", size: [0.5, 0.06], blocks: false, seats: [], movable: true },
+  prayer_mat: { label: "Prayer mat (sejadah)", size: [0.7, 1.15], blocks: false, seats: [], movable: true },
+  qibla_sign: { label: "Qibla sign", size: [0.6, 0.06], blocks: false, seats: [], movable: true },
+  shoe_rack: { label: "Shoe rack", size: [1.0, 0.35], blocks: true, seats: [], movable: true },
+  quran_stand: { label: "Quran shelf", size: [0.8, 0.35], blocks: true, seats: [], movable: true },
+  pantry_counter: { label: "Pantry counter & microwave", size: [1.8, 0.6], blocks: true, seats: [{ lx: 0.35, lz: 0.75, f: Math.PI, alx: 0.35, alz: 0.75, kind: "lounge", sit: false }], movable: true },
+  eotm_frame: { label: "Employee of the month", size: [1.1, 0.08], blocks: false, seats: [], movable: true },
+  umbrella_stand: { label: "Umbrella stand", size: [0.4, 0.4], blocks: true, seats: [], movable: true },
   bench: {
     label: "Garden bench",
     size: [1.8, 0.6],

@@ -20,6 +20,7 @@ import { Building, RoomLabels, type Brand } from "./Building";
 import { FurnitureVisual } from "./Furniture";
 import { Character } from "./Character";
 import { festiveTheme } from "@/lib/office/festive";
+import { BirthdayDecor, FestiveDecor } from "./OfficeLife";
 import { shootMiniHoop } from "./FunFurniture";
 import { ceoMonitorTexture, meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
@@ -738,6 +739,8 @@ export default function OfficeScene() {
         <Building walls={settings.walls} wallColor={settings.wallColor} accent={settings.accentColor} wood={settings.floorWood} night={night} brands={brands} />
         <FurnitureLayer night={night} brands={brands} />
         <Agents />
+        <FestiveDecor night={night} />
+        <BirthdayDecor />
         <InteractionPlane />
         <Labels />
       </Suspense>

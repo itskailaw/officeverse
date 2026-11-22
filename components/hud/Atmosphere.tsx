@@ -8,6 +8,7 @@ import { useWeather, weatherIcon } from "@/lib/office/weather";
 import { getSim } from "@/lib/office/runtime";
 import { klHourNow } from "@/lib/office/lighting";
 import { formatMYR } from "@/lib/data/demo";
+import { celebrationsToday } from "@/lib/office/office-life";
 
 const klDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date());
 const once = (key: string) => {
@@ -72,6 +73,20 @@ export function TeamMoments() {
     const t = setInterval(check, 60_000);
     return () => clearInterval(t);
   }, [toast]);
+
+  // birthdays and work anniversaries: a toast once a day each (balloons appear at their desk)
+  const employees = useOffice((s) => s.employees);
+  const staffDates = useOffice((s) => s.settings.staffDates);
+  useEffect(() => {
+    const people = employees.map((e) => ({ id: e.id, name: e.name, active: e.active, ...(staffDates?.[e.id] ?? {}) }));
+    for (const c of celebrationsToday(people)) {
+      if (!once(`ov:celebrate:${c.kind}:${c.id}`)) continue;
+      const first = c.name.split(" ")[0];
+      if (c.kind === "birthday") toast("success", `🎂 It's ${first}'s birthday today! Balloons and cake are at their desk.`);
+      else toast("success", `🎉 ${first} has been with the team ${c.years} year${c.years === 1 ? "" : "s"} today!`);
+      useOffice.getState().logActivity(c.id, c.kind === "birthday" ? `🎂 ${c.name}'s birthday` : `🎉 ${c.name}'s ${c.years}-year work anniversary`);
+    }
+  }, [employees, staffDates, toast]);
 
   // record day
   useEffect(() => {

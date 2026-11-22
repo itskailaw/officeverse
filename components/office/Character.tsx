@@ -158,6 +158,7 @@ const BREAK_TEXT: Record<string, string> = {
   toilet_stall: "🚻 Restroom break",
   urinal: "🚻 Restroom break",
   vanity: "🧼 Washing hands",
+  pantry_counter: "🍱 Heating up lunch",
 };
 
 function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: string | undefined, furnitureType?: string): string | null {

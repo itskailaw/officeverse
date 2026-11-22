@@ -7,6 +7,7 @@ import { Html } from "@react-three/drei";
 import type { Door, Room, WallMode } from "@/lib/data/types";
 import { DOORS, OFFICE_D, OFFICE_W, ROOMS, WALLS, wallSegments } from "@/lib/office/layout";
 import { getSim } from "@/lib/office/runtime";
+import { StaffCars } from "./OfficeLife";
 import { carpetTexture, makeScreenTexture, mat, plankTexture, tileTexture, PALETTE as P } from "./materials";
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -27,6 +28,7 @@ const CARPET: Record<string, string> = {
   marketing: "#e5dcd3",
   artides: "#ddd3c4",
   amare: "#d9d4e6",
+  surau: "#a7c4a0",
 };
 
 function mix(a: string, b: string, t: number) {
@@ -274,7 +276,7 @@ function SlidingDoor({ id, x, z, axis, width, mode }: { id: string; x: number; z
 // ------------------------------------------------------------------ exterior
 const CAR_COLORS = ["#dc2626", "#f8fafc", "#1e3a5f", "#111827", "#9ca3af", "#0ea5e9"];
 
-function Car({ color, x, z, rot }: { color: string; x: number; z: number; rot: number }) {
+export function Car({ color, x, z, rot }: { color: string; x: number; z: number; rot: number }) {
   const body = mat(color, { rough: 0.3, metal: 0.4 });
   const tyre = mat("#111827", { rough: 0.9 });
   return (
@@ -586,16 +588,8 @@ const Exterior = memo(function Exterior({ night }: { night: boolean }) {
         </group>
       ))}
       <mesh geometry={BOX} material={yellow} position={[lotX, -0.065, D / 2 - 1]} scale={[0.12, 0.01, D - 6]} />
-      {[
-        [lotX - 3.9, 8.7, 3],
-        [lotX - 3.9, 17.7, 1],
-        [lotX + 3.9, 5.7, 2],
-        [lotX + 3.9, 11.7, 4],
-        [lotX + 3.9, 20.7, 5],
-        [lotX - 3.9, 26.7, 2],
-      ].map(([x, z, c], i) => (
-        <Car key={i} x={x} z={z} rot={x < lotX ? Math.PI / 2 : -Math.PI / 2} color={CAR_COLORS[c]} />
-      ))}
+      {/* staff cars arrive in the morning and leave in the evening */}
+      <StaffCars lotX={lotX} bays={bays} D={D} />
 
       {/* reserved CEO bay (gold) at the corner of the car park, right outside the CEO suite */}
       <mesh geometry={BOX} material={mat("#2b2f38", { rough: 0.9 })} position={[lotX - 3.9, -0.085, 2.7]} scale={[4.6, 0.04, 2.9]} receiveShadow />

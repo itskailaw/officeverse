@@ -39,7 +39,8 @@ export const ROOMS: Room[] = [
   { id: "artides", name: "Artides Home", departmentId: "dept-artides", x0: 30, z0: 15, x1: 38, z1: 25, floor: "carpet" },
   { id: "amare", name: "Amare Localization", departmentId: "dept-amare", x0: 38, z0: 15, x1: 44, z1: 25, floor: "carpet" },
   { id: "it", name: "IT Lab", departmentId: "dept-it", x0: 44, z0: 15, x1: 52, z1: 21, floor: "dark" },
-  { id: "nook", name: "Library Nook", departmentId: null, x0: 44, z0: 21, x1: 52, z1: 25, floor: "wood" },
+  { id: "surau", name: "Surau", departmentId: null, x0: 48.5, z0: 21, x1: 52, z1: 25, floor: "carpet" },
+  { id: "nook", name: "Library Nook", departmentId: null, x0: 44, z0: 21, x1: 48.5, z1: 25, floor: "wood" },
   { id: "garden", name: "Garden", departmentId: null, x0: 0, z0: 25, x1: 52, z1: 30, floor: "grass" },
 ];
 
@@ -72,6 +73,8 @@ export const WALLS: WallLine[] = [
   { a: [38, 15], b: [38, 25], kind: "glass" },
   { a: [44, 15], b: [44, 25], kind: "interior" },
   { a: [44, 21], b: [52, 21], kind: "glass" },
+  // surau (prayer room) beside the library nook
+  { a: [48.5, 21], b: [48.5, 25], kind: "interior" },
   // restrooms in the middle of the building, off Main Street (men's west, ladies' east)
   { a: [20.75, 15], b: [20.75, 19], kind: "interior" },
   { a: [18, 19], b: [23.5, 19], kind: "interior" },
@@ -95,6 +98,7 @@ export const DOORS: Door[] = [
   { id: "door-amare", x: 41, z: 15, axis: "x", width: 1.6 },
   { id: "door-it", x: 48, z: 15, axis: "x", width: 1.6 },
   { id: "door-nook", x: 46, z: 21, axis: "x", width: 1.6 },
+  { id: "door-surau", x: 48.5, z: 24.25, axis: "z", width: 1 },
   { id: "door-entrance", x: 4.5, z: 25, axis: "x", width: 2.4 },
   { id: "gate-garden", x: 4.5, z: 30, axis: "x", width: 2.4, open: true },
 ];
@@ -293,11 +297,11 @@ export const FURNITURE: FurnitureItem[] = [
 
   // ── Library nook ──
   f("nook-books-1", "bookshelf", "nook", 44.3, 23, HALF),
-  f("nook-books-2", "bookshelf", "nook", 51.7, 22.6, -HALF),
-  f("nook-rug", "rug", "nook", 48, 23, 0, { size: [3, 2] }),
-  f("nook-arm-1", "armchair", "nook", 47, 23.6, PI),
-  f("nook-arm-2", "armchair", "nook", 49, 23.6, PI),
-  f("nook-lamp", "floor_lamp", "nook", 51.5, 24.5),
+  f("nook-books-2", "bookshelf", "nook", 48.3, 22.6, -HALF),
+  f("nook-rug", "rug", "nook", 46.3, 23.2, 0, { size: [2.8, 2] }),
+  f("nook-arm-1", "armchair", "nook", 45.5, 23.8, PI),
+  f("nook-arm-2", "armchair", "nook", 47.2, 23.8, PI),
+  f("nook-lamp", "floor_lamp", "nook", 44.5, 24.6),
 
   // ── Garden ──
   f("gar-hammock-1", "hammock", "garden", 1.9, 27.6, 0),
@@ -309,6 +313,20 @@ export const FURNITURE: FurnitureItem[] = [
   f("gar-bench-1", "bench", "garden", 32, 28.9, PI),
   f("gar-bench-2", "bench", "garden", 36, 28.9, PI),
   f("gar-bench-3", "bench", "garden", 40, 28.9, PI),
+  // ── surau: prayer mats facing the qibla wall, shoe rack by the door, Quran shelf ──
+  f("surau-mat-1", "prayer_mat", "surau", 49.6, 22.0, -HALF, { color: "#065f46" }),
+  f("surau-mat-2", "prayer_mat", "surau", 49.6, 22.95, -HALF, { color: "#7f1d1d" }),
+  f("surau-mat-3", "prayer_mat", "surau", 50.9, 22.0, -HALF, { color: "#1e3a8a" }),
+  f("surau-mat-4", "prayer_mat", "surau", 50.9, 22.95, -HALF, { color: "#065f46" }),
+  f("surau-qibla", "qibla_sign", "surau", 51.94, 22.45, -HALF),
+  f("surau-shoes", "shoe_rack", "surau", 49.4, 24.75, PI),
+  f("surau-quran", "quran_stand", "surau", 51.7, 24.2, -HALF),
+  f("surau-plant", "plant", "surau", 51.7, 21.4),
+  // ── pantry: counter with microwave and kettle ──
+  f("kop-counter", "pantry_counter", "kopitiam", 16.05, 15.33, 0),
+  // ── lobby: employee of the month, umbrella stand by the entrance ──
+  f("rec-eotm", "eotm_frame", "reception", 8.92, 16.95, -HALF),
+  f("rec-umbrellas", "umbrella_stand", "reception", 6.2, 24.6, 0),
   // ── restrooms (off Main Street, between the Kopitiam and the Game Room) ──
   f("wc-m-vanity", "vanity", "wc-m", 18.75, 15.27, 0),
   f("wc-m-urinal-1", "urinal", "wc-m", 18.2, 16.6, HALF),
@@ -388,6 +406,12 @@ const MOVED: { id: string; from: [number, number]; to: [number, number] }[] = [
   // the bigger CEO desk: guest chairs step back
   { id: "ceo-visitor-1", from: [46.6, 5.4], to: [46.8, 5.85] },
   { id: "ceo-visitor-2", from: [45.4, 5.4], to: [45.2, 5.85] },
+  // the surau took the east half of the library nook
+  { id: "nook-books-2", from: [51.7, 22.6], to: [48.3, 22.6] },
+  { id: "nook-rug", from: [48, 23], to: [46.3, 23.2] },
+  { id: "nook-arm-1", from: [47, 23.6], to: [45.5, 23.8] },
+  { id: "nook-arm-2", from: [49, 23.6], to: [47.2, 23.8] },
+  { id: "nook-lamp", from: [51.5, 24.5], to: [44.5, 24.6] },
   // the restrooms moved out of the lobby again: lamp and plant go back
   { id: "rec-lamp", from: [8.5, 17.1], to: [8.5, 22.8] },
   { id: "rec-plant-4", from: [5.6, 20.15], to: [8.5, 24.5] },
@@ -403,8 +427,9 @@ const SWAPPED: { id: string; fromType: string; to: { type: string; x: number; z:
 /** Default pieces that were removed (ids of an earlier draft). */
 const REMOVED = new Set(["wcm-vanity", "wcm-urinal-1", "wcm-urinal-2", "wcm-stall", "wcf-vanity", "wcf-stall-1", "wcf-stall-2", "wc-sign-m", "wc-sign-f"]);
 /** Default pieces whose size changed (only if the saved piece still has the old default size). */
-const RESIZED: { id: string; from: [number, number]; to: { z: number; size: [number, number] } }[] = [
+const RESIZED: { id: string; from: [number, number]; to: { x?: number; z: number; size: [number, number] } }[] = [
   { id: "game-court", from: [8.2, 9.6], to: { z: 22, size: [8.2, 5.8] } },
+  { id: "nook-rug", from: [3, 2], to: { x: 46.3, z: 23.2, size: [2.8, 2] } },
 ];
 export function applyLayoutMoves<T extends { id: string; x: number; z: number }>(furniture: T[]): T[] {
   return furniture.filter((f) => !REMOVED.has(f.id)).map((f) => {

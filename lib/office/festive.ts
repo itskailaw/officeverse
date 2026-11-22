@@ -38,3 +38,21 @@ export function festiveTheme(now = new Date()): FestiveTheme | null {
   }
   return null;
 }
+
+export type DecorTheme = "raya" | "cny" | "deepavali" | "merdeka" | "christmas";
+
+/** Which decorations are up today: they go up before the festival and stay a while after. */
+export function decorTheme(now = new Date()): DecorTheme | null {
+  const today = klDate(now);
+  const md = today.slice(5);
+  const shift = (d: string, n: number) => klDate(new Date(Date.parse(`${d}T12:00:00+08:00`) + n * 86400 * 1000));
+  const windows: Record<Exclude<DecorTheme, "merdeka" | "christmas">, [number, number]> = { raya: [-14, 30], cny: [-10, 14], deepavali: [-7, 2] };
+  for (const theme of ["raya", "cny", "deepavali"] as const) {
+    for (const { start } of FESTIVE_DAYS[theme]) {
+      if (today >= shift(start, windows[theme][0]) && today <= shift(start, windows[theme][1])) return theme;
+    }
+  }
+  if (md >= "08-15" && md <= "09-16") return "merdeka";
+  if (md >= "12-01" && md <= "12-26") return "christmas";
+  return null;
+}
