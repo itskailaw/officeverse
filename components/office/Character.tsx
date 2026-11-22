@@ -155,6 +155,9 @@ const BREAK_TEXT: Record<string, string> = {
   bean_bag: "🛋️ Relaxing",
   vending_machine: "🥤 Getting a drink",
   water_cooler: "💧 Water break",
+  toilet_stall: "🚻 Restroom break",
+  urinal: "🚻 Restroom break",
+  vanity: "🧼 Washing hands",
 };
 
 function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: string | undefined, furnitureType?: string): string | null {

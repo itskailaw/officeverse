@@ -3,7 +3,7 @@
 // the 3D layer reads agent transforms each frame.
 
 import type { Door, OfficeLayout, Seat } from "../data/types.ts";
-import { BREAK_ROOMS, CEO_DESK_ID, CEO_MEETING_SEAT_INDEX, MEETING_TABLE_ID } from "./layout.ts";
+import { BREAK_ROOMS, RESTROOMS, CEO_DESK_ID, CEO_MEETING_SEAT_INDEX, MEETING_TABLE_ID } from "./layout.ts";
 import { seatsFor } from "./catalog.ts";
 import { buildNavGrid, findPath, isWalkablePoint, nearestWalkable, type NavGrid, type Vec2 } from "./navgrid.ts";
 
@@ -38,6 +38,8 @@ export interface Agent {
   walkPhase: number;
   lookAt: Vec2 | null;
   working: boolean;
+  /** picks the restroom (unset = never visits) */
+  gender?: "male" | "female";
   visitTarget: string | null;
   /** seconds of waving left */
   waveT: number;
@@ -285,7 +287,7 @@ export class OfficeSim {
     } else {
       // no desk (or desk taken): wander to the lounge
       a.intent = "desk";
-      const spot = this.freeSeats("lounge")[0];
+      const spot = this.freeSeats("lounge").find((s) => !s.roomId.startsWith("wc-"));
       if (spot) this.goToSeat(id, spot.id, "desk");
     }
   }
@@ -296,9 +298,22 @@ export class OfficeSim {
     );
   }
 
+  /** A quick restroom visit: stall, urinal or basin in their own restroom. */
+  startRestroom(id: string) {
+    const a = this.agents.get(id);
+    if (!a || a.isCEO || !a.gender) return false;
+    const spots = this.freeSeats("lounge", RESTROOMS[a.gender]);
+    if (!spots.length) return false;
+    const spot = spots[Math.floor(Math.random() * spots.length)];
+    if (!this.goToSeat(id, spot.id, "break")) return false;
+    a.timer = rand(8, 15);
+    return true;
+  }
+
   startBreak(id: string) {
     const a = this.agents.get(id);
     if (!a || a.isCEO) return false;
+    if (a.gender && Math.random() < 0.2 && this.startRestroom(id)) return true;
     // any free lounge or play spot in a break room; games are popular, so weight them up
     const lounge = [...this.seats.values()].filter((s) => s.kind === "lounge" && BREAK_ROOMS.includes(s.roomId) && !this.occupancy.has(s.id));
     const play = this.freeSeats("play");

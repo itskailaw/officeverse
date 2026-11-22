@@ -1066,9 +1066,148 @@ export function FunVisual({ item, w, d, night }: { item: FurnitureItem; w: numbe
       return <MiniHoop />;
     case "aquarium":
       return <Aquarium w={w} night={night} />;
+    case "toilet_stall":
+      return <ToiletStall item={item} />;
+    case "urinal":
+      return <Urinal />;
+    case "vanity":
+      return <Vanity w={w} />;
+    case "wc_sign":
+      return <WcSign female={item.label === "F"} />;
     case "neon_sign":
       return <NeonSign w={w} text={item.label ?? "OPEN"} color={item.color} night={night} />;
     default:
       return null;
   }
+}
+
+// ------------------------------------------------------------------ restrooms
+const PORCELAIN = "#f8fafc";
+const CHROME = "#cbd5e1";
+
+function Toilet() {
+  return (
+    <group>
+      <C p={[0, 0.2, 0.08]} s={[0.36, 0.4, 0.46]} c={PORCELAIN} />
+      <C p={[0, 0.41, 0.1]} s={[0.4, 0.04, 0.5]} c="#e2e8f0" />
+      <B p={[0, 0.55, -0.2]} s={[0.4, 0.34, 0.16]} c={PORCELAIN} />
+      <B p={[0.12, 0.74, -0.2]} s={[0.08, 0.03, 0.05]} c={CHROME} />
+    </group>
+  );
+}
+
+/** Cubicle with a toilet; the door swings open while someone is inside (they face out, door half-closed). */
+function ToiletStall({ item }: { item: FurnitureItem }) {
+  const door = useRef<THREE.Group>(null);
+  useFrame((_, dt) => {
+    if (!door.current) return;
+    const busy = occupied(item.id, 1) > 0;
+    const target = busy ? -0.25 : -1.25;
+    door.current.rotation.y += (target - door.current.rotation.y) * Math.min(1, dt * 4);
+  });
+  const panel = "#a5b4c4";
+  // partitions are 1.9 m tall, but no taller than the walls in cut-away / walls-down view (so you can see in)
+  const walls = useOffice((s) => s.settings.walls);
+  const h = walls === "full" ? 1.9 : Math.max(0.35, WALL_HEIGHT[walls] + 0.1);
+  return (
+    <group>
+      <group position={[0, 0, -0.05]}>
+        <Toilet />
+      </group>
+      {/* side panels on short legs */}
+      {[-0.49, 0.49].map((x, i) => (
+        <B key={i} p={[x, 0.12 + h / 2, 0]} s={[0.04, h - 0.04, 1.1]} c={panel} />
+      ))}
+      {walls === "full" && <B p={[0, h + 0.1, 0.53]} s={[1.0, 0.05, 0.05]} c={CHROME} />}
+      {/* door, hinged on the left front post */}
+      <group ref={door} position={[-0.46, 0, 0.53]} rotation={[0, -1.25, 0]}>
+        <B p={[0.44, 0.12 + h / 2, 0]} s={[0.88, h - 0.08, 0.035]} c="#7c8ea3" />
+        <B p={[0.8, Math.min(1.0, h * 0.6), 0.03]} s={[0.04, 0.12, 0.03]} c={CHROME} />
+      </group>
+    </group>
+  );
+}
+
+function Urinal() {
+  return (
+    <group>
+      <B p={[0, 0.85, -0.1]} s={[0.4, 0.62, 0.16]} c={PORCELAIN} />
+      <mesh geometry={SPH} material={mat(PORCELAIN, { rough: 0.25 })} position={[0, 0.66, 0.02]} scale={[0.36, 0.3, 0.26]} castShadow />
+      <C p={[0, 1.22, -0.12]} s={[0.05, 0.12, 0.05]} c={CHROME} />
+      {/* privacy divider */}
+      <B p={[0.3, 1.05, 0.05]} s={[0.03, 0.9, 0.45]} c="#94a3b8" />
+    </group>
+  );
+}
+
+/** Counter with basin(s), mirror and a hand dryer. */
+function Vanity({ w }: { w: number }) {
+  const basins = w > 1.1 ? [-w / 4, w / 4] : [0];
+  const mirrorY = Math.max(1.15, useWallY(0.5, 1.4));
+  return (
+    <group>
+      <B p={[0, 0.82, 0]} s={[w, 0.06, 0.5]} c="#e7e5e4" />
+      <B p={[0, 0.4, -0.05]} s={[w - 0.06, 0.78, 0.4]} c="#a8a29e" />
+      {basins.map((x, i) => (
+        <group key={i} position={[x, 0, 0.02]}>
+          <C p={[0, 0.86, 0]} s={[0.34, 0.05, 0.28]} c={PORCELAIN} />
+          <C p={[0, 0.95, -0.16]} s={[0.03, 0.16, 0.03]} c={CHROME} />
+          <B p={[0, 1.02, -0.1]} s={[0.03, 0.03, 0.12]} c={CHROME} />
+        </group>
+      ))}
+      <B p={[0, mirrorY, -0.23]} s={[w - 0.12, 0.5, 0.02]} m={mat("#dbeafe", { rough: 0.05, metal: 0.6 })} shadow={false} />
+      <B p={[0, mirrorY, -0.245]} s={[w - 0.06, 0.56, 0.01]} c="#78716c" shadow={false} />
+      <B p={[w / 2 + 0.12, 1.15, -0.18]} s={[0.2, 0.28, 0.12]} c="#e2e8f0" />
+      <mesh geometry={SPH} material={mat("#fdb927", { emissive: "#fdb927", ei: 0.4 })} position={[w / 2 - 0.18, 0.9, 0.12]} scale={[0.08, 0.1, 0.08]} />
+    </group>
+  );
+}
+
+/** Door sign with a pictogram: blue man / pink woman. */
+function WcSign({ female }: { female: boolean }) {
+  const tex = useMemo(
+    () =>
+      makeScreenTexture(
+        (g, W, H) => {
+          g.fillStyle = female ? "#db2777" : "#2563eb";
+          g.beginPath();
+          g.roundRect(0, 0, W, H, 40);
+          g.fill();
+          g.fillStyle = "#fff";
+          const cx = W / 2;
+          g.beginPath();
+          g.arc(cx, H * 0.2, H * 0.08, 0, Math.PI * 2);
+          g.fill();
+          if (female) {
+            g.beginPath();
+            g.moveTo(cx - W * 0.09, H * 0.32);
+            g.lineTo(cx + W * 0.09, H * 0.32);
+            g.lineTo(cx + W * 0.2, H * 0.62);
+            g.lineTo(cx - W * 0.2, H * 0.62);
+            g.closePath();
+            g.fill();
+          } else {
+            g.fillRect(cx - W * 0.12, H * 0.31, W * 0.24, H * 0.3);
+          }
+          g.fillRect(cx - W * 0.09, H * 0.6, W * 0.07, H * 0.16);
+          g.fillRect(cx + W * 0.02, H * 0.6, W * 0.07, H * 0.16);
+          g.font = `800 ${Math.round(H * 0.12)}px system-ui, sans-serif`;
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          g.fillText(female ? "LADIES" : "MEN", cx, H * 0.88);
+        },
+        256,
+        384,
+      ),
+    [female],
+  );
+  useEffect(() => () => tex.dispose(), [tex]);
+  const y = useWallY(0.6, 1.7);
+  return (
+    <group position={[0, y, 0]}>
+      <mesh geometry={PLANE} position={[0, 0, 0.02]} scale={[0.4, 0.6, 1]}>
+        <meshBasicMaterial map={tex} toneMapped={false} />
+      </mesh>
+    </group>
+  );
 }

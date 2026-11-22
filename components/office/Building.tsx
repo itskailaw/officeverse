@@ -53,6 +53,9 @@ function RoomFloor({ room, wood, brand }: { room: Room; wood: string; brand?: Br
     } else if (room.floor === "dark") {
       tex = room.id === "game" ? tileTexture("#3b3355", "rgba(15,10,30,0.55)").clone() : tileTexture("#475569", "rgba(15,23,42,0.5)").clone();
       repeat = [w / 0.6, d / 0.6];
+    } else if (room.id.startsWith("wc-")) {
+      tex = tileTexture(room.id === "wc-f" ? "#f3e8ef" : "#e3edf5", "rgba(100,116,139,0.35)").clone();
+      repeat = [w / 0.4, d / 0.4];
     } else {
       tex = tileTexture("#f1f5f9").clone();
       repeat = [w / 1.2, d / 1.2];
@@ -67,7 +70,7 @@ function RoomFloor({ room, wood, brand }: { room: Room; wood: string; brand?: Br
       geometry={PLANE}
       material={material}
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[(room.x0 + room.x1) / 2, 0.002, (room.z0 + room.z1) / 2]}
+      position={[(room.x0 + room.x1) / 2, room.id.startsWith("wc-") ? 0.0035 : 0.002, (room.z0 + room.z1) / 2]}
       scale={[w, d, 1]}
       receiveShadow
     />

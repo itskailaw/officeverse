@@ -3,7 +3,7 @@
 //
 //   z 0-11   OPEN WORK FLOOR: Marketing · Finance · WGS | Boardroom / Exec Assistant | CEO Suite (diagonal to the entrance)
 //   z 11-15  ─────────────────────────── Main Street ───────────────────────────
-//   z 15-25  Reception | Kopitiam | Game Room | Artides studio | Amare studio | IT Lab / Library nook
+//   z 15-25  Reception (+ restrooms) | Kopitiam | Game Room | Artides studio | Amare studio | IT Lab / Library nook
 //   z 25-30  Garden strip (fenced, open to the sky)
 //
 // The three e-commerce/shared teams share one open floor (zones = coloured carpets,
@@ -20,6 +20,8 @@ export const OFFICE_D = 30;
 export const LAYOUT_VERSION = 5;
 /** Rooms staff go to on breaks. */
 export const BREAK_ROOMS = ["kopitiam", "game", "garden", "corridor", "nook"];
+/** Restroom per gender (staff with no gender set don't visit). */
+export const RESTROOMS = { male: "wc-m", female: "wc-f" } as const;
 
 export const ROOMS: Room[] = [
   { id: "ceo", name: "CEO Suite", departmentId: "dept-exec", x0: 40, z0: 0, x1: 52, z1: 11, floor: "wood" },
@@ -29,6 +31,8 @@ export const ROOMS: Room[] = [
   { id: "finance", name: "Finance & Strategy", departmentId: "dept-finance", x0: 10, z0: 0, x1: 19, z1: 11, floor: "carpet" },
   { id: "marketing", name: "Marketing & Creative Studio", departmentId: "dept-marketing", x0: 0, z0: 0, x1: 10, z1: 11, floor: "carpet" },
   { id: "corridor", name: "Main Street", departmentId: null, x0: 0, z0: 11, x1: 52, z1: 15, floor: "tile" },
+  { id: "wc-m", name: "Men's Restroom", departmentId: null, x0: 6, z0: 20.5, x1: 9, z1: 22.75, floor: "tile" },
+  { id: "wc-f", name: "Ladies' Restroom", departmentId: null, x0: 6, z0: 22.75, x1: 9, z1: 25, floor: "tile" },
   { id: "reception", name: "Reception & Lobby", departmentId: null, x0: 0, z0: 15, x1: 9, z1: 25, floor: "tile" },
   { id: "kopitiam", name: "Kopitiam Pantry", departmentId: null, x0: 9, z0: 15, x1: 18, z1: 25, floor: "wood" },
   { id: "game", name: "Game Room", departmentId: null, x0: 18, z0: 15, x1: 30, z1: 25, floor: "dark" },
@@ -66,8 +70,14 @@ export const WALLS: WallLine[] = [
   { a: [38, 15], b: [38, 25], kind: "glass" },
   { a: [44, 15], b: [44, 25], kind: "interior" },
   { a: [44, 21], b: [52, 21], kind: "glass" },
-  // garden side (glass)
-  { a: [0, 25], b: [52, 25], kind: "glass" },
+  // restrooms in the lobby's east corner (men's north, ladies' south; doors face the lobby)
+  { a: [6, 20.5], b: [9, 20.5], kind: "interior" },
+  { a: [6, 20.5], b: [6, 25], kind: "interior" },
+  { a: [6, 22.75], b: [9, 22.75], kind: "interior" },
+  // garden side (glass, solid behind the restrooms)
+  { a: [0, 25], b: [6, 25], kind: "glass" },
+  { a: [6, 25], b: [9, 25], kind: "interior" },
+  { a: [9, 25], b: [52, 25], kind: "glass" },
 ];
 
 export const DOORS: Door[] = [
@@ -83,6 +93,8 @@ export const DOORS: Door[] = [
   { id: "door-amare", x: 41, z: 15, axis: "x", width: 1.6 },
   { id: "door-it", x: 48, z: 15, axis: "x", width: 1.6 },
   { id: "door-nook", x: 46, z: 21, axis: "x", width: 1.6 },
+  { id: "door-wc-m", x: 6, z: 21.05, axis: "z", width: 1 },
+  { id: "door-wc-f", x: 6, z: 24.25, axis: "z", width: 1 },
   { id: "door-entrance", x: 4.5, z: 25, axis: "x", width: 2.4 },
   { id: "gate-garden", x: 4.5, z: 30, axis: "x", width: 2.4, open: true },
 ];
@@ -218,10 +230,10 @@ export const FURNITURE: FurnitureItem[] = [
   f("rec-plant-1", "plant", "reception", 0.5, 15.5),
   f("rec-plant-2", "plant", "reception", 8.5, 15.5),
   f("rec-plant-3", "plant", "reception", 0.5, 24.5),
-  f("rec-plant-4", "plant", "reception", 8.5, 24.5),
+  f("rec-plant-4", "plant", "reception", 5.6, 20.15),
   f("rec-pendant-1", "pendant_light", "reception", 3.7, 19.5),
   f("rec-pendant-2", "pendant_light", "reception", 5.3, 19.5),
-  f("rec-lamp", "floor_lamp", "reception", 8.5, 22.8),
+  f("rec-lamp", "floor_lamp", "reception", 8.5, 17.1),
 
   // ── Kopitiam pantry ──
   f("kop-bar", "coffee_bar", "kopitiam", 17.35, 19.5, -HALF),
@@ -297,6 +309,16 @@ export const FURNITURE: FurnitureItem[] = [
   f("gar-bench-1", "bench", "garden", 32, 28.9, PI),
   f("gar-bench-2", "bench", "garden", 36, 28.9, PI),
   f("gar-bench-3", "bench", "garden", 40, 28.9, PI),
+  // ── restrooms ──
+  f("wcm-vanity", "vanity", "wc-m", 7.9, 20.76, 0),
+  f("wcm-urinal-1", "urinal", "wc-m", 8.8, 21.55, -HALF),
+  f("wcm-urinal-2", "urinal", "wc-m", 8.8, 22.25, -HALF),
+  f("wcm-stall", "toilet_stall", "wc-m", 6.6, 22.18, PI),
+  f("wcf-vanity", "vanity", "wc-f", 6.95, 23.01, 0),
+  f("wcf-stall-1", "toilet_stall", "wc-f", 8.43, 23.3, -HALF),
+  f("wcf-stall-2", "toilet_stall", "wc-f", 8.43, 24.38, -HALF),
+  f("wc-sign-m", "wc_sign", "reception", 5.84, 21.85, -HALF, { label: "M" }),
+  f("wc-sign-f", "wc_sign", "reception", 5.84, 23.35, -HALF, { label: "F" }),
   f("gar-plant-1", "plant", "garden", 11.6, 29.3),
   f("gar-plant-2", "plant", "garden", 25.6, 29.3),
   f("gar-plant-3", "plant", "garden", 43.5, 27.5),
@@ -365,6 +387,9 @@ const MOVED: { id: string; from: [number, number]; to: [number, number] }[] = [
   // the bigger CEO desk: guest chairs step back
   { id: "ceo-visitor-1", from: [46.6, 5.4], to: [46.8, 5.85] },
   { id: "ceo-visitor-2", from: [45.4, 5.4], to: [45.2, 5.85] },
+  // the lobby restrooms took the reception's east corner
+  { id: "rec-lamp", from: [8.5, 22.8], to: [8.5, 17.1] },
+  { id: "rec-plant-4", from: [8.5, 24.5], to: [5.6, 20.15] },
 ];
 /** Default pieces that became a different piece of furniture (same id) — e.g. the hallway bikes became sofas. */
 const SWAPPED: { id: string; fromType: string; to: { type: string; x: number; z: number; rot: number; color?: string } }[] = [

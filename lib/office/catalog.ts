@@ -170,6 +170,10 @@ export const CATALOG: Record<FurnitureType, CatalogEntry> = {
   bike: { label: "Bicycle", size: [1.7, 0.5], blocks: true, seats: [], movable: true },
   hammock: { label: "Hammock", size: [2.6, 0.9], blocks: true, seats: [{ lx: 0, lz: 0, f: 0, alx: 0, alz: 0.85, kind: "lounge", sit: true }], movable: true },
   nap_pod: { label: "Nap pod", size: [1.6, 1.3], blocks: true, seats: [{ lx: 0, lz: 0.1, f: 0, alx: 0, alz: 1.05, kind: "lounge", sit: true }], movable: true },
+  toilet_stall: { label: "Toilet cubicle", size: [1.0, 1.1], blocks: true, seats: [{ lx: 0, lz: 0, f: 0, alx: 0, alz: 0.9, kind: "lounge", sit: true }], movable: true },
+  urinal: { label: "Urinal", size: [0.45, 0.35], blocks: true, seats: [{ lx: 0, lz: 0.5, f: Math.PI, alx: 0, alz: 0.5, kind: "lounge", sit: false }], movable: true },
+  vanity: { label: "Washbasin & mirror", size: [1.3, 0.5], blocks: true, seats: [{ lx: 0, lz: 0.62, f: Math.PI, alx: 0, alz: 0.62, kind: "lounge", sit: false }], movable: true },
+  wc_sign: { label: "Restroom sign", size: [0.5, 0.06], blocks: false, seats: [], movable: true },
   bench: {
     label: "Garden bench",
     size: [1.8, 0.6],

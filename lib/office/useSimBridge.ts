@@ -32,7 +32,10 @@ export function useSimBridge() {
       if (!a) sim.addAgent(e.id, e.workstationId);
       else if (a.homeSeatId !== e.workstationId) sim.setHomeSeat(e.id, e.workstationId);
       const ag = sim.agents.get(e.id);
-      if (ag) ag.working = e.status === "working";
+      if (ag) {
+        ag.working = e.status === "working";
+        ag.gender = e.gender === "male" || e.gender === "female" ? e.gender : undefined;
+      }
     }
   }, [employees]);
 
