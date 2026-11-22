@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Check, ChevronDown, ChevronUp, Copy, FileUp, Loader2, Paperclip, Play, RotateCcw, Send, Trash2, X } from "lucide-react";
+import { Bot, Check, ChevronDown, ChevronUp, Copy, FileUp, Loader2, Mic, MicOff, Paperclip, Play, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { useActionCards } from "@/lib/store/action-cards";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Markdown } from "@/components/ui/markdown";
 import { openMarketing } from "./MarketingStudio";
+import { primeSpeech, speak, stopSpeaking, useVoiceInput, type VoiceLang } from "@/lib/hooks/useVoice";
 import { cn, timeAgo } from "@/lib/utils";
 
 export const TASK_STATUS: Record<Task["status"], { label: string; cls: string }> = {
@@ -483,18 +484,42 @@ export function ChatPanel({ emp }: { emp: Employee }) {
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const first = emp.name.split(" ")[0];
+  const [voiceLang, setVoiceLang] = useState<VoiceLang>(() => {
+    try {
+      return localStorage.getItem("ov:voice-lang") === "ms-MY" ? "ms-MY" : "en-MY";
+    } catch {
+      return "en-MY";
+    }
+  });
+  const [readAloud, setReadAloud] = useState(() => {
+    try {
+      return localStorage.getItem("ov:voice-read") !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const voice = useVoiceInput({ lang: voiceLang, onText: setText, onDone: (t) => t.trim() && void send(t, true) });
+  useEffect(() => () => stopSpeaking(), []);
+  useEffect(() => {
+    if (voice.error) toast("info", voice.error);
+  }, [voice.error, toast]);
 
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, busy]);
 
-  const send = async () => {
-    const msg = text.trim();
+  const send = async (spoken?: string, byVoice = false) => {
+    const msg = (spoken ?? text).trim();
     if (!msg || busy) return;
     setText("");
     setBusy(true);
     try {
       await sendChat(emp.id, msg);
+      // spoke to them? they answer out loud
+      if (byVoice && readAloud) {
+        const last = useOffice.getState().chatMessages.filter((m) => m.employeeId === emp.id && m.role !== "ceo").at(-1);
+        if (last) speak(last.content, { lang: voiceLang, female: emp.gender === "female" });
+      }
     } catch (e) {
       toast("error", e instanceof Error ? e.message : "Message failed");
     } finally {
@@ -547,10 +572,60 @@ export function ChatPanel({ emp }: { emp: Employee }) {
             rows={1}
             maxLength={4000}
           />
+          {voice.supported && (
+            <Button
+              size="icon"
+              variant={voice.listening ? "default" : "outline"}
+              onClick={() => {
+                if (voice.listening) return voice.stop();
+                stopSpeaking();
+                primeSpeech();
+                voice.start();
+              }}
+              disabled={busy}
+              className={cn(voice.listening && "animate-pulse bg-red-600 hover:bg-red-600")}
+              aria-label={voice.listening ? "Stop listening" : `Talk to ${first}`}
+              title={voice.listening ? "Listening… tap to stop" : `Talk to ${first}`}
+            >
+              {voice.listening ? <MicOff /> : <Mic />}
+            </Button>
+          )}
           <Button size="icon" onClick={() => void send()} disabled={!text.trim() || busy} aria-label="Send">
             <Send />
           </Button>
         </div>
+        {voice.supported && (
+          <div className="flex items-center gap-3 text-[10px] text-slate-500">
+            {voice.listening ? <span className="font-medium text-red-600">● Listening — speak now, it sends when you pause</span> : <span>🎙 Tap the mic and speak</span>}
+            <button
+              className="rounded border border-slate-200 px-1.5 py-0.5 font-medium text-slate-600 hover:bg-slate-50"
+              onClick={() => {
+                const v = voiceLang === "en-MY" ? "ms-MY" : "en-MY";
+                setVoiceLang(v);
+                try {
+                  localStorage.setItem("ov:voice-lang", v);
+                } catch {}
+              }}
+              title="Language you speak in"
+            >
+              {voiceLang === "en-MY" ? "English" : "Bahasa Melayu"}
+            </button>
+            <label className="ml-auto inline-flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={readAloud}
+                onChange={(e) => {
+                  setReadAloud(e.target.checked);
+                  if (!e.target.checked) stopSpeaking();
+                  try {
+                    localStorage.setItem("ov:voice-read", e.target.checked ? "1" : "0");
+                  } catch {}
+                }}
+              />
+              {first} answers out loud
+            </label>
+          </div>
+        )}
         {messages.length > 0 && (
           <button className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-red-600" onClick={() => clear(emp.id)}>
             <Trash2 className="h-3 w-3" /> Clear conversation
