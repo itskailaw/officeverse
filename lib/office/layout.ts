@@ -3,7 +3,7 @@
 //
 //   z 0-11   OPEN WORK FLOOR: Marketing · Finance · WGS | Boardroom / Exec Assistant | CEO Suite (diagonal to the entrance)
 //   z 11-15  ─────────────────────────── Main Street ───────────────────────────
-//   z 15-25  Reception (+ restrooms) | Kopitiam | Game Room | Artides studio | Amare studio | IT Lab / Library nook
+//   z 15-25  Reception | Kopitiam | Restrooms + Game Room | Game Room | Artides studio | Amare studio | IT Lab / Library nook
 //   z 25-30  Garden strip (fenced, open to the sky)
 //
 // The three e-commerce/shared teams share one open floor (zones = coloured carpets,
@@ -31,10 +31,10 @@ export const ROOMS: Room[] = [
   { id: "finance", name: "Finance & Strategy", departmentId: "dept-finance", x0: 10, z0: 0, x1: 19, z1: 11, floor: "carpet" },
   { id: "marketing", name: "Marketing & Creative Studio", departmentId: "dept-marketing", x0: 0, z0: 0, x1: 10, z1: 11, floor: "carpet" },
   { id: "corridor", name: "Main Street", departmentId: null, x0: 0, z0: 11, x1: 52, z1: 15, floor: "tile" },
-  { id: "wc-m", name: "Men's Restroom", departmentId: null, x0: 6, z0: 20.5, x1: 9, z1: 22.75, floor: "tile" },
-  { id: "wc-f", name: "Ladies' Restroom", departmentId: null, x0: 6, z0: 22.75, x1: 9, z1: 25, floor: "tile" },
   { id: "reception", name: "Reception & Lobby", departmentId: null, x0: 0, z0: 15, x1: 9, z1: 25, floor: "tile" },
   { id: "kopitiam", name: "Kopitiam Pantry", departmentId: null, x0: 9, z0: 15, x1: 18, z1: 25, floor: "wood" },
+  { id: "wc-m", name: "Men's Restroom", departmentId: null, x0: 18, z0: 15, x1: 20.75, z1: 19, floor: "tile" },
+  { id: "wc-f", name: "Ladies' Restroom", departmentId: null, x0: 20.75, z0: 15, x1: 23.5, z1: 19, floor: "tile" },
   { id: "game", name: "Game Room", departmentId: null, x0: 18, z0: 15, x1: 30, z1: 25, floor: "dark" },
   { id: "artides", name: "Artides Home", departmentId: "dept-artides", x0: 30, z0: 15, x1: 38, z1: 25, floor: "carpet" },
   { id: "amare", name: "Amare Localization", departmentId: "dept-amare", x0: 38, z0: 15, x1: 44, z1: 25, floor: "carpet" },
@@ -61,7 +61,9 @@ export const WALLS: WallLine[] = [
   { a: [40, 11], b: [52, 11], kind: "glass" },
   // Main Street south side
   { a: [0, 15], b: [9, 15], kind: "interior" },
-  { a: [9, 15], b: [44, 15], kind: "glass" },
+  { a: [9, 15], b: [18, 15], kind: "glass" },
+  { a: [18, 15], b: [23.5, 15], kind: "interior" }, // restrooms (solid, not glass)
+  { a: [23.5, 15], b: [44, 15], kind: "glass" },
   { a: [44, 15], b: [52, 15], kind: "interior" },
   // south partitions
   { a: [9, 15], b: [9, 25], kind: "interior" },
@@ -70,14 +72,12 @@ export const WALLS: WallLine[] = [
   { a: [38, 15], b: [38, 25], kind: "glass" },
   { a: [44, 15], b: [44, 25], kind: "interior" },
   { a: [44, 21], b: [52, 21], kind: "glass" },
-  // restrooms in the lobby's east corner (men's north, ladies' south; doors face the lobby)
-  { a: [6, 20.5], b: [9, 20.5], kind: "interior" },
-  { a: [6, 20.5], b: [6, 25], kind: "interior" },
-  { a: [6, 22.75], b: [9, 22.75], kind: "interior" },
-  // garden side (glass, solid behind the restrooms)
-  { a: [0, 25], b: [6, 25], kind: "glass" },
-  { a: [6, 25], b: [9, 25], kind: "interior" },
-  { a: [9, 25], b: [52, 25], kind: "glass" },
+  // restrooms in the middle of the building, off Main Street (men's west, ladies' east)
+  { a: [20.75, 15], b: [20.75, 19], kind: "interior" },
+  { a: [18, 19], b: [23.5, 19], kind: "interior" },
+  { a: [23.5, 15], b: [23.5, 19], kind: "interior" },
+  // garden side (glass)
+  { a: [0, 25], b: [52, 25], kind: "glass" },
 ];
 
 export const DOORS: Door[] = [
@@ -88,13 +88,13 @@ export const DOORS: Door[] = [
   { id: "arch-work-2", x: 8, z: 11, axis: "x", width: 3, open: true },
   { id: "arch-reception", x: 4.5, z: 15, axis: "x", width: 4, open: true },
   { id: "arch-kopitiam", x: 13.5, z: 15, axis: "x", width: 2.4, open: true },
-  { id: "arch-game", x: 24, z: 15, axis: "x", width: 3, open: true },
+  { id: "arch-game", x: 25.4, z: 15, axis: "x", width: 2.6, open: true },
+  { id: "door-wc-m", x: 20.1, z: 15, axis: "x", width: 1 },
+  { id: "door-wc-f", x: 21.4, z: 15, axis: "x", width: 1 },
   { id: "door-artides", x: 34, z: 15, axis: "x", width: 1.6 },
   { id: "door-amare", x: 41, z: 15, axis: "x", width: 1.6 },
   { id: "door-it", x: 48, z: 15, axis: "x", width: 1.6 },
   { id: "door-nook", x: 46, z: 21, axis: "x", width: 1.6 },
-  { id: "door-wc-m", x: 6, z: 21.05, axis: "z", width: 1 },
-  { id: "door-wc-f", x: 6, z: 24.25, axis: "z", width: 1 },
   { id: "door-entrance", x: 4.5, z: 25, axis: "x", width: 2.4 },
   { id: "gate-garden", x: 4.5, z: 30, axis: "x", width: 2.4, open: true },
 ];
@@ -230,10 +230,10 @@ export const FURNITURE: FurnitureItem[] = [
   f("rec-plant-1", "plant", "reception", 0.5, 15.5),
   f("rec-plant-2", "plant", "reception", 8.5, 15.5),
   f("rec-plant-3", "plant", "reception", 0.5, 24.5),
-  f("rec-plant-4", "plant", "reception", 5.6, 20.15),
+  f("rec-plant-4", "plant", "reception", 8.5, 24.5),
   f("rec-pendant-1", "pendant_light", "reception", 3.7, 19.5),
   f("rec-pendant-2", "pendant_light", "reception", 5.3, 19.5),
-  f("rec-lamp", "floor_lamp", "reception", 8.5, 17.1),
+  f("rec-lamp", "floor_lamp", "reception", 8.5, 22.8),
 
   // ── Kopitiam pantry ──
   f("kop-bar", "coffee_bar", "kopitiam", 17.35, 19.5, -HALF),
@@ -251,8 +251,8 @@ export const FURNITURE: FurnitureItem[] = [
   f("kop-neon", "neon_sign", "kopitiam", 11.4, 15.1, 0, { label: "KOPI ☕", color: "#f59e0b", size: [2.4, 0.1] }),
 
   // ── Game room ──
-  f("game-court", "court", "game", 22.2, 20, 0, { size: [8.2, 9.6] }),
-  f("game-hoop", "hoop", "game", 18.35, 20, HALF),
+  f("game-court", "court", "game", 22.2, 22, 0, { size: [8.2, 5.8] }),
+  f("game-hoop", "hoop", "game", 18.35, 22, HALF),
   f("game-pingpong", "ping_pong", "game", 26.8, 17.6, 0),
   f("game-foosball", "foosball", "game", 26.8, 21.6, 0),
   f("game-arcade-1", "arcade", "game", 29.55, 16.4, -HALF, { color: "#ec4899" }),
@@ -309,16 +309,17 @@ export const FURNITURE: FurnitureItem[] = [
   f("gar-bench-1", "bench", "garden", 32, 28.9, PI),
   f("gar-bench-2", "bench", "garden", 36, 28.9, PI),
   f("gar-bench-3", "bench", "garden", 40, 28.9, PI),
-  // ── restrooms ──
-  f("wcm-vanity", "vanity", "wc-m", 7.9, 20.76, 0),
-  f("wcm-urinal-1", "urinal", "wc-m", 8.8, 21.55, -HALF),
-  f("wcm-urinal-2", "urinal", "wc-m", 8.8, 22.25, -HALF),
-  f("wcm-stall", "toilet_stall", "wc-m", 6.6, 22.18, PI),
-  f("wcf-vanity", "vanity", "wc-f", 6.95, 23.01, 0),
-  f("wcf-stall-1", "toilet_stall", "wc-f", 8.43, 23.3, -HALF),
-  f("wcf-stall-2", "toilet_stall", "wc-f", 8.43, 24.38, -HALF),
-  f("wc-sign-m", "wc_sign", "reception", 5.84, 21.85, -HALF, { label: "M" }),
-  f("wc-sign-f", "wc_sign", "reception", 5.84, 23.35, -HALF, { label: "F" }),
+  // ── restrooms (off Main Street, between the Kopitiam and the Game Room) ──
+  f("wc-m-vanity", "vanity", "wc-m", 18.75, 15.27, 0),
+  f("wc-m-urinal-1", "urinal", "wc-m", 18.2, 16.6, HALF),
+  f("wc-m-urinal-2", "urinal", "wc-m", 18.2, 17.3, HALF),
+  f("wc-m-stall", "toilet_stall", "wc-m", 18.56, 18.43, HALF),
+  f("wc-f-vanity", "vanity", "wc-f", 22.8, 15.27, 0),
+  f("wc-f-stall-1", "toilet_stall", "wc-f", 22.94, 17.3, -HALF),
+  f("wc-f-stall-2", "toilet_stall", "wc-f", 22.94, 18.43, -HALF),
+  // hanging signs over the doors, readable along Main Street
+  f("wc-m-sign", "wc_sign", "corridor", 19.45, 14.8, -HALF),
+  f("wc-f-sign", "wc_sign", "corridor", 22.05, 14.8, -HALF, { label: "F" }),
   f("gar-plant-1", "plant", "garden", 11.6, 29.3),
   f("gar-plant-2", "plant", "garden", 25.6, 29.3),
   f("gar-plant-3", "plant", "garden", 43.5, 27.5),
@@ -387,9 +388,11 @@ const MOVED: { id: string; from: [number, number]; to: [number, number] }[] = [
   // the bigger CEO desk: guest chairs step back
   { id: "ceo-visitor-1", from: [46.6, 5.4], to: [46.8, 5.85] },
   { id: "ceo-visitor-2", from: [45.4, 5.4], to: [45.2, 5.85] },
-  // the lobby restrooms took the reception's east corner
-  { id: "rec-lamp", from: [8.5, 22.8], to: [8.5, 17.1] },
-  { id: "rec-plant-4", from: [8.5, 24.5], to: [5.6, 20.15] },
+  // the restrooms moved out of the lobby again: lamp and plant go back
+  { id: "rec-lamp", from: [8.5, 17.1], to: [8.5, 22.8] },
+  { id: "rec-plant-4", from: [5.6, 20.15], to: [8.5, 24.5] },
+  // the restrooms took the game room's north-west corner: the court and hoop shift south
+  { id: "game-hoop", from: [18.35, 20], to: [18.35, 22] },
 ];
 /** Default pieces that became a different piece of furniture (same id) — e.g. the hallway bikes became sofas. */
 const SWAPPED: { id: string; fromType: string; to: { type: string; x: number; z: number; rot: number; color?: string } }[] = [
@@ -397,8 +400,17 @@ const SWAPPED: { id: string; fromType: string; to: { type: string; x: number; z:
   { id: "cor-bike-2", fromType: "bike", to: { type: "sofa", x: 37.6, z: 14.52, rot: Math.PI, color: "#0f766e" } },
   { id: "cor-bike-3", fromType: "bike", to: { type: "sofa", x: 50.6, z: 14.52, rot: Math.PI, color: "#1e3a5f" } },
 ];
+/** Default pieces that were removed (ids of an earlier draft). */
+const REMOVED = new Set(["wcm-vanity", "wcm-urinal-1", "wcm-urinal-2", "wcm-stall", "wcf-vanity", "wcf-stall-1", "wcf-stall-2", "wc-sign-m", "wc-sign-f"]);
+/** Default pieces whose size changed (only if the saved piece still has the old default size). */
+const RESIZED: { id: string; from: [number, number]; to: { z: number; size: [number, number] } }[] = [
+  { id: "game-court", from: [8.2, 9.6], to: { z: 22, size: [8.2, 5.8] } },
+];
 export function applyLayoutMoves<T extends { id: string; x: number; z: number }>(furniture: T[]): T[] {
-  return furniture.map((f) => {
+  return furniture.filter((f) => !REMOVED.has(f.id)).map((f) => {
+    const size = (f as unknown as { size?: [number, number] }).size;
+    const rs = RESIZED.find((x) => x.id === f.id && size && size[0] === x.from[0] && size[1] === x.from[1]);
+    if (rs) return { ...f, ...rs.to };
     const sw = SWAPPED.find((x) => x.id === f.id && (f as unknown as { type?: string }).type === x.fromType);
     if (sw) return { ...f, ...sw.to };
     const m = MOVED.find((x) => x.id === f.id && Math.abs(f.x - x.from[0]) < 0.01 && Math.abs(f.z - x.from[1]) < 0.01);

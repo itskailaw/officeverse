@@ -1202,12 +1202,18 @@ function WcSign({ female }: { female: boolean }) {
     [female],
   );
   useEffect(() => () => tex.dispose(), [tex]);
-  const y = useWallY(0.6, 1.7);
+  const y = useWallY(0.6, 1.95);
   return (
     <group position={[0, y, 0]}>
-      <mesh geometry={PLANE} position={[0, 0, 0.02]} scale={[0.4, 0.6, 1]}>
+      {/* hanging blade sign: readable from both directions along the corridor */}
+      <B p={[0, 0, 0]} s={[0.42, 0.62, 0.025]} c="#1f2937" shadow={false} />
+      <mesh geometry={PLANE} position={[0, 0, 0.014]} scale={[0.4, 0.6, 1]}>
         <meshBasicMaterial map={tex} toneMapped={false} />
       </mesh>
+      <mesh geometry={PLANE} position={[0, 0, -0.014]} rotation={[0, Math.PI, 0]} scale={[0.4, 0.6, 1]}>
+        <meshBasicMaterial map={tex} toneMapped={false} />
+      </mesh>
+      <B p={[0, 0.36, 0]} s={[0.02, 0.12, 0.02]} c="#94a3b8" shadow={false} />
     </group>
   );
 }
