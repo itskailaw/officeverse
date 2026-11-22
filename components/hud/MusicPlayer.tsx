@@ -53,7 +53,7 @@ export function MusicPlayer() {
         <span className="hidden max-w-[9rem] truncate xl:inline">{m.playing ? nowLabel : "Music"}</span>
       </Button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-2xl border border-slate-200 bg-panel p-3 shadow-2xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-2xl border border-slate-200 bg-panel p-3 text-slate-800 shadow-2xl">
           {/* now playing */}
           <div className="flex items-center gap-3">
             <button
@@ -128,9 +128,9 @@ export function MusicPlayer() {
               <div className="scrollbar-thin max-h-48 space-y-0.5 overflow-y-auto">
                 {!m.tracks.length && <p className="px-1 py-3 text-center text-[11px] text-slate-500">No tracks yet — add MP3, M4A, OGG or WAV files from your computer.</p>}
                 {m.tracks.map((t, i) => (
-                  <div key={t.id} className={cn("group flex items-center gap-2 rounded-lg px-2 py-1 text-xs", t.id === m.current ? "bg-sky-50 text-sky-900" : "hover:bg-slate-50")}>
+                  <div key={t.id} className={cn("group flex items-center gap-2 rounded-lg px-2 py-1 text-xs", t.id === m.current ? "bg-sky-50 text-sky-900" : "text-slate-800 hover:bg-slate-50")}>
                     <button onClick={() => void m.playTrack(t.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                      <span className="w-4 text-right text-[10px] text-slate-400">{t.id === m.current && m.playing ? <EqBars small /> : i + 1}</span>
+                      <span className="flex w-5 shrink-0 justify-end text-[10px] tabular-nums text-slate-400">{t.id === m.current && m.playing ? <EqBars small /> : i + 1}</span>
                       <span className="truncate">{t.name}</span>
                     </button>
                     <button onClick={() => void m.removeTrack(t.id)} className="text-slate-300 opacity-0 hover:text-red-600 group-hover:opacity-100" aria-label={`Remove ${t.name}`}>
