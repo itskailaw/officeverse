@@ -17,3 +17,21 @@ export async function checkOrdersNow(ws: string, source: "schedule" | "manual", 
   await Promise.race([Promise.allSettled(syncs), new Promise((r) => setTimeout(r, 60_000))]);
   return runOrderAutomation(ws, source);
 }
+
+/**
+ * "Refresh" in Packing: fetch the latest order statuses from Shopee and Lazada (orders only, no
+ * automation), so parcels scanned at drop-off leave "To ship". Skips a store synced in the last 20 s.
+ */
+export async function refreshOrders(ws: string) {
+  const rows = (await listIntegrations(ws)).filter((r) => (r.provider === "shopee" || r.provider === "lazada") && r.status !== "expired" && r.status !== "disconnected");
+  const errors: string[] = [];
+  const syncs = rows
+    .filter((r) => !r.last_success_at || Date.now() - Date.parse(r.last_success_at) > 20_000)
+    .map((r) =>
+      (r.provider === "shopee" ? syncShopee(r, { light: true }) : syncLazada(r, { light: true })).catch((e) => {
+        errors.push(`${r.provider === "shopee" ? "Shopee" : "Lazada"}: ${e instanceof Error ? e.message : String(e)}`);
+      }),
+    );
+  const finished = await Promise.race([Promise.allSettled(syncs).then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 50_000))]);
+  return { stores: rows.length, synced: syncs.length, finished, errors };
+}

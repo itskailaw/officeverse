@@ -3,9 +3,11 @@ import { errorResponse } from "@/lib/ai/server/guard";
 import { getMembership, requireRole } from "@/lib/integrations/store";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { STATUS } from "@/lib/integrations/summary";
+import { refreshOrders } from "@/lib/integrations/order-check";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 90;
 
 /** Orders waiting to be processed / shipped (from synced data — no buyer details). Owner only. */
 export async function GET() {
@@ -39,6 +41,17 @@ export async function GET() {
         items: ((o.items as { name: string; model?: string | null; sku?: string | null; qty: number }[] | null) ?? []).map((i) => ({ name: i.name, model: i.model ?? null, sku: i.sku ?? null, qty: i.qty })),
       }));
     return NextResponse.json({ orders }, { headers: { "Cache-Control": "no-store" } });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+/** Refresh: pull the latest statuses from the marketplaces (orders only). The browser then reloads the list. Owner only. */
+export async function POST() {
+  try {
+    const m = await getMembership();
+    requireRole(m, ["owner"]);
+    return NextResponse.json(await refreshOrders(m.workspaceId), { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return errorResponse(e);
   }

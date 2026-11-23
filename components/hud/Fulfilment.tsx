@@ -482,10 +482,45 @@ export function Fulfilment() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? `Request failed (${r.status})`);
       setOrders(j.orders);
+      return j.orders as Order[];
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
+      return null;
     }
   }, []);
+  // Refresh: ask Shopee and Lazada for the latest statuses, then reload — scanned parcels drop out of "To ship"
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
+  const refresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    const before = new Set((orders ?? []).filter((o) => o.stage === "ship").map(key));
+    try {
+      const r = await fetch("/api/fulfil/orders", { method: "POST" });
+      const j = (await r.json().catch(() => ({}))) as { errors?: string[]; finished?: boolean; error?: string };
+      if (!r.ok) throw new Error(j.error ?? `Refresh failed (${r.status})`);
+      const next = await load();
+      if (next) {
+        const still = new Set(next.filter((o) => o.stage === "ship").map(key));
+        const gone = [...before].filter((k) => !still.has(k)).length;
+        const added = [...still].filter((k) => !before.has(k)).length;
+        setRefreshedAt(new Date());
+        if (j.errors?.length) toast("error", `Couldn't reach ${j.errors.join("; ")}`);
+        else if (!j.finished) toast("info", "The marketplaces are slow — showing what's synced so far. Try again in a minute.");
+        else
+          toast(
+            gone ? "success" : "info",
+            gone
+              ? `✅ ${gone} parcel${gone === 1 ? " was" : "s were"} scanned at drop-off and left To ship${added ? ` · ${added} new to ship` : ""}`
+              : `Up to date — no new drop-off scans yet${added ? ` · ${added} new to ship` : ""}`,
+          );
+      }
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : String(e));
+    } finally {
+      setRefreshing(false);
+    }
+  };
   useEffect(() => {
     if (open) {
       setSel(new Set());
@@ -697,9 +732,10 @@ export function Fulfilment() {
                 </select>
               </label>
               <div className="ml-auto flex gap-2">
-                <Button size="sm" variant="ghost" onClick={() => void load()} title="Refresh">
-                  <RefreshCw />
+                <Button size="sm" variant="outline" onClick={() => void refresh()} disabled={refreshing} title="Get the latest from Shopee and Lazada — parcels scanned at drop-off leave To ship">
+                  <RefreshCw className={cn(refreshing && "animate-spin")} /> {refreshing ? "Checking scans…" : "Refresh"}
                 </Button>
+                {refreshedAt && !refreshing && <span className="self-center text-[10px] text-slate-400">Updated {refreshedAt.toLocaleTimeString("en-MY", { hour: "numeric", minute: "2-digit" })}</span>}
                 {packing && (
                   <Button size="sm" variant="outline" onClick={() => setShowPacking(true)} title="What to pack, in the same order as the last airway bills you printed">
                     <ClipboardCheck /> Packing list ({packing.rows.length})
