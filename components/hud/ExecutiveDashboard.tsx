@@ -748,16 +748,16 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
                 <thead>
                   <tr className="text-left text-[10px] uppercase tracking-wide text-slate-400">
                     <th className="pb-1 font-medium">Product</th>
-                    <th className="pb-1 text-right font-medium">Units</th>
-                    <th className="pb-1 text-right font-medium">Sales</th>
+                    <th className="whitespace-nowrap px-3 pb-1 text-right font-medium">Units</th>
+                    <th className="whitespace-nowrap pb-1 pl-2 text-right font-medium">Sales</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sellers.map((p) => (
                     <tr key={p.name} className="border-t border-slate-100">
                       <td className="py-1.5 pr-2 text-slate-700">{p.name}</td>
-                      <td className="py-1.5 text-right tabular-nums">{p.units}</td>
-                      <td className="py-1.5 text-right tabular-nums">{formatMYR(p.revenue)}</td>
+                      <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{p.units}</td>
+                      <td className="whitespace-nowrap py-1.5 pl-2 text-right tabular-nums">{formatMYR(p.revenue)}</td>
                     </tr>
                   ))}
                 </tbody>
