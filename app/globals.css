@@ -80,6 +80,8 @@ body {
   --color-blue-100: #172554;
   --color-blue-800: #bfdbfe;
 }
+/* text with no colour of its own inherits the page's dark ink — make it light on dark panels */
+.dark [class*="bg-panel"] { color: var(--color-slate-800); }
 .dark .bg-navy { background-color: #2b5a8f; }
 .dark .text-navy { color: #93c5fd; }
 .dark .border-navy { border-color: #3b82f6; }
