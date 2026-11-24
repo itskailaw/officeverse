@@ -69,7 +69,7 @@ export function packingHtml(lines: PackLine[], opts: { from?: string; problems?:
       const late = l.overdue;
       const head =
         (i === firstSep
-          ? `<tr><td colspan="3" style="padding:14px 8px 4px;font:600 11px sans-serif;color:#64748b;text-transform:uppercase;letter-spacing:.04em">${NAME[l.platform]} labels — separate attachment</td></tr>`
+          ? `<tr><td colspan="2" style="padding:14px 8px 4px;font:600 11px sans-serif;color:#64748b;text-transform:uppercase;letter-spacing:.04em">${NAME[l.platform]} labels — separate attachment</td></tr>`
           : "");
       const items = l.items.length
         ? l.items
@@ -80,9 +80,8 @@ export function packingHtml(lines: PackLine[], opts: { from?: string; problems?:
             .join("")
         : `<div style="color:#94a3b8">Items not synced — check the label</div>`;
       return `${head}<tr style="border-top:1px solid #e2e8f0">
-<td style="padding:10px 8px;vertical-align:top;width:34px"><div style="width:30px;height:30px;border-radius:7px;background:${late ? "#b91c1c" : "#0f172a"};color:#fff;font:700 15px sans-serif;text-align:center;line-height:30px">${i + 1}</div></td>
-<td style="padding:10px 8px;vertical-align:top;white-space:nowrap;font:12px sans-serif;color:#334155"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLOR[l.platform]}"></span> <b>${NAME[l.platform]}</b><br><span style="font-family:monospace;color:#64748b">#${esc(l.id)}</span>${l.tracking ? `<br><span style="font-family:monospace;font-size:11px;color:#64748b">AWB ${esc(l.tracking)}</span>` : ""}${late ? `<br><span style="display:inline-block;margin-top:3px;padding:1px 6px;border-radius:4px;background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:600">Not shipped · since ${fmt(late.since)}${late.shipBy ? ` · ship by ${fmt(late.shipBy, true)}` : ""}</span>` : ""}</td>
-<td style="padding:10px 8px;vertical-align:top;font:14px/1.45 sans-serif;color:#0f172a">${items}</td></tr>`;
+<td style="padding:12px 8px;vertical-align:top;width:34px"><div style="width:30px;height:30px;border-radius:7px;background:${late ? "#b91c1c" : "#0f172a"};color:#fff;font:700 15px sans-serif;text-align:center;line-height:30px">${i + 1}</div></td>
+<td style="padding:12px 8px;vertical-align:top"><div style="font:12px sans-serif;color:#334155"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLOR[l.platform]}"></span> <b>${NAME[l.platform]}</b> <span style="font-family:monospace;font-size:13px;color:#0f172a;font-weight:600">#${esc(l.id)}</span>${l.tracking ? `<span style="font-family:monospace;font-size:11px;color:#64748b"> · AWB ${esc(l.tracking)}</span>` : ""}</div>${late ? `<div style="display:inline-block;margin-top:4px;padding:1px 6px;border-radius:4px;background:#fee2e2;color:#b91c1c;font:600 11px sans-serif">Not shipped · since ${fmt(late.since)}${late.shipBy ? ` · ship by ${fmt(late.shipBy, true)}` : ""}</div>` : ""}<div style="margin-top:6px;padding:8px 10px;border-radius:8px;background:#f8fafc;font:15px/1.45 sans-serif;color:#0f172a">${items}</div></td></tr>`;
     })
     .join("");
   const problems = opts.problems?.length
