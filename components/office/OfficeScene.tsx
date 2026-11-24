@@ -511,6 +511,7 @@ function Agents() {
   const employees = useOffice((s) => s.employees);
   const ceoName = useOffice((s) => s.settings.ceoName);
   const ceoLook = useOffice((s) => s.settings.ceoAppearance);
+  const ceoPhoto = useOffice((s) => s.settings.staffPhotos?.ceo);
   const showTags = useOffice((s) => s.settings.showNameTags);
   const showBubbles = useOffice((s) => s.settings.showBubbles);
   const selected = useUI((s) => s.selectedEmployeeId);
@@ -571,6 +572,7 @@ function Agents() {
         id={CEO_ID}
         name={`${ceoName} (You)`}
         appearance={ceoLook}
+        photo={ceoPhoto ?? null}
         chibi={chibi}
         theme={theme}
         isCEO

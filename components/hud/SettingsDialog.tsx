@@ -15,6 +15,7 @@ import { AppearanceEditor } from "./EmployeeEditor";
 import { IntegrationsPanel } from "./Integrations";
 import { AIUsageCard } from "./AIUsageCard";
 import { SystemHealthCard } from "./SystemHealth";
+import { toProfilePhoto } from "./Avatar";
 import { AppInstallCard } from "./AppInstall";
 
 const MAX_UPLOAD = 5 * 1024 * 1024;
@@ -230,6 +231,51 @@ export function SettingsDialog() {
             <div>
               <Label>Display name</Label>
               <Input value={st.ceoName} maxLength={40} onChange={(e) => s.updateSettings({ ceoName: e.target.value })} />
+            </div>
+            <div>
+              <Label>Your photo</Label>
+              <div className="flex items-center gap-3">
+                {st.staffPhotos?.ceo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={st.staffPhotos.ceo} alt="Your photo" className="h-14 w-14 rounded-full object-cover ring-2 ring-amber-400" />
+                ) : (
+                  <span className="grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-2xl ring-2 ring-amber-400">👑</span>
+                )}
+                <label className="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  {st.staffPhotos?.ceo ? "Change photo" : "Upload photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!f) return;
+                      try {
+                        const url = await toProfilePhoto(f);
+                        s.updateSettings({ staffPhotos: { ...(st.staffPhotos ?? {}), ceo: url } });
+                        toast("success", "Your photo is on your name tag");
+                      } catch (err) {
+                        toast("error", err instanceof Error ? err.message : "Couldn't use that photo");
+                      }
+                    }}
+                  />
+                </label>
+                {st.staffPhotos?.ceo && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const next = { ...(st.staffPhotos ?? {}) };
+                      delete next.ceo;
+                      s.updateSettings({ staffPhotos: next });
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">Shown on your name tag above your character in the office.</p>
             </div>
             <div>
               <Label>Avatar</Label>
