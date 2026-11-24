@@ -45,6 +45,7 @@ function hashOf(s: string) {
   return ((h >>> 0) % 1000) / 1000;
 }
 
+const BROW_Y = 0.052;
 const UPPER_LEG = 0.42;
 const LOWER_LEG = 0.42;
 const HIP_Y = 0.9;
@@ -115,7 +116,7 @@ function HairShape({ a, m }: { a: Appearance; m: THREE.Material }) {
           {/* wrapped behind the face so the face stays visible, framed by the scarf */}
           <mesh geometry={SPH} material={m} position={[0, 0.02, -0.05]} scale={[0.3, 0.31, 0.27]} castShadow />
           <mesh geometry={TORUS} material={m} position={[0, -0.005, 0.07]} scale={[0.68, 0.82, 0.9]} castShadow />
-          <mesh geometry={SKIRT} material={m} position={[0, -0.17, -0.02]} scale={[0.25, 0.09, 0.22]} castShadow />
+          <mesh geometry={SKIRT} material={m} position={[0, -0.15, -0.03]} scale={[0.21, 0.05, 0.19]} castShadow />
         </group>
       );
     case "long":
@@ -282,7 +283,7 @@ export const Character = memo(function Character(props: Props) {
   const { id, appearance: a0, status, isCEO, selected, hovered, showTag, showBubble, dimmed, chibi, theme } = props;
   const female = props.gender === "female" || a0.outfit === "kurung" || a0.outfit === "dress" || a0.hairStyle === "hijab";
   const a = useMemo(() => themed(a0, theme, female), [a0, theme, female]);
-  const LEG = chibi ? 0.62 : 1;
+  const LEG = chibi ? 0.5 : 1;
   const DROP = chibi ? -(1 - LEG) * (UPPER_LEG + LOWER_LEG) : 0;
   const outfit = a.outfit ?? "shirt";
   const root = useRef<THREE.Group>(null);
@@ -572,8 +573,8 @@ export const Character = memo(function Character(props: Props) {
       lBrow.current.rotation.z = tilt;
       rBrow.current.rotation.z = -tilt;
       const lift = happy ? 0.012 : worried ? 0.006 : 0;
-      lBrow.current.position.y = 0.078 + lift;
-      rBrow.current.position.y = 0.078 + lift;
+      lBrow.current.position.y = BROW_Y + lift;
+      rBrow.current.position.y = BROW_Y + lift;
     }
     if (smile.current) {
       smile.current.visible = !worried && !mouthOpen;
@@ -583,7 +584,7 @@ export const Character = memo(function Character(props: Props) {
     if (frown.current) frown.current.visible = worried && !mouthOpen;
     if (oMouth.current) oMouth.current.visible = mouthOpen;
     if (badge.current) {
-      badge.current.position.y = (sitting ? 1.65 : 2.05) + ag.y + Math.sin(t * 2 + id.length) * 0.04;
+      badge.current.position.y = (sitting ? 1.65 : 2.05) + (chibi ? 0.22 : 0) + ag.y + Math.sin(t * 2 + id.length) * 0.04;
       badge.current.rotation.y = t * 1.5;
     }
     if (ringRef.current) {
@@ -630,11 +631,11 @@ export const Character = memo(function Character(props: Props) {
             [rUp, rLow, 0.1],
           ].map(([up, low, x], i) => (
             <group key={i} ref={up as React.RefObject<THREE.Group>} position={[x as number, 0, 0]} scale={[1, LEG, 1]}>
-              <Limb len={UPPER_LEG} w={0.145} m={m.pants} />
+              <Limb len={UPPER_LEG} w={chibi ? 0.17 : 0.145} m={m.pants} />
               <group ref={low as React.RefObject<THREE.Group>} position={[0, -UPPER_LEG + 0.04, 0]}>
-                <Limb len={LOWER_LEG} w={skirt ? 0.1 : 0.125} m={skirt ? m.skin : m.pants} />
+                <Limb len={LOWER_LEG} w={skirt ? 0.1 : chibi ? 0.16 : 0.125} m={skirt ? m.skin : m.pants} />
                 {/* round toy sneakers */}
-                <mesh geometry={SPH} material={m.shoes} position={[0, -LOWER_LEG + 0.04, 0.04]} scale={[0.17, 0.13, 0.24]} castShadow />
+                <mesh geometry={SPH} material={m.shoes} position={[0, -LOWER_LEG + 0.06, 0.04]} scale={chibi ? [0.18, 0.28, 0.25] : [0.17, 0.13, 0.24]} castShadow />
                 <mesh geometry={CYL} material={m.sole} position={[0, -LOWER_LEG - 0.005, 0.04]} scale={[0.16, 0.03, 0.22]} />
               </group>
             </group>
@@ -643,11 +644,11 @@ export const Character = memo(function Character(props: Props) {
           {skirt ? (
             <mesh geometry={SKIRT} material={outfit === "kurung" ? m.shirtDark : m.shirt} position={[0, -0.12, 0]} scale={[0.4, 0.36, 0.28]} castShadow />
           ) : (
-            <mesh geometry={BOX} material={m.pants} position={[0, 0.02, 0]} scale={[0.34, 0.16, 0.2]} castShadow />
+            !chibi && <mesh geometry={BOX} material={m.pants} position={[0, 0.02, 0]} scale={[0.34, 0.16, 0.2]} castShadow />
           )}
           {/* torso */}
           <group ref={torso} position={[0, 0.05, 0]}>
-            <mesh geometry={CAP} material={outfit === "blazer" ? m.inner : m.shirt} position={[0, 0.25, 0]} scale={[0.42, 0.2, 0.3]} castShadow />
+            <mesh geometry={CAP} material={outfit === "blazer" ? m.inner : m.shirt} position={[0, chibi ? -0.01 : 0.25, 0]} scale={chibi ? [0.42, 0.28, 0.24] : [0.4, 0.2, 0.26]} castShadow />
             {outfit === "blazer" && (
               <>
                 {/* jacket panels open at the front */}
@@ -725,10 +726,10 @@ export const Character = memo(function Character(props: Props) {
             {isCEO && outfit !== "blazer" && !theme && <mesh geometry={BOX} material={mat("#b91c1c")} position={[0, 0.3, 0.11]} scale={[0.05, 0.3, 0.02]} />}
             {/* arms */}
             {[
-              [lArm, lFore, -0.23],
-              [rArm, rFore, 0.23],
+              [lArm, lFore, chibi ? -0.25 : -0.23],
+              [rArm, rFore, chibi ? 0.25 : 0.23],
             ].map(([arm, fore, x], i) => (
-              <group key={i} ref={arm as React.RefObject<THREE.Group>} position={[x as number, 0.45, 0]} scale={chibi ? [1, 0.8, 1] : 1}>
+              <group key={i} ref={arm as React.RefObject<THREE.Group>} position={[x as number, chibi ? 0.14 : 0.45, 0]} scale={chibi ? [0.95, 0.5, 0.95] : 1}>
                 <Limb len={0.3} w={0.105} m={m.shirt} />
                 <group ref={fore as React.RefObject<THREE.Group>} position={[0, -0.28, 0]}>
                   <Limb len={0.26} w={0.09} m={outfit === "kurung" || outfit === "blazer" || outfit === "hoodie" ? m.shirt : m.skin} />
@@ -757,8 +758,8 @@ export const Character = memo(function Character(props: Props) {
               </group>
             ))}
             {/* neck + head */}
-            <mesh geometry={CAP} material={m.skin} position={[0, 0.55, 0]} scale={[0.09, 0.06, 0.09]} />
-            <group ref={head} position={[0, chibi ? 0.86 : 0.75, 0]} scale={chibi ? 2.0 : 1.15}>
+            {!chibi && <mesh geometry={CAP} material={m.skin} position={[0, 0.55, 0]} scale={[0.09, 0.06, 0.09]} />}
+            <group ref={head} position={[0, chibi ? 0.59 : 0.75, 0]} scale={chibi ? 2.85 : 1.15}>
               <mesh geometry={SPH} material={m.skin} scale={[0.26, 0.28, 0.255]} castShadow />
               {/* ears */}
               {a.hairStyle !== "hijab" &&
@@ -767,7 +768,7 @@ export const Character = memo(function Character(props: Props) {
               {/* face — eyes blink / close, brows and mouth follow the mood */}
               <group ref={eyes} position={[0, 0.01, 0]}>
                 {[-1, 1].map((sx) => (
-                  <group key={sx} position={[sx * 0.056, -0.005, 0]}>
+                  <group key={sx} position={[sx * 0.047, -0.017, 0.03]} scale={0.88}>
                     {/* big anime-style eyes: white, warm-brown iris, pupil and two catch-lights */}
                     <mesh geometry={SPH} material={m.sclera} position={[0, 0, 0.106]} scale={[0.06, 0.074, 0.032]} />
                     <mesh geometry={SPH} material={m.iris} position={[0, 0, 0.117]} scale={[0.047, 0.062, 0.022]} />
@@ -780,11 +781,13 @@ export const Character = memo(function Character(props: Props) {
                   </group>
                 ))}
               </group>
-              <mesh ref={lBrow} geometry={BOX} material={m.brow} position={[-0.056, 0.078, 0.116]} rotation={[0, 0, 0.12]} scale={[0.04, 0.011, 0.012]} />
-              <mesh ref={rBrow} geometry={BOX} material={m.brow} position={[0.056, 0.078, 0.116]} rotation={[0, 0, -0.12]} scale={[0.04, 0.011, 0.012]} />
-              <mesh ref={smile} geometry={MOUTH} material={m.mouth} position={[0, -0.055, 0.118]} rotation={[0, 0, Math.PI]} />
-              <mesh ref={frown} geometry={MOUTH} material={m.mouth} position={[0, -0.07, 0.118]} visible={false} />
-              <mesh ref={oMouth} geometry={SPH} material={m.mouth} position={[0, -0.058, 0.118]} scale={[0.026, 0.03, 0.012]} visible={false} />
+              <mesh ref={lBrow} geometry={BOX} material={m.brow} position={[-0.05, BROW_Y, 0.118]} rotation={[0, 0, 0.12]} scale={[0.034, 0.009, 0.012]} />
+              <mesh ref={rBrow} geometry={BOX} material={m.brow} position={[0.05, BROW_Y, 0.118]} rotation={[0, 0, -0.12]} scale={[0.034, 0.009, 0.012]} />
+              <group position={[0, -0.033, 0.061]} scale={0.5}>
+                <mesh ref={smile} geometry={MOUTH} material={m.mouth} position={[0, -0.055, 0.118]} rotation={[0, 0, Math.PI]} />
+                <mesh ref={frown} geometry={MOUTH} material={m.mouth} position={[0, -0.07, 0.118]} visible={false} />
+                <mesh ref={oMouth} geometry={SPH} material={m.mouth} position={[0, -0.058, 0.118]} scale={[0.026, 0.03, 0.012]} visible={false} />
+              </group>
               {theme === "raya" && !female && a.hairStyle !== "hijab" && (
                 <mesh geometry={CYL} material={mat("#111827", { rough: 0.6 })} position={[0, 0.11, -0.005]} scale={[0.25, 0.1, 0.24]} castShadow />
               )}
@@ -805,8 +808,8 @@ export const Character = memo(function Character(props: Props) {
                   <mesh geometry={CYL} material={mat("#0f172a")} position={[-0.145, -0.005, 0]} rotation={[0, 0, Math.PI / 2]} scale={[0.1, 0.05, 0.1]} />
                 </group>
               )}
-              <mesh geometry={SPH} material={m.blush} position={[-0.075, -0.03, 0.105]} scale={[0.035, 0.022, 0.01]} />
-              <mesh geometry={SPH} material={m.blush} position={[0.075, -0.03, 0.105]} scale={[0.035, 0.022, 0.01]} />
+              <mesh geometry={SPH} material={m.blush} position={[-0.072, -0.045, 0.104]} scale={[0.03, 0.017, 0.01]} />
+              <mesh geometry={SPH} material={m.blush} position={[0.072, -0.045, 0.104]} scale={[0.03, 0.017, 0.01]} />
               {(a.glasses || role.glasses) && (
                 <group position={[0, 0.015, 0.128]}>
                   <mesh geometry={TORUS} material={m.dark} position={[-0.052, 0, 0]} scale={[0.34, 0.34, 0.3]} />
