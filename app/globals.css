@@ -108,3 +108,10 @@ body {
 /* staff name tags: zoomed far out, show just the photo and status dot */
 .ov-tag[data-far="1"] .ov-tag-name,
 .ov-tag[data-far="1"] .ov-bubble { display: none; }
+
+/* printing the org chart: only the chart, on a white page */
+@media print {
+  body * { visibility: hidden !important; }
+  #ov-orgchart, #ov-orgchart * { visibility: visible !important; }
+  #ov-orgchart { position: fixed; inset: 0; overflow: visible !important; border: 0 !important; background: #fff !important; zoom: 0.62; }
+}

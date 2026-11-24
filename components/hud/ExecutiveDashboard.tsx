@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
+  Network,
   AlertTriangle,
   CheckSquare,
   Loader2,
@@ -37,6 +38,7 @@ import { StatusBadge, TaskRow } from "./EmployeePanel";
 import { ApprovalCard } from "./AIWork";
 import { ProfitPanel, ReturnsPanel } from "./ProfitReturns";
 import { Scorecards } from "./Scorecards";
+import { OrgChart } from "./OrgChart";
 import { liveSources, useLive, type LiveSummary, type PlatformFigures } from "@/lib/integrations/client";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
@@ -64,6 +66,9 @@ export function ExecutiveDashboard() {
               <TabsTrigger value="team">
                 <Users /> Team
               </TabsTrigger>
+              <TabsTrigger value="org">
+                <Network /> Org chart
+              </TabsTrigger>
               <TabsTrigger value="approvals">
                 <CheckSquare /> Approvals
                 <PendingCount />
@@ -89,6 +94,9 @@ export function ExecutiveDashboard() {
             <TabsContent value="team">
               <Scorecards />
               <TeamTable />
+            </TabsContent>
+            <TabsContent value="org">
+              <OrgChart />
             </TabsContent>
             <TabsContent value="approvals">
               <ApprovalsInbox />

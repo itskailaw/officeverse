@@ -62,6 +62,7 @@ export function CommandPalette() {
       { id: "purchases", label: "Purchase list", hint: "What each order bought", keywords: "orders bought items", run: () => ui().set({ dialog: "purchases" }) },
       { id: "stock", label: "Stock", hint: "Counts, days left, pack names", keywords: "inventory restock pack names", run: () => ui().set({ dialog: "stock" }) },
       { id: "approvals", label: "Approvals", hint: "Cancellations, review replies, team requests", keywords: "approve review cancel", run: () => ui().set({ dialog: "dashboard", dashboardTab: "approvals" }) },
+      { id: "org", label: "Org chart", hint: "Who's who, with photos", keywords: "organisation organization chart structure staff photos", run: () => ui().set({ dialog: "dashboard", dashboardTab: "org" }) },
       { id: "team", label: "Team & scorecards", hint: "Everyone's work this month", keywords: "staff employees scorecards", run: () => ui().set({ dialog: "dashboard", dashboardTab: "team" }) },
       { id: "glance", label: "Today at a glance", hint: "Parcels, sales, alerts", keywords: "welcome summary today", run: () => openWelcome() },
       { id: "subtitles", label: "Subtitle Studio", hint: "Lina translates, Adam checks", keywords: "translate srt cip amare", run: () => ui().set({ dialog: "subtitles" }) },
