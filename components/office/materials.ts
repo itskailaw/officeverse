@@ -131,3 +131,37 @@ export function makeScreenTexture(draw: (g: CanvasRenderingContext2D, w: number,
   t.anisotropy = 4;
   return t;
 }
+
+// ---------- cel-shaded (toon) look for the staff ----------
+let toonRamp: THREE.DataTexture | null = null;
+function ramp() {
+  if (!toonRamp) {
+    // three soft bands: shadow, mid, lit
+    const data = new Uint8Array([120, 120, 120, 255, 200, 200, 200, 255, 255, 255, 255, 255]);
+    toonRamp = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
+    toonRamp.minFilter = THREE.NearestFilter;
+    toonRamp.magFilter = THREE.NearestFilter;
+    toonRamp.generateMipmaps = false;
+    toonRamp.needsUpdate = true;
+  }
+  return toonRamp;
+}
+const toonCache = new Map<string, THREE.Material>();
+/** Flat, cartoon-style shading with crisp light/shadow bands. */
+export function toon(color: string, opts: { emissive?: string; ei?: number } = {}) {
+  const key = `${color}|${opts.emissive ?? ""}|${opts.ei ?? 0}`;
+  let m = toonCache.get(key);
+  if (!m) {
+    m = new THREE.MeshToonMaterial({
+      color,
+      gradientMap: ramp(),
+      emissive: opts.emissive ? new THREE.Color(opts.emissive) : new THREE.Color(0x000000),
+      emissiveIntensity: opts.ei ?? 0,
+    });
+    toonCache.set(key, m);
+  }
+  return m;
+}
+
+/** Shared dark outline (inverted hull): a slightly larger back-face copy of a mesh. */
+export const OUTLINE = new THREE.MeshBasicMaterial({ color: "#1b2333", side: THREE.BackSide });
