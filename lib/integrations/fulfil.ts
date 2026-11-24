@@ -5,6 +5,7 @@ import { requireShopeeConfig, shopGet, shopPost, shopPostFile, ShopeeError } fro
 import { validToken as shopeeToken } from "./shopee/sync";
 import { lazadaGet, lazadaPost, LazadaError, requireLazadaConfig } from "./lazada/api";
 import { validToken as lazadaToken } from "./lazada/sync";
+export { sortByOrderId } from "./pdf-order";
 import { HttpError } from "@/lib/ai/server/guard";
 
 // Arrange shipment (drop-off) and print shipping labels. Real store actions — only the

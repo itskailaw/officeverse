@@ -2,7 +2,7 @@ import "server-only";
 import { HttpError } from "@/lib/ai/server/guard";
 import { ShopeeError } from "./shopee/api";
 import { LazadaError } from "./lazada/api";
-import { labelsLazada, labelsShopee, mergePdfs, type LabelResult } from "./fulfil";
+import { labelsLazada, labelsShopee, mergePdfs, sortByOrderId, type LabelResult } from "./fulfil";
 import { fitToPaper, type Paper } from "./label-paper";
 
 export type Plat = "shopee" | "lazada";
@@ -50,5 +50,7 @@ export async function buildLabels(ws: string, orders: { platform: Plat; id: stri
     }
   }
   if (!pdfs.length && !html) throw new HttpError(502, problems.join(" · ") || "No labels came back.");
-  return { pdf: pdfs.length ? await mergePdfs(pdfs) : null, sequence, html, problems };
+  // by order ID (Shopee, then Lazada), pages kept in step with the list
+  const sorted = await sortByOrderId(pdfs.length ? await mergePdfs(pdfs) : null, sequence);
+  return { pdf: sorted.pdf, sequence: sorted.sequence, html, problems };
 }

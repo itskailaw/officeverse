@@ -4,7 +4,7 @@ import { HttpError } from "@/lib/ai/server/guard";
 import { listIntegrations } from "./store";
 import { STATUS } from "./summary";
 import { buildLabels, labelErrText, type Plat } from "./labels";
-import { mergePdfs } from "./fulfil";
+import { mergePdfs, sortByOrderId } from "./fulfil";
 import { packNames, type StockItem } from "@/lib/data/stock";
 import { sendEmail } from "./email";
 import { syncShopee } from "./shopee/sync";
@@ -136,9 +136,10 @@ export async function sendPackingEmail(
     }
     if (todo.length) parts.push(await buildLabels(ws, ref(todo), paper));
     const pdfs = parts.map((b) => b.pdf).filter((x): x is ArrayBuffer => !!x);
+    const merged = await sortByOrderId(pdfs.length > 1 ? await mergePdfs(pdfs) : (pdfs[0] ?? null), parts.flatMap((b) => b.sequence));
     const bundle = {
-      pdf: pdfs.length > 1 ? await mergePdfs(pdfs) : (pdfs[0] ?? null),
-      sequence: parts.flatMap((b) => b.sequence),
+      pdf: merged.pdf,
+      sequence: merged.sequence,
       html: parts.find((b) => b.html)?.html ?? null,
       problems: [...problemsCarry, ...parts.flatMap((b) => b.problems)],
     };

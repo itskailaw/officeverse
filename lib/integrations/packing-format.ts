@@ -1,5 +1,5 @@
 /** Pure helpers for the daily packing-list email (no server imports — unit tested). */
-import { displayOf, pickList } from "../data/product-names.ts";
+import { displayOf } from "../data/product-names.ts";
 
 export interface PackingSettings {
   enabled: boolean;
@@ -35,6 +35,15 @@ export function packingDue(now: Date, s: Pick<PackingSettings, "enabled" | "time
   return mine.filter((r) => r.status === "failed").length < 3;
 }
 
+/** Packing order: Shopee first, then Lazada; within each, by order ID. Returns the new order as indexes. */
+export function orderIdPermutation(list: { platform: "shopee" | "lazada"; id: string }[]): number[] {
+  const rank = { shopee: 0, lazada: 1 } as const;
+  return list
+    .map((x, i) => ({ x, i }))
+    .sort((a, b) => rank[a.x.platform] - rank[b.x.platform] || a.x.id.localeCompare(b.x.id, "en", { numeric: true }))
+    .map((r) => r.i);
+}
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const NAME = { shopee: "Shopee", lazada: "Lazada" } as const;
 const COLOR = { shopee: "#eb6834", lazada: "#2a78d6" } as const;
@@ -52,21 +61,13 @@ export function packingSubject(lines: PackLine[], now = new Date()) {
     : `Packing list ${d} — ${n} parcel${n === 1 ? "" : "s"} (${items} items)`;
 }
 
-/** Email body: numbered parcels in the same order as the attached airway bills, plus a pick-list total. */
+/** Email body: one numbered list (platform · order ID · what to pack), in the same order as the attached airway bills. */
 export function packingHtml(lines: PackLine[], opts: { from?: string; problems?: string[]; separate?: "shopee" | "lazada" | null; appUrl?: string; names?: Map<string, string> } = {}) {
-  const pick = pickList(lines.flatMap((l) => l.items), opts.names);
   const firstSep = opts.separate ? lines.findIndex((l) => l.platform === opts.separate) : -1;
   const rows = lines
     .map((l, i) => {
       const late = l.overdue;
-      const sectionHead =
-        late && i === 0
-          ? `<tr><td colspan="3" style="padding:12px 8px 4px;font:700 12px sans-serif;color:#b91c1c;text-transform:uppercase;letter-spacing:.04em">⚠️ Not shipped yet — pack these first</td></tr>`
-          : !late && i > 0 && lines[i - 1].overdue
-            ? `<tr><td colspan="3" style="padding:14px 8px 4px;font:700 12px sans-serif;color:#0f766e;text-transform:uppercase;letter-spacing:.04em">New orders</td></tr>`
-            : "";
       const head =
-        sectionHead +
         (i === firstSep
           ? `<tr><td colspan="3" style="padding:14px 8px 4px;font:600 11px sans-serif;color:#64748b;text-transform:uppercase;letter-spacing:.04em">${NAME[l.platform]} labels — separate attachment</td></tr>`
           : "");
@@ -90,16 +91,8 @@ export function packingHtml(lines: PackLine[], opts: { from?: string; problems?:
   return `<!doctype html><html><body style="margin:0;background:#f1f5f9;padding:16px">
 <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:14px;padding:20px">
 <div style="font:600 18px sans-serif;color:#0f172a">📦 Packing list — ${lines.length} parcel${lines.length === 1 ? "" : "s"}</div>
-<div style="font:13px sans-serif;color:#64748b;margin-top:4px">Same order as the attached airway bills: #1 is the first page.${opts.from ? ` — ${esc(opts.from)}` : ""}</div>
+<div style="font:13px sans-serif;color:#64748b;margin-top:4px">Sorted by order ID — same order as the attached airway bills (#1 is the first page).${opts.from ? ` — ${esc(opts.from)}` : ""}</div>
 ${problems}
-<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#f8fafc;font:13px/1.6 sans-serif;color:#0f172a"><b>Pick list</b>${pick
-    .map(
-      (g) =>
-        `<div style="margin-top:6px"><span style="font-weight:600">${esc(g.product)}</span>${g.lines
-          .map((l) => `<div style="padding-left:14px"><b>${l.qty}×</b> ${esc(l.variation)}</div>`)
-          .join("")}</div>`,
-    )
-    .join("")}</div>
 <table style="width:100%;border-collapse:collapse;margin-top:12px">${rows}</table>
 ${opts.appUrl ? `<div style="margin-top:16px;font:12px sans-serif"><a href="${esc(opts.appUrl)}" style="color:#0369a1">Open OfficeVerse</a> to tick parcels off as you pack.</div>` : ""}
 </div></body></html>`;
