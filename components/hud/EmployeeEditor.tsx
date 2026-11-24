@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
-import type { Appearance, Employee, HairStyle, Outfit, Permission } from "@/lib/data/types";
+import type { Accessory, Appearance, Employee, HairStyle, HijabStyle, Outfit, Permission } from "@/lib/data/types";
 import { seatsFor } from "@/lib/office/catalog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
-import { Avatar } from "./Avatar";
+const CharacterPreview = dynamic(() => import("./CharacterPreview"), { ssr: false, loading: () => <div className="h-[190px] w-[150px] rounded-2xl bg-slate-100" /> });
 
 const ALL_PERMS: Permission[] = [
   "orders:read",
@@ -26,7 +27,20 @@ const ALL_PERMS: Permission[] = [
   "drafts:write",
 ];
 const SKINS = ["#f5d0b5", "#f1c9a5", "#e8b896", "#d29b6c", "#a8714a", "#7a4e2d"];
-const HAIRS: HairStyle[] = ["short", "buzz", "spiky", "curly", "long", "bob", "bun", "ponytail", "hijab"];
+const HAIRS: HairStyle[] = ["short", "sidepart", "undercut", "buzz", "spiky", "curly", "wavy", "long", "bob", "bun", "ponytail", "braids", "hijab"];
+const HAIR_LABEL: Partial<Record<HairStyle, string>> = { hijab: "Hijab / headscarf", sidepart: "Side part", undercut: "Undercut", wavy: "Long wavy", braids: "Braids" };
+const HIJABS: { v: HijabStyle; label: string }[] = [
+  { v: "classic", label: "Classic" },
+  { v: "shawl", label: "Shawl (instant)" },
+  { v: "bawal", label: "Bawal (square)" },
+];
+const EYES = ["#6b3f1f", "#3b2314", "#8a5a2b", "#4d7c0f", "#1e40af", "#475569"];
+const ACCESSORIES: { v: Accessory; label: string }[] = [
+  { v: "watch", label: "⌚ Watch" },
+  { v: "earrings", label: "💛 Earrings" },
+  { v: "cap", label: "🧢 Cap" },
+  { v: "tumbler", label: "🥤 Tumbler" },
+];
 const OUTFITS: { v: Outfit; label: string }[] = [
   { v: "shirt", label: "Shirt" },
   { v: "polo", label: "Polo" },
@@ -54,11 +68,15 @@ export function blankEmployee(): Omit<Employee, "id" | "createdAt" | "status" | 
   };
 }
 
-export function AppearanceEditor({ value, onChange }: { value: Appearance; onChange: (a: Appearance) => void }) {
+export function AppearanceEditor({ value, onChange, gender }: { value: Appearance; onChange: (a: Appearance) => void; gender?: string }) {
   const set = (patch: Partial<Appearance>) => onChange({ ...value, ...patch });
+  const acc = value.accessories ?? [];
   return (
     <div className="grid grid-cols-[auto_1fr] items-start gap-4">
-      <Avatar appearance={value} size={88} />
+      <div className="flex flex-col items-center gap-1">
+        <CharacterPreview appearance={value} gender={gender} />
+        <span className="text-[10px] text-slate-400">Live 3D preview</span>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <Label>Skin tone</Label>
@@ -79,7 +97,7 @@ export function AppearanceEditor({ value, onChange }: { value: Appearance; onCha
           <Select value={value.hairStyle} onChange={(e) => set({ hairStyle: e.target.value as HairStyle })}>
             {HAIRS.map((h) => (
               <option key={h} value={h}>
-                {h === "hijab" ? "Hijab / headscarf" : h[0].toUpperCase() + h.slice(1)}
+                {HAIR_LABEL[h] ?? h[0].toUpperCase() + h.slice(1)}
               </option>
             ))}
           </Select>
@@ -94,12 +112,46 @@ export function AppearanceEditor({ value, onChange }: { value: Appearance; onCha
             ))}
           </Select>
         </div>
+        {value.hairStyle === "hijab" && (
+          <div>
+            <Label>Hijab style</Label>
+            <Select value={value.hijabStyle ?? "classic"} onChange={(e) => set({ hijabStyle: e.target.value as HijabStyle })}>
+              {HIJABS.map((h) => (
+                <option key={h.v} value={h.v}>
+                  {h.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+        <div className={value.hairStyle === "hijab" ? "" : "col-span-2"}>
+          <Label>Eye colour</Label>
+          <div className="flex gap-1.5">
+            {EYES.map((c) => (
+              <button
+                key={c}
+                onClick={() => set({ eyeColor: c })}
+                className={`h-6 w-6 rounded-full border-2 ${value.eyeColor === c ? "border-navy" : "border-white shadow"}`}
+                style={{ background: c }}
+                aria-label={`Eyes ${c}`}
+              />
+            ))}
+          </div>
+        </div>
         <ColorField label={value.hairStyle === "hijab" ? "Scarf colour" : "Hair colour"} value={value.hair} onChange={(v) => set({ hair: v })} />
         <ColorField label="Top" value={value.shirt} onChange={(v) => set({ shirt: v })} />
         <ColorField label="Trousers" value={value.pants} onChange={(v) => set({ pants: v })} />
         <label className="col-span-2 flex items-center gap-2 text-xs text-slate-600">
-          <input type="checkbox" checked={!!value.glasses} onChange={(e) => set({ glasses: e.target.checked })} /> Glasses
+          <input type="checkbox" checked={!!value.glasses} onChange={(e) => set({ glasses: e.target.checked })} /> 👓 Glasses
         </label>
+        <div className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+          {ACCESSORIES.map((x) => (
+            <label key={x.v} className="flex items-center gap-1.5">
+              <input type="checkbox" checked={acc.includes(x.v)} onChange={(e) => set({ accessories: e.target.checked ? [...acc, x.v] : acc.filter((y) => y !== x.v) })} />
+              {x.label}
+            </label>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -264,7 +316,7 @@ export function EmployeeEditor() {
             </div>
           </div>
 
-          <AppearanceEditor value={form.appearance} onChange={(appearance) => patch({ appearance })} />
+          <AppearanceEditor value={form.appearance} gender={form.gender} onChange={(appearance) => patch({ appearance })} />
 
           <div>
             <Label>Personality</Label>

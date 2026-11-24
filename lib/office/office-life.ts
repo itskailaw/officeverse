@@ -81,3 +81,24 @@ export function bayTimes(date: string, weekday: string, bay: number): { arrive: 
     ? { arrive: 9 * 60 + 30 + Math.floor(r("a") * 150), leave: 13 * 60 + Math.floor(r("l") * 240) }
     : { arrive: 7 * 60 + 45 + Math.floor(r("a") * 105), leave: 17 * 60 + 15 + Math.floor(r("l") * 135) };
 }
+
+/** The top `n` employees of a month by tasks completed, then chats (for the 🥇🥈🥉 on name tags). */
+export function topPerformers(
+  people: Person[],
+  tasks: { employeeId: string; status: string; updatedAt: string }[],
+  chats: { employeeId: string; role: string; createdAt: string }[],
+  month: string,
+  n = 3,
+) {
+  return people
+    .filter((p) => p.active)
+    .map((p) => ({
+      id: p.id,
+      done: tasks.filter((t) => t.employeeId === p.id && t.status === "completed" && t.updatedAt.startsWith(month)).length,
+      chats: chats.filter((c) => c.employeeId === p.id && c.role === "employee" && c.createdAt.startsWith(month)).length,
+    }))
+    .filter((r) => r.done + r.chats > 0)
+    .sort((a, b) => b.done - a.done || b.chats - a.chats)
+    .slice(0, n)
+    .map((r) => r.id);
+}

@@ -43,7 +43,9 @@ export interface Department {
 }
 
 export type Gender = "female" | "male" | "unspecified";
-export type HairStyle = "short" | "long" | "bun" | "bob" | "buzz" | "hijab" | "ponytail" | "curly" | "spiky";
+export type HairStyle = "short" | "long" | "bun" | "bob" | "buzz" | "hijab" | "ponytail" | "curly" | "spiky" | "undercut" | "wavy" | "sidepart" | "braids";
+export type HijabStyle = "classic" | "shawl" | "bawal";
+export type Accessory = "watch" | "earrings" | "cap" | "tumbler";
 export type Outfit = "shirt" | "blazer" | "polo" | "kurung" | "hoodie" | "dress";
 
 export interface Appearance {
@@ -55,6 +57,12 @@ export interface Appearance {
   shoes: string;
   glasses?: boolean;
   outfit?: Outfit;
+  /** how the hijab is worn (when hairStyle is "hijab") */
+  hijabStyle?: HijabStyle;
+  /** iris colour (otherwise picked per person) */
+  eyeColor?: string;
+  /** small personal touches */
+  accessories?: Accessory[];
 }
 
 export interface AIConfig {
@@ -248,6 +256,8 @@ export interface OfficeSettings {
   staffDates?: Record<string, { birthday?: string; joinedOn?: string }>;
   /** staff profile photos by employee id: small square JPEG data URLs (~10 KB each) */
   staffPhotos?: Record<string, string>;
+  /** staff wear their team's uniform (WGS polo, Marketing hoodie, Finance shirt & tie, Amare smart casual, Artides apron) */
+  uniforms?: boolean;
   /** Marketing Studio: facts about the shop the AI may use (warranty, delivery, install help…) */
   shopNotes?: string;
   /** Marketing Studio: saved campaign plans by event id */

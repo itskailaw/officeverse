@@ -21,6 +21,7 @@ import { FurnitureVisual } from "./Furniture";
 import { Character } from "./Character";
 import { festiveTheme } from "@/lib/office/festive";
 import { BirthdayDecor, FestiveDecor } from "./OfficeLife";
+import { lastMonth, topPerformers } from "@/lib/office/office-life";
 import { shootMiniHoop } from "./FunFurniture";
 import { ceoMonitorTexture, logoScreenTexture, meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
@@ -553,6 +554,17 @@ function Agents() {
   }, []);
 
   const active = employees.filter((e) => e.active);
+  // name tags: photos, current task, last month's top 3, team uniforms
+  const photos = useOffice((s) => s.settings.staffPhotos);
+  const uniforms = useOffice((s) => s.settings.uniforms ?? true);
+  const tasks = useOffice((s) => s.tasks);
+  const chats = useOffice((s) => s.chatMessages);
+  const running = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of tasks) if (t.status === "running") m.set(t.employeeId, t.title);
+    return m;
+  }, [tasks]);
+  const top = useMemo(() => topPerformers(employees, tasks, chats, lastMonth()), [employees, tasks, chats]);
   return (
     <group>
       <Character
@@ -576,6 +588,11 @@ function Agents() {
           status={e.status}
           role={e.id}
           lanyard={lanyardOf(e.departmentId)}
+          dept={e.departmentId}
+          uniforms={uniforms}
+          task={running.get(e.id) ?? null}
+          star={top.indexOf(e.id) + 1 || undefined}
+          photo={photos?.[e.id] ?? null}
           chibi={chibi}
           theme={theme}
           gender={e.gender}

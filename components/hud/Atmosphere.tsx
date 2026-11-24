@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { useLive } from "@/lib/integrations/client";
@@ -9,6 +9,7 @@ import { getSim } from "@/lib/office/runtime";
 import { klHourNow } from "@/lib/office/lighting";
 import { formatMYR } from "@/lib/data/demo";
 import { celebrationsToday } from "@/lib/office/office-life";
+import { PRAISE, useMoments } from "@/lib/office/moments";
 
 const klDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date());
 const once = (key: string) => {
@@ -88,6 +89,60 @@ export function TeamMoments() {
     }
   }, [employees, staffDates, toast]);
 
+  // emotes: 💦 when a task starts, 💡 (and a happy skip) when it's done, ❤️ when the CEO says something kind
+  const tasks = useOffice((s) => s.tasks);
+  const chats = useOffice((s) => s.chatMessages);
+  const prevTasks = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    const now = new Map(tasks.map((t) => [t.id, t.status]));
+    const prev = prevTasks.current;
+    prevTasks.current = now;
+    if (!prev) return;
+    const mo = useMoments.getState();
+    for (const t of tasks) {
+      const was = prev.get(t.id);
+      if (was === t.status) continue;
+      if (t.status === "completed") {
+        mo.emote(t.employeeId, "💡");
+        mo.happy(t.employeeId, 40_000);
+      } else if (t.status === "running" && was !== "running") mo.emote(t.employeeId, "💦", 2500);
+    }
+  }, [tasks]);
+  const seenChat = useRef<number | null>(null);
+  useEffect(() => {
+    if (seenChat.current === null) {
+      seenChat.current = chats.length;
+      return;
+    }
+    const fresh = chats.slice(seenChat.current);
+    seenChat.current = chats.length;
+    for (const m of fresh) {
+      if (m.role === "ceo" && PRAISE.test(m.content)) {
+        useMoments.getState().emote(m.employeeId, "❤️", 4000);
+        useMoments.getState().happy(m.employeeId, 60_000);
+      }
+    }
+  }, [chats]);
+
+  // new orders: the team cheers; a big one (RM 200+) gets confetti too
+  const lastToday = useRef<{ orders: number; revenue: number; day: string } | null>(null);
+  useEffect(() => {
+    if (!summary) return;
+    const cur = { orders: summary.today.orders, revenue: summary.today.revenue, day: klDate() };
+    const prev = lastToday.current;
+    lastToday.current = cur;
+    if (!prev || prev.day !== cur.day || cur.orders <= prev.orders) return;
+    const n = cur.orders - prev.orders;
+    const amount = cur.revenue - prev.revenue;
+    useMoments.getState().cheer(4500);
+    useMoments.getState().emote("emp-orders", "🎉", 4500);
+    if (amount >= 200) {
+      setConfetti(true);
+      setTimeout(() => setConfetti(false), 6000);
+      toast("success", `💰 Big order${n > 1 ? "s" : ""} — ${formatMYR(amount)} just came in! The team is cheering.`);
+    } else toast("info", `🛒 ${n} new order${n > 1 ? "s" : ""} — ${formatMYR(amount)}`);
+  }, [summary, toast]);
+
   // record day
   useEffect(() => {
     if (!summary?.days?.length) return;
@@ -95,6 +150,7 @@ export function TeamMoments() {
     const before = summary.days.slice(0, -1).map((d) => d.revenue);
     const best = Math.max(0, ...before);
     if (today > 0 && best > 0 && today > best && once("ov:record-day")) {
+      useMoments.getState().cheer(6000);
       setConfetti(true);
       toast("success", `🎉 Record sales day! ${formatMYR(today)} beats your best day of the last 30 (${formatMYR(best)})`);
       setTimeout(() => setConfetti(false), 6000);

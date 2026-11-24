@@ -203,7 +203,13 @@ export function SettingsDialog() {
               checked={st.festiveOutfits ?? true}
               onChange={(v) => s.updateSettings({ festiveOutfits: v })}
             />
-            <Toggle label="Always show name tags" checked={st.showNameTags} onChange={(v) => s.updateSettings({ showNameTags: v })} />
+            <Toggle
+              label="Team uniforms"
+              hint="WGS navy polo, Marketing hoodie, Finance shirt & tie, Amare smart casual, Artides apron. Off = everyone's own clothes."
+              checked={st.uniforms ?? true}
+              onChange={(v) => s.updateSettings({ uniforms: v })}
+            />
+            <Toggle label="Always show names on tags" hint="Off: just the photo and status dot until you hover." checked={st.showNameTags} onChange={(v) => s.updateSettings({ showNameTags: v })} />
             <Toggle
               label="Ambient office life"
               hint="Employees occasionally take short lounge breaks between work."

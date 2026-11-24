@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Boxes, Building2, Megaphone, CalendarPlus, Hammer, Layers, LayoutDashboard, Lightbulb, MoreHorizontal, Package, Settings, Tag, UserPlus, Users, X } from "lucide-react";
+import { Boxes, Building2, Megaphone, Music2, CalendarPlus, Hammer, Layers, LayoutDashboard, Lightbulb, MoreHorizontal, Package, Settings, Tag, UserPlus, Users, X } from "lucide-react";
 import { useUI } from "@/lib/store/ui-store";
 import { useOffice } from "@/lib/store/office-store";
 import { useLive } from "@/lib/integrations/client";
 import { useTouchLayout } from "@/lib/hooks/useTouchLayout";
 import { cn } from "@/lib/utils";
+import { startDance } from "@/lib/office/dance";
 
 const LIGHT_CYCLE = ["auto", "day", "evening", "night"] as const;
 const WALL_CYCLE = ["cutaway", "full", "hidden"] as const;
@@ -77,6 +78,10 @@ export function TabBar() {
               {sheetItem("Hire", <UserPlus />, () => {
                 close();
                 ui.set({ dialog: "hire" });
+              })}
+              {sheetItem("Dance break", <Music2 />, () => {
+                close();
+                startDance();
               })}
               {sheetItem("Marketing", <Megaphone />, () => {
                 close();

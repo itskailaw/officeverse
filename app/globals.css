@@ -104,3 +104,7 @@ body {
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(110vh) rotate(720deg); opacity: 0.9; }
 }
+
+/* staff name tags: zoomed far out, show just the photo and status dot */
+.ov-tag[data-far="1"] .ov-tag-name,
+.ov-tag[data-far="1"] .ov-bubble { display: none; }

@@ -50,3 +50,12 @@ test("staff cars arrive in the morning and leave in the evening", () => {
   assert.ok(weekday > 25 && weekend < weekday / 2, `${weekday} weekday, ${weekend} weekend`);
   assert.deepEqual(bayTimes("2026-11-23", "Mon", 3), bayTimes("2026-11-23", "Mon", 3));
 });
+
+import { topPerformers } from "../lib/office/office-life.ts";
+test("top performers: ranked by tasks done, then chats", () => {
+  const people = ["a", "b", "c", "d"].map((id) => ({ id, name: id, active: true }));
+  const T = (employeeId: string) => ({ employeeId, status: "completed", updatedAt: "2026-10-05T00:00:00Z" });
+  const C = (employeeId: string) => ({ employeeId, role: "employee", createdAt: "2026-10-05T00:00:00Z" });
+  assert.deepEqual(topPerformers(people, [T("b"), T("b"), T("a"), T("c")], [C("c"), C("c")], "2026-10"), ["b", "c", "a"]);
+  assert.deepEqual(topPerformers(people, [], [], "2026-10"), []);
+});

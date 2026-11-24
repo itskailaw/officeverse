@@ -9,6 +9,9 @@ import { STATUS_META } from "@/lib/data/types";
 import type { Agent } from "@/lib/office/sim";
 import { getSim } from "@/lib/office/runtime";
 import { mat, vinyl } from "./materials";
+import { useMoments, taskEmoji } from "@/lib/office/moments";
+import { useMusic } from "@/lib/audio/music";
+import { klHourNow } from "@/lib/office/lighting";
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
 const CAP = new THREE.CapsuleGeometry(0.5, 1, 4, 10);
@@ -72,6 +75,18 @@ interface Props {
   showTag?: boolean;
   showBubble?: boolean;
   dimmed?: boolean;
+  /** department id — picks the team uniform */
+  dept?: string;
+  /** wear the team uniform */
+  uniforms?: boolean;
+  /** title of the task they're working on (for the bubble) */
+  task?: string | null;
+  /** 1–3: top performers last month get a star on their tag */
+  star?: number;
+  /** profile photo for the name tag */
+  photo?: string | null;
+  /** standalone preview (character creator): no simulation, slowly turning */
+  preview?: boolean;
   onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
   onHover?: (on: boolean) => void;
@@ -85,7 +100,7 @@ function shade(hex: string, amt: number) {
 
 /** Fringe across the forehead and a glossy highlight — what makes cartoon hair read as hair. */
 function HairDetails({ a, m }: { a: Appearance; m: THREE.Material }) {
-  if (a.hairStyle === "hijab" || a.hairStyle === "buzz") return null;
+  if (a.hairStyle === "hijab" || a.hairStyle === "buzz" || a.hairStyle === "undercut" || a.hairStyle === "sidepart") return null;
   return (
     <group>
       {a.hairStyle !== "curly" && a.hairStyle !== "spiky" && (
@@ -104,15 +119,65 @@ function Hair({ a }: { a: Appearance }) {
     <group>
       <HairShape a={a} m={m} />
       <HairDetails a={a} m={m} />
+      {a.accessories?.includes("cap") && a.hairStyle !== "hijab" && (
+        <group>
+          <mesh geometry={SPH} material={vinyl(a.shirt)} position={[0, 0.085, -0.01]} scale={[0.29, 0.2, 0.29]} castShadow />
+          <mesh geometry={CYL} material={vinyl(a.shirt)} position={[0, 0.075, 0.13]} scale={[0.22, 0.014, 0.13]} castShadow />
+        </group>
+      )}
+      {a.accessories?.includes("earrings") && a.hairStyle !== "hijab" &&
+        [-1, 1].map((sx) => <mesh key={sx} geometry={SPH} material={mat("#facc15", { metal: 0.8, rough: 0.2 })} position={[sx * 0.13, -0.05, 0.005]} scale={0.022} />)}
     </group>
   );
 }
 
 function HairShape({ a, m }: { a: Appearance; m: THREE.Material }) {
   switch (a.hairStyle) {
+    case "undercut":
+      return (
+        <group>
+          <mesh geometry={SPH} material={m} position={[0, 0.075, -0.005]} scale={[0.25, 0.17, 0.27]} castShadow />
+          <mesh geometry={SPH} material={m} position={[0.04, 0.12, 0.07]} rotation={[0, 0, -0.45]} scale={[0.2, 0.08, 0.15]} castShadow />
+        </group>
+      );
+    case "sidepart":
+      return (
+        <group>
+          <mesh geometry={SPH} material={m} position={[0, 0.045, -0.01]} scale={[0.278, 0.225, 0.282]} castShadow />
+          <mesh geometry={SPH} material={m} position={[-0.06, 0.11, 0.07]} rotation={[0, 0, 0.45]} scale={[0.18, 0.075, 0.13]} castShadow />
+        </group>
+      );
+    case "wavy":
+      return (
+        <group>
+          <mesh geometry={SPH} material={m} position={[0, 0.03, -0.02]} scale={[0.3, 0.29, 0.3]} castShadow />
+          {[
+            [-0.13, -0.08, -0.02],
+            [0.13, -0.08, -0.02],
+            [-0.11, -0.17, -0.05],
+            [0.11, -0.17, -0.05],
+            [0, -0.12, -0.11],
+          ].map((p, i) => (
+            <mesh key={i} geometry={SPH} material={m} position={p as [number, number, number]} scale={0.12} castShadow />
+          ))}
+        </group>
+      );
+    case "braids":
+      return (
+        <group>
+          <mesh geometry={SPH} material={m} position={[0, 0.04, -0.015]} scale={[0.28, 0.25, 0.28]} castShadow />
+          {[-1, 1].map((sx) =>
+            [0, 1, 2, 3].map((k) => <mesh key={`${sx}${k}`} geometry={SPH} material={m} position={[sx * 0.11, -0.06 - k * 0.055, -0.06]} scale={0.06 - k * 0.006} castShadow />),
+          )}
+        </group>
+      );
     case "hijab":
       return (
         <group>
+          {a.hijabStyle === "shawl" && (
+            <mesh geometry={SPH} material={m} position={[0.1, -0.2, 0.04]} rotation={[0.2, 0, 0.35]} scale={[0.09, 0.22, 0.06]} castShadow />
+          )}
+          {a.hijabStyle === "bawal" && <mesh geometry={SPH} material={m} position={[0, 0.115, 0.075]} scale={[0.24, 0.05, 0.13]} castShadow />}
           {/* wrapped behind the face so the face stays visible, framed by the scarf */}
           <mesh geometry={SPH} material={m} position={[0, 0.02, -0.05]} scale={[0.3, 0.31, 0.27]} castShadow />
           <mesh geometry={TORUS} material={m} position={[0, -0.005, 0.07]} scale={[0.68, 0.82, 0.9]} castShadow />
@@ -208,7 +273,7 @@ const BREAK_TEXT: Record<string, string> = {
   pantry_counter: "🍱 Heating up lunch",
 };
 
-function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: string | undefined, furnitureType?: string): string | null {
+function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: string | undefined, furnitureType?: string, task?: string | null): string | null {
   if (ag.pose === "held") return "😮 Whoa!";
   if (status === "error") return "⚠️ Needs attention";
   if (status === "waiting_approval") return "✋ Needs your approval";
@@ -216,13 +281,39 @@ function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: s
   if (ag.intent === "meeting") return seatKind === "meeting" && ag.pose === "sit" ? "📋 In meeting" : "🚶 Off to the meeting";
   if (ag.intent === "break") return ag.pose === "walk" ? "🚶 Taking a break" : (furnitureType && BREAK_TEXT[furnitureType]) || "☕ On a break";
   if (ag.intent === "summoned") return ag.pose === "walk" ? "📨 Coming to see you" : "📨 Here to report";
-  if (status === "working") return "⌨️ Working on a task";
+  if (status === "working") return task ? `${taskEmoji(task)} ${task.length > 34 ? task.slice(0, 33) + "…" : task}` : "⌨️ Working on a task";
   if (ag.gesture === "talk") return "💬 Chatting";
   if (ag.intent === "desk" && ag.pose === "walk") return "🚶 Heading back to desk";
   return null;
 }
 
 export type Theme = "raya" | "cny" | "deepavali" | "kobe";
+
+type Uniform = "wgs" | "marketing" | "finance" | "amare" | "artides";
+const UNIFORM_OF: Record<string, Uniform> = { "dept-wgs": "wgs", "dept-marketing": "marketing", "dept-finance": "finance", "dept-amare": "amare", "dept-artides": "artides" };
+/** Team uniforms: WGS navy polo, Marketing pink hoodie, Finance shirt & tie, Amare teal smart casual, Artides apron. Dresses and kurung keep their cut. */
+function uniformed(a: Appearance, u: Uniform): Appearance {
+  const skirt = a.outfit === "kurung" || a.outfit === "dress";
+  const cut = (o: Appearance["outfit"]) => (skirt ? a.outfit : o);
+  switch (u) {
+    case "wgs":
+      return { ...a, shirt: "#1e3a5f", pants: "#0f172a", outfit: cut("polo") };
+    case "marketing":
+      return { ...a, shirt: "#ec4899", pants: "#1f2937", outfit: cut("hoodie") };
+    case "finance":
+      return { ...a, shirt: "#f8fafc", pants: "#334155", outfit: cut("shirt") };
+    case "amare":
+      return { ...a, shirt: "#0f766e", pants: "#1f2937", outfit: cut("blazer") };
+    case "artides":
+      return { ...a, shirt: "#e7e5e4", pants: "#57534e", outfit: cut("shirt") };
+  }
+}
+
+/** A stand-in agent for the character-creator preview (no simulation). */
+const PREVIEW_AGENT = {
+  id: "preview", isCEO: false, x: 0, z: 0, y: 0, heading: 0, pose: "stand", gesture: "idle", intent: "desk", homeSeatId: null, seatId: null,
+  path: [], pathIdx: 0, arrival: null, glide: null, timer: 0, breakIn: 0, stuckClock: 0, lastX: 0, lastZ: 0, walkPhase: 0, lookAt: null, working: false, waveT: 0,
+} as unknown as Agent;
 
 /** Festive outfits: recolour the base look; extra pieces (songkok, sampin, sash, jersey number) are added in the model. */
 function themed(a: Appearance, theme: Theme | null | undefined, female: boolean): Appearance {
@@ -282,7 +373,8 @@ const LOUNGE = new Set(["bench", "bean_bag", "sofa", "armchair"]);
 export const Character = memo(function Character(props: Props) {
   const { id, appearance: a0, status, isCEO, selected, hovered, showTag, showBubble, dimmed, chibi, theme } = props;
   const female = props.gender === "female" || a0.outfit === "kurung" || a0.outfit === "dress" || a0.hairStyle === "hijab";
-  const a = useMemo(() => themed(a0, theme, female), [a0, theme, female]);
+  const uni = !theme && props.uniforms && props.dept ? UNIFORM_OF[props.dept] : undefined;
+  const a = useMemo(() => (uni ? uniformed(themed(a0, theme, female), uni) : themed(a0, theme, female)), [a0, theme, female, uni]);
   const LEG = chibi ? 0.5 : 1;
   const DROP = chibi ? -(1 - LEG) * (UPPER_LEG + LOWER_LEG) : 0;
   const outfit = a.outfit ?? "shirt";
@@ -312,6 +404,9 @@ export const Character = memo(function Character(props: Props) {
   const oMouth = useRef<THREE.Mesh>(null);
   const carryRef = useRef<THREE.Group>(null);
   const paddle = useRef<THREE.Group>(null);
+  const tumbler = useRef<THREE.Group>(null);
+  const tagEl = useRef<HTMLDivElement>(null);
+  const emoteEl = useRef<HTMLDivElement>(null);
   const fx = useRef({ blinkAt: 2 + Math.random() * 3, greet: 0, greetCd: 0, seatId: "" as string | null, seatType: undefined as string | undefined });
   const role = (props.role && ROLE[props.role]) || {};
   const smoothed = useRef({ sit: 0, walk: 0, scale: 1 });
@@ -329,19 +424,15 @@ export const Character = memo(function Character(props: Props) {
       shoes: vinyl("#f8fafc"),
       sole: vinyl("#e2e8f0"),
       sclera: mat("#ffffff", { rough: 0.3 }),
-      iris: mat(IRIS[Math.floor(hashOf(id) * IRIS.length)], { rough: 0.2 }),
+      iris: mat(a.eyeColor ?? IRIS[Math.floor(hashOf(id) * IRIS.length)], { rough: 0.2 }),
       dark: mat("#111827"),
       mouth: mat("#7c2d12"),
       blush: mat("#fb7185", { opacity: 0.45 }),
       brow: mat(a.hairStyle === "hijab" ? "#1f2937" : shade(a.hair, -0.05)),
     }),
-    [a.skin, a.shirt, a.pants, a.shoes, a.hair, a.hairStyle, outfit],
+    [a.skin, a.shirt, a.pants, a.shoes, a.hair, a.hairStyle, a.eyeColor, outfit, id],
   );
   const statusColor = isCEO ? "#d4a017" : STATUS_META[status ?? "available"].color;
-  const badgeMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: statusColor, emissive: statusColor, emissiveIntensity: 0.9, toneMapped: false }),
-    [statusColor],
-  );
   const ringMat = useMemo(
     () => new THREE.MeshBasicMaterial({ color: isCEO ? "#d4a017" : "#38bdf8", transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
     [isCEO],
@@ -349,9 +440,16 @@ export const Character = memo(function Character(props: Props) {
 
   useFrame(({ clock, camera }, dt) => {
     const sim = getSim();
-    const ag = sim.agents.get(id);
+    const ag = props.preview ? PREVIEW_AGENT : sim.agents.get(id);
     if (!ag || !root.current) return;
     const t = clock.elapsedTime;
+    const nowMs = Date.now();
+    const mo = useMoments.getState();
+    const dancing = nowMs < mo.danceUntil && ag.pose !== "held";
+    const cheering = !dancing && nowMs < mo.cheerUntil && ag.pose !== "held";
+    const happyMood = (mo.happyUntil[id] ?? 0) > nowMs;
+    const klH = klHourNow();
+    const evening = klH >= 18.5 || klH < 7;
     const sm = smoothed.current;
 
     // zoom-aware scale: avatars grow a little when the camera is far out
@@ -360,8 +458,8 @@ export const Character = memo(function Character(props: Props) {
     sm.scale += (targetScale - sm.scale) * Math.min(1, dt * 4);
 
     root.current.position.set(ag.x, 0, ag.z);
-    root.current.rotation.y = ag.heading;
-    root.current.scale.setScalar(sm.scale * 1.06);
+    root.current.rotation.y = props.preview ? Math.sin(t * 0.5) * 0.7 : ag.heading;
+    root.current.scale.setScalar(props.preview ? 1 : sm.scale * 1.06);
 
     const seat = sim.seat(ag.seatId);
     const sitting = ag.pose === "sit" || (ag.glide?.then === "sit" && ag.glide.t > 0.6);
@@ -392,11 +490,32 @@ export const Character = memo(function Character(props: Props) {
         }
       }
     }
+    // reacting to the CEO walking past: look up, a wave, sit up straight
+    let ceoYaw = 0;
+    let ceoNear = false;
+    if (!isCEO && !props.preview && !walking && !held) {
+      for (const o of sim.agents.values()) {
+        if (!o.isCEO) continue;
+        const dx = o.x - ag.x;
+        const dz = o.z - ag.z;
+        if (Math.hypot(dx, dz) < 2.3) {
+          ceoNear = true;
+          let ang = Math.atan2(dx, dz) - ag.heading;
+          ang = Math.atan2(Math.sin(ang), Math.cos(ang));
+          ceoYaw = THREE.MathUtils.clamp(ang, -1.1, 1.1);
+          if (f.greetCd <= 0) {
+            f.greet = 1.2;
+            f.greetCd = 25;
+          }
+        }
+        break;
+      }
+    }
     const carrying = walking && !held && role.carry ? role.carry : null;
 
     const phase = ag.walkPhase * (ag.isCEO ? 9.5 : 8.5);
-    const swing = Math.sin(phase) * 0.55 * sm.walk;
-    const bob = Math.abs(Math.cos(phase)) * 0.04 * sm.walk;
+    const swing = Math.sin(phase) * (happyMood ? 0.7 : evening ? 0.35 : 0.55) * sm.walk;
+    const bob = Math.abs(Math.cos(phase)) * (happyMood ? 0.11 : evening ? 0.02 : 0.04) * sm.walk;
 
     // jump shot at the hoop: crouch, jump, release
     const shot = act === "hoop" ? ((t + id.length * 0.37) / 1.6) % 1 : -1;
@@ -404,7 +523,12 @@ export const Character = memo(function Character(props: Props) {
     const jump = shot >= 0.3 && shot < 0.6 ? Math.sin(((shot - 0.3) / 0.3) * Math.PI) * 0.28 : 0;
     if (hips.current) hips.current.position.y = THREE.MathUtils.lerp(HIP_Y, SEAT_HIP_Y, sm.sit) + bob - crouch;
     // shorter chibi legs: lower the body while standing, but keep the seat height when sitting
-    if (body.current) body.current.position.y = ag.y + jump + DROP * (1 - sm.sit);
+    const typingNow = (ag.gesture === "type" || (sitting && ag.working)) && !dancing;
+    const extraHop =
+      (dancing && !sitting ? Math.abs(Math.sin(t * 7)) * 0.1 : 0) +
+      (cheering && !sitting ? Math.abs(Math.sin(t * 9 + id.length)) * 0.16 : 0) +
+      (typingNow ? Math.abs(Math.sin(t * 3.2 + id.length)) * 0.012 : 0);
+    if (body.current) body.current.position.y = ag.y + jump + extraHop + DROP * (1 - sm.sit);
 
     // legs
     const sitUp = (-Math.PI / 2) * sm.sit;
@@ -418,7 +542,8 @@ export const Character = memo(function Character(props: Props) {
     const typing = ag.gesture === "type" || (sitting && ag.working);
     const talking = ag.gesture === "talk";
     const waving = ag.waveT > 0 || f.greet > 0;
-    const stretching = onBreak && !sitting && Math.sin(t * 0.5 + id.length) > 0.82;
+    const deskStretch = sitting && !typing && !inMeetingSeat && (t * 0.11 + id.length * 0.7) % 7 < 0.3;
+    const stretching = (onBreak && !sitting && Math.sin(t * 0.5 + id.length) > 0.82) || deskStretch;
     let la = -swing * 0.9;
     let ra = swing * 0.9;
     let lf = -0.15;
@@ -502,6 +627,21 @@ export const Character = memo(function Character(props: Props) {
       rz = 0.35 + Math.sin(t * 12) * 0.35;
       rf = -0.4;
     }
+    if (dancing) {
+      la = -2.3 + Math.sin(t * 7) * 0.6;
+      ra = -2.3 - Math.sin(t * 7) * 0.6;
+      lf = -0.5;
+      rf = -0.5;
+      lz = -0.45 + Math.sin(t * 3.5) * 0.2;
+      rz = 0.45 + Math.sin(t * 3.5) * 0.2;
+    } else if (cheering) {
+      la = -2.8;
+      ra = -2.8;
+      lf = -0.2;
+      rf = -0.2;
+      lz = -0.35 - Math.abs(Math.sin(t * 9)) * 0.2;
+      rz = 0.35 + Math.abs(Math.sin(t * 9)) * 0.2;
+    }
     if (held) {
       la = -2.6 + Math.sin(t * 6) * 0.3;
       ra = -2.6 - Math.sin(t * 6) * 0.3;
@@ -531,15 +671,21 @@ export const Character = memo(function Character(props: Props) {
       carryRef.current.children.forEach((c) => (c.visible = c.name === carrying));
     }
     if (paddle.current) paddle.current.visible = act === "ping_pong";
+    if (tumbler.current) tumbler.current.visible = walking && !carrying && !drinking && !held;
 
     // torso + head
     const breathe = Math.sin(t * 1.6 + ag.walkPhase) * 0.012;
     const resting = !!act && REST.has(act);
     const lounging = !!act && LOUNGE.has(act);
-    const leanTarget = resting ? -0.75 : lounging ? -0.22 : act === "foosball" ? 0.28 : act === "arcade" ? 0.12 : sitting ? 0.05 : sm.walk * 0.06;
+    const leanTarget =
+      (resting ? -0.75 : lounging ? -0.22 : act === "foosball" ? 0.28 : act === "arcade" ? 0.12 : sitting ? 0.05 : sm.walk * 0.06) +
+      (ceoNear ? -0.06 : 0) +
+      (evening && walking ? 0.08 : 0);
     if (torso.current) {
       torso.current.scale.y = 1 + (resting ? breathe * 2 : breathe);
       torso.current.rotation.x += (leanTarget - torso.current.rotation.x) * Math.min(1, dt * 5);
+      const sway = dancing ? Math.sin(t * 3.5) * 0.18 : 0;
+      torso.current.rotation.z += (sway - torso.current.rotation.z) * Math.min(1, dt * 8);
     }
     if (head.current) {
       let yaw = 0;
@@ -556,14 +702,22 @@ export const Character = memo(function Character(props: Props) {
       else if (waving) pitch = -0.08;
       if (resting) pitch = -0.35;
       else if (act === "hoop") pitch = -0.25;
+      if (ceoNear) {
+        yaw = ceoYaw;
+        pitch = -0.1;
+      }
+      if (dancing) {
+        yaw = Math.sin(t * 3.5) * 0.3;
+        pitch = Math.sin(t * 7) * 0.08;
+      } else if (useMusic.getState().playing && !walking && !held && !resting) pitch += Math.sin(t * 5.2 + id.length) * 0.05;
       head.current.rotation.y = yaw;
       head.current.rotation.x = pitch;
     }
 
     // ── face: blink, mood, talking ──
     const worried = status === "waiting_approval" || status === "error" || status === "waiting_data";
-    const happy = waving || act === "hoop" || act === "ping_pong" || act === "foosball" || act === "arcade" || status === "task_completed";
-    const mouthOpen = held || (talking && Math.sin(t * 14) > 0) || jump > 0.15;
+    const happy = waving || dancing || happyMood || act === "hoop" || act === "ping_pong" || act === "foosball" || act === "arcade" || status === "task_completed";
+    const mouthOpen = held || cheering || (talking && Math.sin(t * 14) > 0) || jump > 0.15;
     if (t > f.blinkAt + 0.13) f.blinkAt = t + 2.4 + ((id.length * 7 + Math.floor(t)) % 10) * 0.35;
     const blinking = t > f.blinkAt;
     if (eyes.current) eyes.current.scale.y = resting ? 0.12 : blinking ? 0.15 : happy ? 0.8 : 1;
@@ -587,6 +741,16 @@ export const Character = memo(function Character(props: Props) {
       badge.current.position.y = (sitting ? 1.65 : 2.05) + (chibi ? 0.22 : 0) + ag.y + Math.sin(t * 2 + id.length) * 0.04;
       badge.current.rotation.y = t * 1.5;
     }
+    // name tag: hide the name when zoomed far out; emote above it
+    if (tagEl.current) tagEl.current.dataset.far = zoom < 22 ? "1" : "0";
+    if (emoteEl.current) {
+      const em = mo.emotes[id];
+      const want = em && em.until > nowMs ? em.emoji : cheering ? "🎉" : dancing ? "🎵" : resting ? "💤" : "";
+      if (emoteEl.current.textContent !== want) {
+        emoteEl.current.textContent = want;
+        emoteEl.current.style.display = want ? "block" : "none";
+      }
+    }
     if (ringRef.current) {
       const sc = 1 - Math.min(0.6, ag.y * 0.35);
       ringRef.current.scale.set(sc, sc, 1);
@@ -596,7 +760,7 @@ export const Character = memo(function Character(props: Props) {
     bubbleClock.current -= dt;
     if (bubbleClock.current <= 0) {
       bubbleClock.current = 0.4;
-      const next = isCEO ? null : activityText(ag, status, seat?.kind, seat ? getSim().layout.furniture.find((f) => f.id === seat.furnitureId)?.type : undefined);
+      const next = isCEO || props.preview ? null : activityText(ag, status, seat?.kind, seat ? getSim().layout.furniture.find((f) => f.id === seat.furnitureId)?.type : undefined, props.task);
       if (next !== lastBubble.current) {
         lastBubble.current = next;
         setBubble(next);
@@ -689,6 +853,24 @@ export const Character = memo(function Character(props: Props) {
               </>
             )}
             {isCEO && !theme && <mesh geometry={BOX} material={mat("#d4a017", { metal: 0.8, rough: 0.2 })} position={[0, 0.34, 0.118]} scale={[0.06, 0.012, 0.006]} />}
+            {uni === "wgs" && (
+              <group position={[-0.09, 0.08, 0.122]}>
+                <mesh geometry={CYL} material={mat("#38bdf8", { rough: 0.3 })} rotation={[Math.PI / 2, 0, 0]} scale={[0.07, 0.01, 0.07]} />
+                <mesh geometry={CYL} material={mat("#f8fafc")} position={[0, 0, 0.006]} rotation={[Math.PI / 2, 0, 0]} scale={[0.035, 0.008, 0.035]} />
+              </group>
+            )}
+            {uni === "finance" && !skirt && (
+              <group>
+                <mesh geometry={BOX} material={vinyl("#b91c1c")} position={[0, 0.02, 0.124]} scale={[0.045, 0.2, 0.012]} />
+                <mesh geometry={BOX} material={vinyl("#991b1b")} position={[0, 0.13, 0.126]} rotation={[0, 0, Math.PI / 4]} scale={[0.04, 0.04, 0.012]} />
+              </group>
+            )}
+            {uni === "artides" && (
+              <group>
+                <mesh geometry={BOX} material={vinyl("#92400e")} position={[0, -0.04, 0.124]} scale={[0.26, 0.34, 0.012]} />
+                <mesh geometry={BOX} material={vinyl("#78350f")} position={[0, -0.08, 0.131]} scale={[0.12, 0.08, 0.008]} />
+              </group>
+            )}
             {/* ID lanyard in the company colour */}
             {!isCEO && props.lanyard && (
               <group>
@@ -736,6 +918,18 @@ export const Character = memo(function Character(props: Props) {
                   {/* hand */}
                   <mesh geometry={SPH} material={m.skin} position={[0, -0.27, 0]} scale={[0.12, 0.12, 0.12]} castShadow />
                   {isCEO && i === 0 && <mesh geometry={CYL} material={mat("#d4a017", { metal: 0.9, rough: 0.2 })} position={[0, -0.22, 0]} scale={[0.1, 0.03, 0.1]} />}
+                  {!isCEO && i === 0 && a.accessories?.includes("watch") && (
+                    <group position={[0, -0.21, 0]}>
+                      <mesh geometry={CYL} material={vinyl("#111827")} scale={[0.1, 0.035, 0.1]} />
+                      <mesh geometry={CYL} material={mat("#e0f2fe", { rough: 0.1, metal: 0.3 })} position={[0, 0, 0.045]} rotation={[Math.PI / 2, 0, 0]} scale={[0.045, 0.01, 0.045]} />
+                    </group>
+                  )}
+                  {i === 1 && a.accessories?.includes("tumbler") && (
+                    <group ref={tumbler} position={[0, -0.33, 0.05]} visible={false}>
+                      <mesh geometry={CYL} material={vinyl(shade(a.shirt, 0.2))} scale={[0.07, 0.17, 0.07]} />
+                      <mesh geometry={CYL} material={vinyl("#111827")} position={[0, 0.09, 0]} scale={[0.072, 0.03, 0.072]} />
+                    </group>
+                  )}
                   {i === 1 && (
                     <group ref={paddle} position={[0, -0.33, 0.04]} visible={false}>
                       <mesh geometry={CYL} material={mat("#7c2d12")} scale={[0.025, 0.08, 0.025]} />
@@ -829,28 +1023,41 @@ export const Character = memo(function Character(props: Props) {
           </mesh>
         </group>
       </group>
-      {/* status badge + labels */}
+      {/* name tag (photo · name · status) with the activity bubble and emotes above it */}
       <group ref={badge} position={[0, 2.05, 0]}>
-        <mesh geometry={TORUS} material={badgeMat} rotation={[Math.PI / 2, 0, 0]} scale={isCEO ? 1.25 : 1} />
-        <mesh geometry={SPH} material={badgeMat} scale={isCEO ? 0.12 : 0.09} />
-        {!dimmed && (showTag || hovered || selected || (showBubble && bubble)) && (
-          <Html center position={[0, 0.34, 0]} style={{ pointerEvents: "none" }} zIndexRange={[20, 0]}>
-            <div className="flex flex-col items-center gap-1">
+        {!dimmed && !props.preview && (
+          <Html center position={[0, 0.12, 0]} style={{ pointerEvents: "none" }} zIndexRange={[20, 0]}>
+            <div ref={tagEl} className="ov-tag flex flex-col items-center gap-0.5" data-far="0">
+              <div ref={emoteEl} className="ov-emote text-[22px] leading-none drop-shadow" style={{ display: "none" }} />
               {showBubble && bubble && (
-                <div className="anim-up relative whitespace-nowrap rounded-xl bg-white px-2 py-0.5 text-[11px] font-medium text-[#0f172a] shadow-md ring-1 ring-black/5">
+                <div className="ov-bubble anim-up relative max-w-[220px] truncate whitespace-nowrap rounded-xl bg-white px-2 py-0.5 text-[11px] font-medium text-[#0f172a] shadow-md ring-1 ring-black/5">
                   {bubble}
-                  <span className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-white" />
                 </div>
               )}
-              {(showTag || hovered || selected) && (
-                <div className="whitespace-nowrap rounded-full bg-ink/85 px-2.5 py-1 text-[11px] font-medium text-white shadow-lg backdrop-blur">
-                  {props.name}
-                  {props.title && <span className="ml-1 text-[#cbd5e1]">· {props.title}</span>}
-                  {status && !isCEO && (
-                    <span className="ml-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ background: STATUS_META[status].color }} />
-                  )}
-                </div>
-              )}
+              <div
+                className={`flex items-center gap-1 whitespace-nowrap rounded-full py-0.5 pl-0.5 pr-2 text-[11px] font-semibold text-white shadow-lg backdrop-blur ${isCEO ? "bg-[#7c5a0a]/90 ring-1 ring-[#fbbf24]" : "bg-[#0f172a]/80"}`}
+              >
+                {props.photo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={props.photo} alt="" className="h-5 w-5 rounded-full object-cover ring-1 ring-white/70" />
+                ) : (
+                  <span className="grid h-5 w-5 place-items-center rounded-full text-[9px] font-bold ring-1 ring-white/70" style={{ background: a.shirt, color: "#fff" }}>
+                    {(props.name ?? "?")
+                      .split(" ")
+                      .map((w) => w[0])
+                      .slice(0, 2)
+                      .join("")}
+                  </span>
+                )}
+                {(showTag || hovered || selected) && (
+                  <span className="ov-tag-name">
+                    {props.star ? <span className="mr-0.5">{props.star === 1 ? "🥇" : props.star === 2 ? "🥈" : "🥉"}</span> : null}
+                    {isCEO ? props.name : (props.name ?? "").split(" ")[0]}
+                    {(hovered || selected) && props.title && <span className="ml-1 font-normal text-[#cbd5e1]">· {props.title}</span>}
+                  </span>
+                )}
+                {!isCEO && <span className="inline-block h-2 w-2 rounded-full" style={{ background: statusColor }} />}
+              </div>
             </div>
           </Html>
         )}
