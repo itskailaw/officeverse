@@ -8,7 +8,7 @@ import { useWeather, weatherIcon } from "@/lib/office/weather";
 import { getSim } from "@/lib/office/runtime";
 import { klHourNow } from "@/lib/office/lighting";
 import { formatMYR } from "@/lib/data/demo";
-import { celebrationsToday } from "@/lib/office/office-life";
+import { celebrationsToday, randomStaffDates } from "@/lib/office/office-life";
 import { PRAISE, useMoments } from "@/lib/office/moments";
 
 const klDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date());
@@ -78,6 +78,18 @@ export function TeamMoments() {
   // birthdays and work anniversaries: a toast once a day each (balloons appear at their desk)
   const employees = useOffice((s) => s.employees);
   const staffDates = useOffice((s) => s.settings.staffDates);
+  // anyone without dates gets a made-up (but stable) birthday and join date, saved once
+  useEffect(() => {
+    if (!employees.length) return;
+    const missing = employees.filter((e) => !staffDates?.[e.id]?.birthday && !staffDates?.[e.id]?.joinedOn);
+    if (!missing.length) return;
+    const t = setTimeout(() => {
+      const cur = useOffice.getState().settings.staffDates ?? {};
+      const add = Object.fromEntries(missing.filter((e) => !cur[e.id]).map((e) => [e.id, randomStaffDates(e.id)]));
+      if (Object.keys(add).length) useOffice.getState().updateSettings({ staffDates: { ...cur, ...add } });
+    }, 4000); // after the saved office has loaded, so real dates win
+    return () => clearTimeout(t);
+  }, [employees, staffDates]);
   useEffect(() => {
     const people = employees.map((e) => ({ id: e.id, name: e.name, active: e.active, ...(staffDates?.[e.id] ?? {}) }));
     for (const c of celebrationsToday(people)) {

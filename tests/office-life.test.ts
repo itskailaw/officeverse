@@ -59,3 +59,14 @@ test("top performers: ranked by tasks done, then chats", () => {
   assert.deepEqual(topPerformers(people, [T("b"), T("b"), T("a"), T("c")], [C("c"), C("c")], "2026-10"), ["b", "c", "a"]);
   assert.deepEqual(topPerformers(people, [], [], "2026-10"), []);
 });
+
+import { randomStaffDates } from "../lib/office/office-life.ts";
+test("random staff dates are valid and stable", () => {
+  const now = new Date("2026-11-24T00:00:00Z");
+  for (const id of ["emp-orders", "emp-ops", "emp-cs", "x", "y", "z"]) {
+    const d = randomStaffDates(id, now);
+    assert.match(d.birthday, /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
+    assert.ok(d.joinedOn >= "2021-01-01" && d.joinedOn <= "2026-09-25", d.joinedOn);
+    assert.deepEqual(randomStaffDates(id, now), d);
+  }
+});

@@ -102,3 +102,17 @@ export function topPerformers(
     .slice(0, n)
     .map((r) => r.id);
 }
+
+/** A made-up but stable birthday ("MM-DD") and join date (YYYY-MM-DD) for an employee, from their id. */
+export function randomStaffDates(id: string, today = new Date()) {
+  const r = (k: string) => seeded(`${id}:${k}`);
+  const month = 1 + Math.floor(r("bm") * 12);
+  const dim = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  const day = 1 + Math.floor(r("bd") * dim);
+  // joined between Jan 2021 and two months ago
+  const start = Date.UTC(2021, 0, 1);
+  const end = today.getTime() - 60 * 86400000;
+  const joined = new Date(start + Math.floor(r("j") * Math.max(1, end - start)));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return { birthday: `${pad(month)}-${pad(day)}`, joinedOn: `${joined.getUTCFullYear()}-${pad(joined.getUTCMonth() + 1)}-${pad(joined.getUTCDate())}` };
+}
