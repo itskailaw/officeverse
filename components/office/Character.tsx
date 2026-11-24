@@ -1041,7 +1041,7 @@ export const Character = memo(function Character(props: Props) {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={props.photo} alt="" className="h-5 w-5 rounded-full object-cover ring-1 ring-white/70" />
                 ) : (
-                  <span className="grid h-5 w-5 place-items-center rounded-full text-[9px] font-bold ring-1 ring-white/70" style={{ background: a.shirt, color: "#fff" }}>
+                  <span className="grid h-5 w-5 place-items-center rounded-full text-[9px] font-bold ring-1 ring-white/70" style={{ background: "#0f172a", color: "#fff" }}>
                     {(props.name ?? "?")
                       .split(" ")
                       .map((w) => w[0])
