@@ -165,3 +165,16 @@ export function toon(color: string, opts: { emissive?: string; ei?: number } = {
 
 /** Shared dark outline (inverted hull): a slightly larger back-face copy of a mesh. */
 export const OUTLINE = new THREE.MeshBasicMaterial({ color: "#1b2333", side: THREE.BackSide });
+
+// ---------- glossy vinyl-toy look for the staff ----------
+const vinylCache = new Map<string, THREE.Material>();
+/** Smooth, shiny "designer toy" plastic with a clear-coat highlight. */
+export function vinyl(color: string, opts: { gloss?: number } = {}) {
+  const key = `${color}|${opts.gloss ?? 1}`;
+  let m = vinylCache.get(key);
+  if (!m) {
+    m = new THREE.MeshPhysicalMaterial({ color, roughness: 0.34, clearcoat: opts.gloss ?? 1, clearcoatRoughness: 0.14 });
+    vinylCache.set(key, m);
+  }
+  return m;
+}
