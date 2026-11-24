@@ -3,6 +3,7 @@ import { getAdminSupabase } from "@/lib/supabase/admin";
 import { checkOrdersNow } from "@/lib/integrations/order-check";
 import { healthWatch } from "@/lib/integrations/health";
 import { stockWatch } from "@/lib/integrations/stock";
+import { ensurePackingEmail } from "@/lib/integrations/packing-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ export async function GET(req: Request) {
         const result = await checkOrdersNow(ws, "schedule");
         // Ethan (IT) watches system health and tells the CEO when something breaks or recovers
         await healthWatch(ws).catch((e) => console.error("[health]", e instanceof Error ? e.message : e));
+        // Farid's scheduled packing emails (smart mode's morning / cut-off sends, daily time) — on time to the 10 minutes
+        await ensurePackingEmail(ws).catch((e) => console.error("[packing]", e instanceof Error ? e.message : e));
         // Priya (Inventory) warns when stock runs low
         await stockWatch(ws).catch((e) => console.error("[stock]", e instanceof Error ? e.message : e));
         results.push({ workspace: ws, ok: true, result });

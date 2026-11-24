@@ -91,3 +91,30 @@ test("airway bill pages are re-ordered with their orders", async () => {
   // unchanged when the page count doesn't match
   assert.equal(await reorderPdf(pdf, [0, 1]), pdf);
 });
+
+import { inWorkHours, isPublicHoliday, isWorkingDay, smartDue } from "../lib/integrations/packing-format.ts";
+test("smart packing email: working days, holidays, morning batch and cut-off send", () => {
+  const at = (d: string, t: string) => new Date(`${d}T${t}:00+08:00`);
+  const s = { enabled: true, mode: "smart" as const, time: "12:00", to: "p@x.my" };
+  // Tue 24 Nov 2026 is a working day; Sun 22 Nov isn't; Merdeka and Raya are holidays
+  assert.equal(isWorkingDay(at("2026-11-24", "10:00"), s), true);
+  assert.equal(isWorkingDay(at("2026-11-22", "10:00"), s), false);
+  assert.equal(isPublicHoliday(at("2026-08-31", "10:00")), true);
+  assert.equal(isPublicHoliday(at("2026-03-21", "10:00")), true); // 2nd day of Raya
+  assert.equal(isPublicHoliday(at("2026-06-01", "10:00")), true); // Agong's birthday (1st Monday of June)
+  // working hours; Saturday ends at 13:00
+  assert.equal(inWorkHours(at("2026-11-24", "08:59"), s), false);
+  assert.equal(inWorkHours(at("2026-11-24", "09:00"), s), true);
+  assert.equal(inWorkHours(at("2026-11-28", "14:00"), s), false);
+  // morning batch once, then the cut-off send at 16:00 (an hour before 17:00), each once
+  assert.equal(smartDue(at("2026-11-24", "08:30"), s, []), null);
+  assert.equal(smartDue(at("2026-11-24", "09:05"), s, []), "morning");
+  const morning = [{ status: "sent", sent_at: at("2026-11-24", "09:05").toISOString() }];
+  assert.equal(smartDue(at("2026-11-24", "11:00"), s, morning), null);
+  assert.equal(smartDue(at("2026-11-24", "16:05"), s, morning), "cutoff");
+  assert.equal(smartDue(at("2026-11-24", "16:30"), s, [...morning, { status: "empty", sent_at: at("2026-11-24", "16:06").toISOString() }]), null);
+  // nothing on Sundays or holidays; not when it's another mode
+  assert.equal(smartDue(at("2026-11-22", "10:00"), s, []), null);
+  assert.equal(smartDue(at("2026-12-25", "10:00"), s, []), null);
+  assert.equal(smartDue(at("2026-11-24", "10:00"), { ...s, mode: "daily" }, []), null);
+});

@@ -10,8 +10,8 @@ import { sendEmail } from "./email";
 import { syncShopee } from "./shopee/sync";
 import { syncLazada } from "./lazada/sync";
 import { runOrderAutomation } from "./order-automation";
-import { escapeHtml, sendTelegram } from "./telegram";
-import { packingDue, packingHtml, packingSubject, packingText, klDate, type PackLine, type PackingSettings } from "./packing-format";
+import { escapeHtml, sendTelegram, sendTelegramDocument } from "./telegram";
+import { packingDue, smartDue, packingHtml, packingSubject, packingText, klDate, type PackLine, type PackingSettings } from "./packing-format";
 
 const appUrl = () => {
   const host = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
@@ -48,8 +48,16 @@ export async function sendPackingEmail(
 ): Promise<PackingResult> {
   const sb = getAdminSupabase();
   const settings = await packingSettings(ws);
-  const to = (opts.to ?? settings?.to ?? "").trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) throw new HttpError(400, "Add the email address to send the packing list to.");
+  // one or more addresses (comma-separated), and/or the linked Telegram chat
+  const recipients = (opts.to ?? settings?.to ?? "")
+    .split(/[,;\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const bad = recipients.filter((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+  if (bad.length) throw new HttpError(400, `This doesn't look like an email address: ${bad[0]}`);
+  const toTelegram = !!settings?.telegram;
+  if (!recipients.length && !toTelegram) throw new HttpError(400, "Add the email address to send the packing list to (or switch on Telegram).");
+  const to = recipients.join(", ");
 
   // orders already emailed in the last 3 weeks
   const { data: prev, error: prevErr } = await sb
@@ -103,7 +111,7 @@ export async function sendPackingEmail(
 
   const { data: log, error: logErr } = await sb
     .from("packing_emails")
-    .insert({ workspace_id: ws, status: "sending", recipient: to, manual: !!opts.manual })
+    .insert({ workspace_id: ws, status: "sending", recipient: to || "telegram", manual: !!opts.manual })
     .select("id")
     .single();
   if (logErr) throw new Error(logErr.message);
@@ -155,8 +163,18 @@ export async function sendPackingEmail(
       ...(bundle.pdf ? [{ filename: `airway-bills-${day}.pdf`, content: bundle.pdf, contentType: "application/pdf" }] : []),
       ...(bundle.html ? [{ filename: `${bundle.html.platform}-labels-${day}.html`, content: bundle.html.doc, contentType: "text/html" }] : []),
     ];
-    await sendEmail({
-      to,
+    // Telegram copy: the packing list as a message + the airway-bill PDF as a file
+    if (toTelegram) {
+      const chat = (await listIntegrations(ws, "telegram")).find((r) => r.status === "connected" && r.shop_id)?.shop_id;
+      if (chat) {
+        const text = packingText(lines, names);
+        await sendTelegram(chat, `📦 <b>${escapeHtml(packingSubject(lines))}</b>\n\n${escapeHtml(text).slice(0, 3600)}`).catch(() => {});
+        if (bundle.pdf) await sendTelegramDocument(chat, { name: `airway-bills-${day}.pdf`, bytes: bundle.pdf, type: "application/pdf" }, `🧾 Airway bills — same order as the list (#1 = page 1)`).catch((e) => bundle.problems.push(`Telegram: ${e instanceof Error ? e.message : e}`));
+        if (bundle.html) await sendTelegramDocument(chat, { name: `${bundle.html.platform}-labels-${day}.html`, bytes: bundle.html.doc, type: "text/html" }).catch(() => {});
+      } else bundle.problems.push("Telegram isn't linked yet — Settings → Integrations → Telegram.");
+    }
+    if (recipients.length) await sendEmail({
+      to: recipients,
       fromName: "Farid · OfficeVerse",
       subject: packingSubject(lines),
       html: packingHtml(lines, { from: "Farid, Order Processing", problems: bundle.problems, separate: bundle.html?.platform ?? null, appUrl: appUrl(), names }),
@@ -192,7 +210,8 @@ export async function ensurePackingEmail(ws: string, now = new Date()) {
     .eq("manual", false)
     .gte("sent_at", new Date(now.getTime() - 36 * 3600000).toISOString())
     .order("sent_at", { ascending: false });
-  if (!packingDue(now, s, data ?? [])) return null;
+  const due = s.mode === "smart" ? smartDue(now, s, data ?? []) !== null : packingDue(now, s, data ?? []);
+  if (!due) return null;
   // fresh order statuses first (and let Farid arrange new paid orders if that's switched on) — max ~60 s
   const conns = await listIntegrations(ws);
   const syncs = conns

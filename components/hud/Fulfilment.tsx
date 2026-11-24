@@ -10,6 +10,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn, timeAgo } from "@/lib/utils";
 import { displayOf } from "@/lib/data/product-names";
+import { SMART_DEFAULTS, type PackingSettings } from "@/lib/integrations/packing-format";
 import { packNames } from "@/lib/data/stock";
 
 type Plat = "shopee" | "lazada";
@@ -236,7 +237,8 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
   useEffect(() => {
     void loadStatus();
   }, [loadStatus]);
-  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to.trim());
+  const addrs = to.split(/[,;\s]+/).filter(Boolean);
+  const valid = (addrs.length > 0 && addrs.every((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))) || (!addrs.length && !!cfg.telegram);
   const set = (patch: Partial<typeof cfg>) => update({ packingEmail: { ...cfg, to: to.trim(), paper, ...patch } });
   const sendNow = async () => {
     if (!valid) return toast("error", "Enter the email address first");
@@ -266,9 +268,11 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
           {status && !status.configured ? (
             <span className="font-medium text-amber-700">Email isn&apos;t set up yet — add RESEND_API_KEY in Vercel, then redeploy.</span>
           ) : cfg.enabled ? (
-            cfg.mode === "instant"
-              ? "On — right after Farid confirms new orders: their airway bills (one merged PDF) + packing list, emailed within a minute."
-              : `On — every day at ${cfg.time}: new To-ship parcels + one merged airway-bill PDF (Shopee & Lazada).`
+            cfg.mode === "smart"
+              ? `On — Smart: instantly during working hours (${cfg.workStart || SMART_DEFAULTS.workStart}–${cfg.workEnd || SMART_DEFAULTS.workEnd}), overnight orders in one morning email${(cfg.cutoff ?? SMART_DEFAULTS.cutoff) ? `, and a final send ${cfg.cutoffLead ?? SMART_DEFAULTS.cutoffLead} min before the ${cfg.cutoff ?? SMART_DEFAULTS.cutoff} courier cut-off` : ""}. Working days only${(cfg.skipHolidays ?? true) ? ", public holidays skipped" : ""}.${cfg.telegram ? " Also to Telegram." : ""}`
+              : cfg.mode === "instant"
+                ? "On — right after Farid confirms new orders: their airway bills (one merged PDF) + packing list, emailed within a minute."
+                : `On — every day at ${cfg.time}: new To-ship parcels + one merged airway-bill PDF (Shopee & Lazada).`
           ) : (
             "Off — Farid can email new parcels and their airway bills to you every day."
           )}
@@ -281,16 +285,18 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
         value={to}
         onChange={(e) => setTo(e.target.value)}
         onBlur={() => to.trim() !== cfg.to && set({})}
-        placeholder="you@example.com"
-        className="h-7 w-52 rounded-md border border-slate-200 bg-panel px-2 text-[11px] text-slate-800 placeholder:text-slate-400"
+        placeholder="packer@example.com, you@example.com"
+        title="One or more addresses, separated by commas"
+        className="h-7 w-60 rounded-md border border-slate-200 bg-panel px-2 text-[11px] text-slate-800 placeholder:text-slate-400"
         aria-label="Send the packing list to"
       />
       <select
         value={cfg.mode ?? "daily"}
-        onChange={(e) => set({ mode: e.target.value as "daily" | "instant" })}
+        onChange={(e) => set({ mode: e.target.value as "daily" | "instant" | "smart" })}
         className="h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px] text-slate-800"
         aria-label="When to email"
       >
+        <option value="smart">Smart (recommended)</option>
         <option value="instant">Right after Farid confirms</option>
         <option value="daily">Once a day</option>
       </select>
@@ -310,13 +316,64 @@ function PackingEmailBar({ paper }: { paper: Paper }) {
         onClick={() => {
           if (!cfg.enabled && !valid) return toast("error", "Enter the email address first");
           set({ enabled: !cfg.enabled });
-          toast("success", cfg.enabled ? "Packing email off" : cfg.mode === "instant" ? "Packing email on — right after Farid confirms new orders" : `Packing email on — every day at ${cfg.time}`);
+          toast("success", cfg.enabled ? "Packing email off" : cfg.mode === "smart" ? "Packing email on — Smart schedule" : cfg.mode === "instant" ? "Packing email on — right after Farid confirms new orders" : `Packing email on — every day at ${cfg.time}`);
         }}
         className={cn("relative h-6 w-11 rounded-full transition", cfg.enabled ? "bg-sky-500" : "bg-slate-300")}
       >
         <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", cfg.enabled ? "left-[22px]" : "left-0.5")} />
       </button>
       </div>
+      {cfg.mode === "smart" && <SmartOptions cfg={cfg} set={set} />}
+    </div>
+  );
+}
+
+const DAY_CHIPS = ["S", "M", "T", "W", "T", "F", "S"];
+/** Smart mode settings: working hours, Saturday, days, holidays, courier cut-off, Telegram. */
+function SmartOptions({ cfg, set }: { cfg: PackingSettings; set: (p: Partial<PackingSettings>) => void }) {
+  const days = cfg.workDays ?? [...SMART_DEFAULTS.workDays];
+  const time = (v: string | undefined, d: string) => (v === undefined ? d : v);
+  const inp = "h-7 rounded-md border border-slate-200 bg-panel px-1 text-[11px] text-slate-800";
+  return (
+    <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-sky-100 bg-panel/70 px-3 py-2 text-[11px] text-slate-600">
+      <label className="flex items-center gap-1">
+        Working hours
+        <input type="time" className={inp} value={time(cfg.workStart, SMART_DEFAULTS.workStart)} onChange={(e) => set({ workStart: e.target.value || SMART_DEFAULTS.workStart })} />–
+        <input type="time" className={inp} value={time(cfg.workEnd, SMART_DEFAULTS.workEnd)} onChange={(e) => set({ workEnd: e.target.value || SMART_DEFAULTS.workEnd })} />
+      </label>
+      <label className="flex items-center gap-1" title="Leave empty if Saturday is a full day">
+        Sat until
+        <input type="time" className={inp} value={time(cfg.satEnd, SMART_DEFAULTS.satEnd)} onChange={(e) => set({ satEnd: e.target.value })} />
+      </label>
+      <div className="flex items-center gap-1" aria-label="Working days">
+        {DAY_CHIPS.map((d, i) => (
+          <button
+            key={i}
+            onClick={() => set({ workDays: days.includes(i) ? days.filter((x) => x !== i) : [...days, i].sort() })}
+            className={cn("h-6 w-6 rounded-full text-[10px] font-bold", days.includes(i) ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-400")}
+            title={["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][i]}
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+      <label className="flex items-center gap-1">
+        <input type="checkbox" checked={cfg.skipHolidays ?? true} onChange={(e) => set({ skipHolidays: e.target.checked })} /> Skip public holidays
+      </label>
+      <label className="flex items-center gap-1" title="When courier drop-off / pickup closes — Farid sends everything waiting before then. Empty = off.">
+        Courier cut-off
+        <input type="time" className={inp} value={time(cfg.cutoff, SMART_DEFAULTS.cutoff)} onChange={(e) => set({ cutoff: e.target.value })} />
+        <select className={inp} value={cfg.cutoffLead ?? SMART_DEFAULTS.cutoffLead} onChange={(e) => set({ cutoffLead: Number(e.target.value) })} aria-label="How long before the cut-off">
+          {[30, 60, 90, 120].map((m) => (
+            <option key={m} value={m}>
+              {m} min before
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-1" title="The packing list and the airway-bill PDF also go to your linked Telegram chat (add the bot to a group with your packer to share it)">
+        <input type="checkbox" checked={!!cfg.telegram} onChange={(e) => set({ telegram: e.target.checked })} /> Also send to Telegram
+      </label>
     </div>
   );
 }

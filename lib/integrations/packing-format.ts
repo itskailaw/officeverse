@@ -1,5 +1,6 @@
 /** Pure helpers for the daily packing-list email (no server imports — unit tested). */
 import { displayOf } from "../data/product-names.ts";
+import { FESTIVE_DAYS } from "../office/festive.ts";
 
 export interface PackingSettings {
   enabled: boolean;
@@ -7,8 +8,94 @@ export interface PackingSettings {
   time: string;
   to: string;
   paper?: "thermal" | "a6" | "a5" | "a4" | "original";
-  /** daily: once a day at `time`; instant: right after Farid confirms new orders */
-  mode?: "daily" | "instant";
+  /** daily: once a day at `time`; instant: right after Farid confirms new orders; smart: see below */
+  mode?: "daily" | "instant" | "smart";
+  // ── smart mode: instant in working hours, overnight orders in one morning email, a send before the courier cut-off ──
+  /** working hours, Malaysia time */
+  workStart?: string;
+  workEnd?: string;
+  /** Saturday ends earlier ("" = full day) */
+  satEnd?: string;
+  /** working days, 0 = Sunday … 6 = Saturday */
+  workDays?: number[];
+  /** skip Malaysian public holidays */
+  skipHolidays?: boolean;
+  /** courier drop-off / pickup closes ("" = none) */
+  cutoff?: string;
+  /** send this many minutes before the cut-off */
+  cutoffLead?: number;
+  /** also send the list + airway bills to the linked Telegram chat */
+  telegram?: boolean;
+}
+
+export const SMART_DEFAULTS = { workStart: "09:00", workEnd: "18:00", satEnd: "13:00", workDays: [1, 2, 3, 4, 5, 6], skipHolidays: true, cutoff: "17:00", cutoffLead: 60 } as const;
+
+const klDow = (d: Date) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kuala_Lumpur", weekday: "short" }).format(d));
+
+/** Malaysian public holidays (national ones + the festival days in the festive table). */
+export function isPublicHoliday(d: Date) {
+  const day = klDate(d);
+  const md = day.slice(5);
+  if (["01-01", "05-01", "08-31", "09-16", "12-25"].includes(md)) return true;
+  const plus = (iso: string, n: number) => klDate(new Date(Date.parse(`${iso}T12:00:00+08:00`) + n * 86400000));
+  for (const { start } of FESTIVE_DAYS.cny) if (day === start || day === plus(start, 1)) return true;
+  for (const { start } of FESTIVE_DAYS.raya) if (day === start || day === plus(start, 1)) return true;
+  for (const { start } of FESTIVE_DAYS.deepavali) if (day === start) return true;
+  // Agong's birthday: first Monday of June
+  if (md.startsWith("06-") && klDow(d) === 1 && Number(md.slice(3)) <= 7) return true;
+  return false;
+}
+
+/** Is today a working day under these settings? */
+export function isWorkingDay(d: Date, s: Partial<PackingSettings>) {
+  const days: number[] = s.workDays ?? [...SMART_DEFAULTS.workDays];
+  if (!days.includes(klDow(d))) return false;
+  return !((s.skipHolidays ?? true) && isPublicHoliday(d));
+}
+
+/** Saturday's finishing time ("" = full day; unset = the default half day). */
+const satEndOf = (s: Partial<PackingSettings>) => (s.satEnd === undefined ? SMART_DEFAULTS.satEnd : s.satEnd);
+
+/** Within working hours right now (Saturday may end earlier)? */
+export function inWorkHours(d: Date, s: Partial<PackingSettings>) {
+  if (!isWorkingDay(d, s)) return false;
+  const hm = klHM(d);
+  const start = s.workStart || SMART_DEFAULTS.workStart;
+  const end = klDow(d) === 6 && satEndOf(s) ? satEndOf(s) : s.workEnd || SMART_DEFAULTS.workEnd;
+  return hm >= start && hm < end;
+}
+
+const minus = (hm: string, mins: number) => {
+  const t = Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3, 5)) - mins;
+  const c = Math.max(0, t);
+  return `${String(Math.floor(c / 60)).padStart(2, "0")}:${String(c % 60).padStart(2, "0")}`;
+};
+
+/**
+ * Smart mode: which scheduled send is due now, if any. "morning" = overnight orders at the start of the working day;
+ * "cutoff" = everything waiting, an hour (or the chosen lead) before the courier cut-off. Instant sends during working hours
+ * happen separately (right after Farid confirms). `today` = today's automatic attempts.
+ */
+export function smartDue(now: Date, s: PackingSettings | null | undefined, today: { status: string; sent_at: string }[]): "morning" | "cutoff" | null {
+  if (!s?.enabled || s.mode !== "smart" || (!s.to && !s.telegram)) return null;
+  if (!isWorkingDay(now, s)) return null;
+  const hm = klHM(now);
+  const mine = today.filter((r) => klDate(new Date(r.sent_at)) === klDate(now));
+  const doneSince = (from: string) => {
+    const after = mine.filter((r) => klHM(new Date(r.sent_at)) >= from);
+    if (after.some((r) => r.status === "sent" || r.status === "empty")) return true;
+    if (after.some((r) => r.status === "sending" && now.getTime() - Date.parse(r.sent_at) < 15 * 60_000)) return true;
+    return after.filter((r) => r.status === "failed").length >= 3;
+  };
+  const start = s.workStart || SMART_DEFAULTS.workStart;
+  const dayEnd = klDow(now) === 6 && satEndOf(s) ? satEndOf(s) : s.workEnd || SMART_DEFAULTS.workEnd;
+  const cutoff = s.cutoff === undefined ? SMART_DEFAULTS.cutoff : s.cutoff;
+  if (cutoff) {
+    const at = minus(cutoff, s.cutoffLead ?? SMART_DEFAULTS.cutoffLead);
+    if (hm >= at && hm < cutoff && !doneSince(at)) return "cutoff";
+  }
+  if (hm >= start && hm < dayEnd && !doneSince(start)) return "morning";
+  return null;
 }
 export interface PackLine {
   platform: "shopee" | "lazada";

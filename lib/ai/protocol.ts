@@ -21,7 +21,7 @@ export interface EmployeeBrief {
 
 export interface AutomationInfo {
   autoConfirm: { enabled: boolean; start: string; end: string };
-  packingEmail: { enabled: boolean; mode: "daily" | "instant"; time: string; hasAddress: boolean };
+  packingEmail: { enabled: boolean; mode: "daily" | "instant" | "smart"; time: string; hasAddress: boolean };
   telegramLinked: boolean;
 }
 

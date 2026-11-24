@@ -23,7 +23,7 @@ export function automationFrom(settings: Record<string, unknown> | null | undefi
   const p = (settings?.packingEmail ?? {}) as { enabled?: boolean; mode?: string; time?: string; to?: string };
   return {
     autoConfirm: { enabled: !!a.enabled, start: a.start ?? "08:00", end: a.end ?? "22:00" },
-    packingEmail: { enabled: !!p.enabled, mode: p.mode === "instant" ? "instant" : "daily", time: p.time ?? "12:00", hasAddress: !!p.to },
+    packingEmail: { enabled: !!p.enabled, mode: p.mode === "instant" ? "instant" : p.mode === "smart" ? "smart" : "daily", time: p.time ?? "12:00", hasAddress: !!p.to },
     telegramLinked,
   };
 }

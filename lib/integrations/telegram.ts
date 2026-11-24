@@ -57,6 +57,22 @@ export function verifyLinkCode(code: string, now = Date.now()): string | null {
 
 export const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+/** Send a file (e.g. the airway-bill PDF) to a chat, with a short caption. */
+export async function sendTelegramDocument(chatId: string, file: { name: string; bytes: ArrayBuffer; type: string }, captionHtml?: string) {
+  const token = telegramToken();
+  if (!token) throw new Error("Telegram isn't configured. Add TELEGRAM_BOT_TOKEN in Vercel and redeploy.");
+  const form = new FormData();
+  form.append("chat_id", chatId);
+  form.append("document", new Blob([file.bytes], { type: file.type }), file.name);
+  if (captionHtml) {
+    form.append("caption", captionHtml.slice(0, 1000));
+    form.append("parse_mode", "HTML");
+  }
+  const res = await fetch(`${API()}/bot${token}/sendDocument`, { method: "POST", body: form, cache: "no-store", signal: AbortSignal.timeout(30_000) });
+  const j = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
+  if (!j.ok) throw new Error(`Telegram: ${j.description ?? `upload failed (${res.status})`}`);
+}
+
 export function sendTelegram(chatId: string, html: string) {
   return tg<{ message_id: number }>("sendMessage", { chat_id: chatId, text: html.slice(0, 4000), parse_mode: "HTML", link_preview_options: { is_disabled: true } });
 }

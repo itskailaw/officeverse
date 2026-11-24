@@ -265,7 +265,7 @@ export interface OfficeSettings {
   /** stock counts per product (pack names come from here too) */
   stock?: import("./stock.ts").StockItem[];
   /** Farid's daily packing-list email with the merged airway bills */
-  packingEmail?: { enabled: boolean; time: string; to: string; paper?: "thermal" | "a6" | "a5" | "a4" | "original"; mode?: "daily" | "instant" };
+  packingEmail?: import("../integrations/packing-format.ts").PackingSettings;
   /** floor-plan version the saved furniture belongs to (see LAYOUT_VERSION) */
   layoutVersion?: number;
   /** the CEO's saved start view: look-at point, camera offset, and zoom relative to "fit the office" (so it suits any screen) */

@@ -12,7 +12,7 @@ export const emailConfigured = () => !!process.env.RESEND_API_KEY;
  * Send one email through Resend (https://resend.com). Without a verified domain Resend only delivers
  * to the address the Resend account was created with — fine for emails to the owner.
  */
-export async function sendEmail(msg: { to: string; subject: string; html: string; text?: string; attachments?: EmailAttachment[]; fromName?: string }) {
+export async function sendEmail(msg: { to: string | string[]; subject: string; html: string; text?: string; attachments?: EmailAttachment[]; fromName?: string }) {
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error("Email isn't set up yet — add RESEND_API_KEY in Vercel (Settings → Environment Variables), then redeploy.");
   const fromAddr = process.env.EMAIL_FROM || "onboarding@resend.dev";
@@ -22,7 +22,7 @@ export async function sendEmail(msg: { to: string; subject: string; html: string
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from,
-      to: [msg.to],
+      to: Array.isArray(msg.to) ? msg.to : [msg.to],
       subject: msg.subject,
       html: msg.html,
       text: msg.text,

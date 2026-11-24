@@ -9,6 +9,10 @@ import { escapeHtml, sendTelegram } from "./telegram";
 import { pushText, sendPush } from "./webpush";
 import { getWsState, setWsState } from "./ws-state";
 import { sendApprovalCards } from "./telegram-office";
+import { inWorkHours, type PackingSettings } from "./packing-format";
+
+/** Email right after confirming: always in instant mode; in smart mode only during working hours (night orders wait for the morning email). */
+const instantNow = (pe: PackingSettings) => pe.mode === "instant" || (pe.mode === "smart" && inWorkHours(new Date(), pe));
 import { inHours } from "./order-rules";
 
 export const ORDER_EXEC = "emp-orders";
@@ -83,8 +87,8 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
           ok.length ? `📦 <b>Farid confirmed ${ok.length} new ${NAME[p]} order${ok.length > 1 ? "s" : ""}</b> (drop-off arranged)` : "",
           ...bad.slice(0, 5).map((b) => `⚠️ ${NAME[p]} #${escapeHtml(b.orderId)}: ${escapeHtml(b.message)} — please arrange it yourself`),
         ].filter(Boolean);
-        const pe0 = (lay?.settings as { packingEmail?: { enabled?: boolean; mode?: string } } | null)?.packingEmail;
-        const next = pe0?.enabled && pe0.mode === "instant" ? "\nI'll email you the airway bills + packing list in a minute." : "\nPrint the airway bills: Dashboard → To ship → Print labels.";
+        const pe0 = (lay?.settings as { packingEmail?: PackingSettings } | null)?.packingEmail;
+        const next = pe0?.enabled && instantNow(pe0) ? "\nI'll email you the airway bills + packing list in a minute." : "\nPrint the airway bills: Dashboard → To ship → Print labels.";
         if (tg?.shop_id) await sendTelegram(tg.shop_id, lines.join("\n") + (ok.length ? next : "")).catch(() => {});
         await sendPush(ws, {
           title: bad.length ? `${NAME[p]}: ${bad.length} order${bad.length > 1 ? "s" : ""} need you` : `Farid confirmed ${ok.length} ${NAME[p]} order${ok.length > 1 ? "s" : ""}`,
@@ -98,8 +102,8 @@ export async function runOrderAutomation(ws: string, source: "push" | "schedule"
   }
 
   // ── 1b. instant packing email: airway bills + packing list right after confirming ──
-  const pe = (lay?.settings as { packingEmail?: { enabled?: boolean; mode?: string; to?: string } } | null)?.packingEmail;
-  if (pe?.enabled && pe.mode === "instant" && pe.to) {
+  const pe = (lay?.settings as { packingEmail?: PackingSettings } | null)?.packingEmail;
+  if (pe?.enabled && instantNow(pe) && (pe.to || pe.telegram)) {
     try {
       // give the marketplace a moment to issue tracking numbers for what was just confirmed
       if (confirmed.length) await new Promise((r) => setTimeout(r, 15_000));
