@@ -1,7 +1,38 @@
-import type { Appearance } from "@/lib/data/types";
+"use client";
 
-/** Small SVG portrait generated from an employee's 3D appearance. */
-export function Avatar({ appearance: a, size = 36, ring }: { appearance: Appearance; size?: number; ring?: string }) {
+import type { Appearance } from "@/lib/data/types";
+import { useOffice } from "@/lib/store/office-store";
+
+/** Shrink a photo to a small square JPEG (centre crop) for profile pictures. */
+export async function toProfilePhoto(file: File, px = 160): Promise<string> {
+  if (!["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"].includes(file.type) && !file.type.startsWith("image/")) throw new Error("Choose a photo (JPEG, PNG or WebP).");
+  if (file.size > 15 * 1024 * 1024) throw new Error("Photo must be under 15 MB.");
+  const bmp = await createImageBitmap(file).catch(() => {
+    throw new Error("Couldn't read that photo — try a JPEG or PNG.");
+  });
+  const side = Math.min(bmp.width, bmp.height);
+  const c = document.createElement("canvas");
+  c.width = px;
+  c.height = px;
+  const g = c.getContext("2d")!;
+  g.imageSmoothingQuality = "high";
+  // centre crop, nudged up a little so faces stay in frame
+  g.drawImage(bmp, (bmp.width - side) / 2, Math.max(0, (bmp.height - side) / 2 - side * 0.08), side, side, 0, 0, px, px);
+  return c.toDataURL("image/jpeg", 0.82);
+}
+
+/** Employee portrait: their uploaded photo, or a small SVG drawn from their 3D appearance. */
+export function Avatar({ appearance, size = 36, ring, id }: { appearance: Appearance; size?: number; ring?: string; id?: string }) {
+  const photo = useOffice((s) => (id ? s.settings.staffPhotos?.[id] : undefined));
+  if (photo)
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={photo} alt="" width={size} height={size} className="shrink-0 rounded-full object-cover" style={{ width: size, height: size, boxShadow: ring ? `0 0 0 2px ${ring}` : undefined }} />
+    );
+  return <Drawn appearance={appearance} size={size} ring={ring} />;
+}
+
+function Drawn({ appearance: a, size, ring }: { appearance: Appearance; size: number; ring?: string }) {
   const hijab = a.hairStyle === "hijab";
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" className="shrink-0 rounded-full" style={{ boxShadow: ring ? `0 0 0 2px ${ring}` : undefined }}>

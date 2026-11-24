@@ -66,7 +66,7 @@ export function TeamTable() {
                 <tr key={e.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                   <td className="px-3 py-2">
                     <button className="flex items-center gap-2 text-left" onClick={() => e.active && set({ dialog: null, selectedEmployeeId: e.id })}>
-                      <Avatar appearance={e.appearance} size={28} />
+                      <Avatar id={e.id} appearance={e.appearance} size={28} />
                       <span>
                         <span className="block font-medium text-slate-800">{e.name}</span>
                         <span className="block text-slate-500">{e.title}</span>

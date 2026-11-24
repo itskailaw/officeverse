@@ -80,7 +80,7 @@ export function MeetingCallDialog() {
                   onClick={() => toggle(e.id)}
                   className={`flex items-center gap-2 rounded-lg border p-2 text-left transition ${picked.includes(e.id) ? "border-navy bg-navy/5" : "border-slate-200 hover:bg-slate-50"}`}
                 >
-                  <Avatar appearance={e.appearance} size={28} />
+                  <Avatar id={e.id} appearance={e.appearance} size={28} />
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-medium text-slate-800">{e.name}</span>
                     <span className="block truncate text-[11px] text-slate-500">{e.title}</span>
@@ -200,7 +200,7 @@ export function MeetingPanel() {
           <div className="flex -space-x-1.5">
             {attendees.map((e) => (
               <span key={e.id} title={`${e.name} — ${e.title}`}>
-                <Avatar appearance={e.appearance} size={26} ring="#fff" />
+                <Avatar id={e.id} appearance={e.appearance} size={26} ring="#fff" />
               </span>
             ))}
           </div>

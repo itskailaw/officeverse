@@ -246,6 +246,8 @@ export interface OfficeSettings {
   qaStats?: Record<string, { planted: number; caught: number; missed: number; jobs: number }>;
   /** staff birthdays ("MM-DD") and join dates (YYYY-MM-DD), by employee id — kept here so no database change is needed */
   staffDates?: Record<string, { birthday?: string; joinedOn?: string }>;
+  /** staff profile photos by employee id: small square JPEG data URLs (~10 KB each) */
+  staffPhotos?: Record<string, string>;
   /** Marketing Studio: facts about the shop the AI may use (warranty, delivery, install help…) */
   shopNotes?: string;
   /** Marketing Studio: saved campaign plans by event id */

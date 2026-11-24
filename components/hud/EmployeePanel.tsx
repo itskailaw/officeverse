@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Activity,
   Bot,
+  Camera,
   BriefcaseBusiness,
   CheckCircle2,
   Clock,
@@ -20,7 +21,7 @@ import {
 } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
-import { STATUS_META, type Task } from "@/lib/data/types";
+import { STATUS_META, type Employee, type Task } from "@/lib/data/types";
 import { CEO_ID } from "@/lib/data/seed";
 import { getSim } from "@/lib/office/runtime";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, timeAgo } from "@/lib/utils";
 import { departmentColor } from "@/lib/data/brand";
-import { Avatar } from "./Avatar";
+import { Avatar, toProfilePhoto } from "./Avatar";
 import { AINotConfigured, ApprovalCard, ChatPanel, TaskComposer, TaskRow, useAIEnabled } from "./AIWork";
 import { acknowledge } from "@/lib/ai/runner";
 
@@ -85,7 +86,7 @@ export function EmployeePanel() {
           <X className="h-4 w-4" />
         </button>
         <div className="flex items-center gap-3">
-          <Avatar appearance={emp.appearance} size={56} ring={accent} />
+          <ProfilePhoto empId={emp.id} name={emp.name} appearance={emp.appearance} ring={accent} />
           <div className="min-w-0">
             <div className="truncate text-base font-semibold text-slate-900">{emp.name}</div>
             <div className="truncate text-xs text-slate-500">{emp.title}</div>
@@ -296,6 +297,57 @@ function Info({ icon, label, value }: { icon: React.ReactNode; label: string; va
       <div className="mt-0.5 truncate font-medium text-slate-700" title={value}>
         {value}
       </div>
+    </div>
+  );
+}
+
+/** Profile picture: tap to upload or change a photo (kept small, saved for the whole workspace). */
+function ProfilePhoto({ empId, name, appearance, ring }: { empId: string; name: string; appearance: Employee["appearance"]; ring?: string }) {
+  const input = useRef<HTMLInputElement>(null);
+  const has = useOffice((s) => !!s.settings.staffPhotos?.[empId]);
+  const toast = useUI((s) => s.toast);
+  const first = name.split(" ")[0];
+  const pick = async (f: File | undefined) => {
+    if (!f) return;
+    try {
+      const url = await toProfilePhoto(f);
+      const s = useOffice.getState();
+      s.updateSettings({ staffPhotos: { ...(s.settings.staffPhotos ?? {}), [empId]: url } });
+      toast("success", `Photo saved for ${first}`);
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : "Couldn't use that photo");
+    }
+  };
+  const remove = () => {
+    const s = useOffice.getState();
+    const next = { ...(s.settings.staffPhotos ?? {}) };
+    delete next[empId];
+    s.updateSettings({ staffPhotos: next });
+    toast("info", `${first}'s photo removed`);
+  };
+  return (
+    <div className="flex shrink-0 flex-col items-center gap-0.5">
+      <button type="button" onClick={() => input.current?.click()} className="group relative rounded-full" title={has ? "Change photo" : "Add a photo"} aria-label={has ? `Change ${first}'s photo` : `Add a photo of ${first}`}>
+        <Avatar id={empId} appearance={appearance} size={56} ring={ring} />
+        <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-navy text-white shadow ring-2 ring-white">
+          <Camera className="h-3 w-3" />
+        </span>
+      </button>
+      {has && (
+        <button type="button" onClick={remove} className="text-[9px] text-slate-400 hover:text-red-600">
+          Remove
+        </button>
+      )}
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          void pick(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
     </div>
   );
 }
