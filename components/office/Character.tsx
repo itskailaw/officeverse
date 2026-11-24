@@ -40,6 +40,16 @@ const BLOB_MAT = (() => {
   return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false });
 })();
 
+/** Two-letter initials from a name, ignoring brackets and symbols ("Farid Osman" → "FO"). */
+function initialsOf(name?: string) {
+  const words = (name ?? "")
+    .replace(/\(.*?\)/g, " ")
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter(Boolean);
+  return (words.map((w) => w[0]).slice(0, 2).join("") || "?").toUpperCase();
+}
+
 /** iris colours (mostly brown, a few hazel/green/blue), picked per person */
 const IRIS = ["#6b3f1f", "#6b3f1f", "#5b3a22", "#7c4a1e", "#4d7c0f", "#1e40af", "#6b3f1f", "#8a5a2b"];
 function hashOf(s: string) {
@@ -1042,11 +1052,7 @@ export const Character = memo(function Character(props: Props) {
                   <img src={props.photo} alt="" className="h-5 w-5 rounded-full object-cover ring-1 ring-white/70" />
                 ) : (
                   <span className="grid h-5 w-5 place-items-center rounded-full text-[9px] font-bold ring-1 ring-white/70" style={{ background: "#0f172a", color: "#fff" }}>
-                    {(props.name ?? "?")
-                      .split(" ")
-                      .map((w) => w[0])
-                      .slice(0, 2)
-                      .join("")}
+                    {isCEO ? "👑" : initialsOf(props.name)}
                   </span>
                 )}
                 {(showTag || hovered || selected) && (
