@@ -303,6 +303,21 @@ function MonthlyInvoice({ inv, save }: { inv: Inventory; save: (i: Inventory) =>
             </Button>
             <Button
               size="sm"
+              variant="ghost"
+              className="text-red-600 hover:bg-red-50"
+              title="Delete every delivery from this supplier in this month"
+              onClick={() => {
+                if (!st || !confirm(`Delete this invoice? This removes all ${st.receipts.length} deliver${st.receipts.length === 1 ? "y" : "ies"} from ${sup} in ${monthLabel(month)} (${RM(st.total)}). This can't be undone.`)) return;
+                const ids = new Set(st.receipts.map((x) => x.id));
+                const nextPaid = { ...(inv.paid ?? {}) };
+                delete nextPaid[paidKey];
+                save({ ...inv, receipts: inv.receipts.filter((x) => !ids.has(x.id)), paid: nextPaid });
+              }}
+            >
+              <Trash2 /> Delete
+            </Button>
+            <Button
+              size="sm"
               variant={paid ? "ghost" : "default"}
               onClick={() => {
                 const next = { ...(inv.paid ?? {}) };
@@ -376,6 +391,19 @@ function MonthlyInvoice({ inv, save }: { inv: Inventory; save: (i: Inventory) =>
                     <td className="py-0.5">{r.ref ?? "—"}</td>
                     <td className="py-0.5">{r.lines.map((l) => `${l.sku} ×${l.pcs}`).join(", ")}</td>
                     <td className="py-0.5 text-right tabular-nums">{RM(receiptTotal(r))}</td>
+                    <td className="w-6 py-0.5 pl-2 text-right print:hidden">
+                      <button
+                        onClick={() => {
+                          if (!confirm(`Delete the delivery on ${r.date}${r.ref ? ` (${r.ref})` : ""}? It will be removed from this invoice.`)) return;
+                          save({ ...inv, receipts: inv.receipts.filter((x) => x.id !== r.id) });
+                        }}
+                        className="text-[#cbd5e1] hover:text-[#dc2626]"
+                        aria-label="Delete this delivery"
+                        title="Delete this delivery"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
