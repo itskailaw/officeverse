@@ -119,3 +119,9 @@ body {
   @page { size: A4 landscape; margin: 10mm; }
   html, body { background: #fff !important; }
 }
+
+/* printing a supplier invoice: only the invoice */
+@media print {
+  #ov-invoice, #ov-invoice * { visibility: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  #ov-invoice { position: fixed; inset: 0; box-shadow: none !important; border: 0 !important; }
+}

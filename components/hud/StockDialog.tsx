@@ -7,6 +7,7 @@ import { useOffice } from "@/lib/store/office-store";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { StockIn } from "./StockIn";
 import { stockLevels, type CatalogRow, type OrderLite, type StockItem, type StockLevel } from "@/lib/data/stock";
 
 const CHIP: Record<StockLevel, string> = {
@@ -29,6 +30,7 @@ export function StockDialog() {
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [onlyTracked, setOnlyTracked] = useState(false);
+  const [section, setSection] = useState<"levels" | "in">("levels");
 
   const load = useCallback(async () => {
     setErr(null);
@@ -91,6 +93,25 @@ export function StockDialog() {
         onBack={() => set({ dialog: "dashboard" })}
         backLabel="Dashboard"
       >
+        <div className="flex gap-1 border-b border-slate-100 px-5 pt-2 print:hidden">
+          {(
+            [
+              ["levels", "Stock levels"],
+              ["in", "Stock in & supplier invoices"],
+            ] as const
+          ).map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setSection(v)}
+              className={`-mb-px rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold ${section === v ? "border-navy text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+        {section === "in" ? (
+          <StockIn />
+        ) : (
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-2 text-xs">
             {counts.out > 0 && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-800">{counts.out} out of stock</span>}
@@ -233,6 +254,7 @@ export function StockDialog() {
             other to &ldquo;Shares stock with&rdquo; it.
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

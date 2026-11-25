@@ -264,6 +264,8 @@ export interface OfficeSettings {
   shopNotes?: string;
   /** Marketing Studio: saved campaign plans by event id */
   campaignPlans?: Record<string, { plan: string; at: string }>;
+  /** stock-in records, SKU prices and suppliers (monthly supplier invoices) */
+  inventory?: import("./inventory.ts").Inventory;
   /** stock counts per product (pack names come from here too) */
   stock?: import("./stock.ts").StockItem[];
   /** Farid's daily packing-list email with the merged airway bills */
