@@ -25,14 +25,15 @@ const once = (key: string) => {
 /** Small KL weather chip for the top bar (refreshes every 20 minutes). */
 export function WeatherChip() {
   const w = useWeather((s) => s.w);
+  const cfg = useOffice((s) => s.settings.weather);
   useEffect(() => {
     void useWeather.getState().load();
     const t = setInterval(() => void useWeather.getState().load(), 20 * 60_000);
     return () => clearInterval(t);
-  }, []);
+  }, [cfg?.mode, cfg?.lat, cfg?.lon]);
   if (!w) return null;
   return (
-    <span className="hidden items-center gap-0.5 whitespace-nowrap rounded-md px-1 text-xs text-slate-600 md:flex" title={`Kuala Lumpur now: ${w.temp}°C${w.raining ? " — raining" : ""}`}>
+    <span className="hidden items-center gap-0.5 whitespace-nowrap rounded-md px-1 text-xs text-slate-600 md:flex" title={`${w.place} now: ${w.temp}°C${w.raining ? " — raining" : ""} (change in Settings → Office)`}>
       <span aria-hidden>{weatherIcon(w)}</span>
       {w.temp}°
     </span>

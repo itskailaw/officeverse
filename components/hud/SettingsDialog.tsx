@@ -16,6 +16,7 @@ import { IntegrationsPanel } from "./Integrations";
 import { AIUsageCard } from "./AIUsageCard";
 import { SystemHealthCard } from "./SystemHealth";
 import { toProfilePhoto } from "./Avatar";
+import { PLACES, useWeather, weatherIcon } from "@/lib/office/weather";
 import { AppInstallCard } from "./AppInstall";
 
 const MAX_UPLOAD = 5 * 1024 * 1024;
@@ -198,6 +199,7 @@ export function SettingsDialog() {
             </div>
             <Toggle label="Activity bubbles" hint="Show what each employee is doing above their head." checked={st.showBubbles} onChange={(v) => s.updateSettings({ showBubbles: v })} />
             <Toggle label="Chibi avatars" hint="Bigger heads so faces and expressions show from a distance." checked={st.chibi ?? true} onChange={(v) => s.updateSettings({ chibi: v })} />
+            <WeatherSetting />
             <Toggle
               label="Festive outfits"
               hint="Baju Raya, CNY red, Deepavali and #24 jerseys on Kobe Day — automatically on the day."
@@ -421,6 +423,61 @@ function ColorSetting({ label, value, onChange }: { label: string; value: string
     <div>
       <Label>{label}</Label>
       <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="h-9 w-full cursor-pointer rounded-lg border border-slate-200" />
+    </div>
+  );
+}
+
+/** Office weather: live for a chosen city or your current location, or off. */
+function WeatherSetting() {
+  const cfg = useOffice((s) => s.settings.weather);
+  const update = useOffice((s) => s.updateSettings);
+  const toast = useUI((s) => s.toast);
+  const w = useWeather((s) => s.w);
+  const off = cfg?.mode === "off";
+  const placeName = cfg?.place ?? PLACES[0].name;
+  const custom = !PLACES.some((p) => p.name === placeName);
+  const useHere = () => {
+    if (!navigator.geolocation) return toast("error", "This browser can't share your location");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        update({ weather: { mode: "live", lat: pos.coords.latitude, lon: pos.coords.longitude, place: "Your location" } });
+        toast("success", "Weather now follows your location");
+      },
+      () => toast("error", "Location access was blocked — pick a city instead"),
+      { timeout: 10_000 },
+    );
+  };
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <div className="text-sm font-medium text-slate-800">Weather in the office</div>
+        <div className="text-xs text-slate-500">
+          Rain and clouds follow the live weather {off ? "— off" : `for ${placeName}`}
+          {!off && w ? ` (now ${weatherIcon(w)} ${w.temp}°C)` : ""}.
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <select
+          value={off ? "off" : custom ? "custom" : placeName}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "off") return update({ weather: { ...cfg, mode: "off" } });
+            if (v === "custom") return useHere();
+            const p = PLACES.find((x) => x.name === v)!;
+            update({ weather: { mode: "live", lat: p.lat, lon: p.lon, place: p.name } });
+          }}
+          className="h-8 rounded-md border border-slate-200 bg-panel px-2 text-xs text-slate-800"
+          aria-label="Weather location"
+        >
+          {PLACES.map((p) => (
+            <option key={p.name} value={p.name}>
+              {p.name}
+            </option>
+          ))}
+          <option value="custom">{custom && !off ? "Your location ✓" : "Use my location…"}</option>
+          <option value="off">Off (always clear)</option>
+        </select>
+      </div>
     </div>
   );
 }

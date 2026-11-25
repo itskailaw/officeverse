@@ -256,6 +256,8 @@ export interface OfficeSettings {
   staffDates?: Record<string, { birthday?: string; joinedOn?: string }>;
   /** staff profile photos by employee id: small square JPEG data URLs (~10 KB each) */
   staffPhotos?: Record<string, string>;
+  /** office weather: live for a place (default Kuala Lumpur) or off */
+  weather?: { mode?: "live" | "off"; lat?: number; lon?: number; place?: string };
   /** staff wear their team's uniform (WGS polo, Marketing hoodie, Finance shirt & tie, Amare smart casual, Artides apron) */
   uniforms?: boolean;
   /** Marketing Studio: facts about the shop the AI may use (warranty, delivery, install help…) */
