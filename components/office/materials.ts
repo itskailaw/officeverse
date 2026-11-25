@@ -1,6 +1,7 @@
 "use client";
 
 import * as THREE from "three";
+import { QUALITY, graphicsLevel } from "@/lib/office/quality";
 
 // Shared material cache — avoids creating hundreds of identical materials.
 const cache = new Map<string, THREE.Material>();
@@ -170,10 +171,14 @@ export const OUTLINE = new THREE.MeshBasicMaterial({ color: "#1b2333", side: THR
 const vinylCache = new Map<string, THREE.Material>();
 /** Smooth, shiny "designer toy" plastic with a clear-coat highlight. */
 export function vinyl(color: string, opts: { gloss?: number } = {}) {
-  const key = `${color}|${opts.gloss ?? 1}`;
+  const hi = QUALITY[graphicsLevel()].gloss;
+  const key = `${color}|${opts.gloss ?? 1}|${hi}`;
   let m = vinylCache.get(key);
   if (!m) {
-    m = new THREE.MeshPhysicalMaterial({ color, roughness: 0.34, clearcoat: opts.gloss ?? 1, clearcoatRoughness: 0.14 });
+    // lighter devices: a plain shiny material (no clear-coat pass) looks nearly the same and is much cheaper
+    m = hi
+      ? new THREE.MeshPhysicalMaterial({ color, roughness: 0.34, clearcoat: opts.gloss ?? 1, clearcoatRoughness: 0.14 })
+      : new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.05 });
     vinylCache.set(key, m);
   }
   return m;

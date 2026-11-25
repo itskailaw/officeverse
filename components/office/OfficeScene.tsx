@@ -23,6 +23,7 @@ import { festiveTheme } from "@/lib/office/festive";
 import { BirthdayDecor, FestiveDecor } from "./OfficeLife";
 import { lastMonth, topPerformers } from "@/lib/office/office-life";
 import { shootMiniHoop } from "./FunFurniture";
+import { QUALITY, graphicsLevel, resolveQuality, setGraphicsLevel } from "@/lib/office/quality";
 import { ceoMonitorTexture, logoScreenTexture, meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
 /** Display pieces that zoom the camera in when clicked. */
@@ -151,7 +152,7 @@ function Lighting({ lm }: { lm: Exclude<LightingMode, "auto"> }) {
         intensity={cfg.sun}
         color={cfg.sunColor}
         castShadow
-        shadow-mapSize={[3072, 3072]}
+        shadow-mapSize={[QUALITY[graphicsLevel()].shadowMap, QUALITY[graphicsLevel()].shadowMap]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
         shadow-camera-left={-42}
@@ -717,6 +718,17 @@ export default function OfficeScene() {
   const lm = useLightMode(settings.lighting);
   const night = lm !== "day";
   const brands = useBrands();
+  // graphics quality, and pause drawing while a window covers the office (that's what made everything lag)
+  const level = useMemo(() => resolveQuality(settings.graphics), [settings.graphics]);
+  setGraphicsLevel(level);
+  const q = QUALITY[level];
+  const covered = useUI((s) => !!s.dialog);
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    const on = () => setHidden(document.visibilityState === "hidden");
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
+  }, []);
 
   // R rotates the selected furniture in build mode; Esc clears selection
   useEffect(() => {
@@ -739,7 +751,14 @@ export default function OfficeScene() {
   const controlTarget = useMemo<[number, number, number]>(() => (sv ? [sv.t[0], 0, sv.t[1]] : [CENTER.x, 0, CENTER.z]), [sv]);
 
   return (
-    <Canvas shadows dpr={[1, 2]} gl={{ antialias: true, powerPreference: "high-performance" }} onContextMenu={(e) => e.preventDefault()}>
+    <Canvas
+      key={level}
+      shadows={q.shadows}
+      dpr={q.dpr}
+      frameloop={covered || hidden ? "never" : "always"}
+      gl={{ antialias: q.antialias, powerPreference: "high-performance" }}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <OrthographicCamera makeDefault position={CENTER.clone().add(ISO_OFFSET).toArray()} zoom={18} near={-200} far={400} />
       <OrbitControls
         makeDefault

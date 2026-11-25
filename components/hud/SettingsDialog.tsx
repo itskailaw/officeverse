@@ -199,6 +199,23 @@ export function SettingsDialog() {
             </div>
             <Toggle label="Activity bubbles" hint="Show what each employee is doing above their head." checked={st.showBubbles} onChange={(v) => s.updateSettings({ showBubbles: v })} />
             <Toggle label="Chibi avatars" hint="Bigger heads so faces and expressions show from a distance." checked={st.chibi ?? true} onChange={(v) => s.updateSettings({ chibi: v })} />
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-800">Graphics quality</div>
+                <div className="text-xs text-slate-500">Lower it if the office feels slow. Auto picks for your device (phones: Battery saver, iPad: Balanced).</div>
+              </div>
+              <select
+                value={st.graphics ?? "auto"}
+                onChange={(e) => s.updateSettings({ graphics: e.target.value as "auto" | "high" | "balanced" | "battery" })}
+                className="h-8 shrink-0 rounded-md border border-slate-200 bg-panel px-2 text-xs text-slate-800"
+                aria-label="Graphics quality"
+              >
+                <option value="auto">Auto</option>
+                <option value="high">High (sharpest, glossy)</option>
+                <option value="balanced">Balanced</option>
+                <option value="battery">Battery saver (fastest)</option>
+              </select>
+            </div>
             <WeatherSetting />
             <Toggle
               label="Festive outfits"
