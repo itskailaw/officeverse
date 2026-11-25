@@ -31,6 +31,13 @@ export function StockDialog() {
   const [q, setQ] = useState("");
   const [onlyTracked, setOnlyTracked] = useState(false);
   const [section, setSection] = useState<"levels" | "in">("levels");
+  useEffect(() => {
+    if (!open) return;
+    try {
+      if (sessionStorage.getItem("ov:stock-section") === "in") setSection("in");
+      sessionStorage.removeItem("ov:stock-section");
+    } catch {}
+  }, [open]);
 
   const load = useCallback(async () => {
     setErr(null);

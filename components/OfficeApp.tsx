@@ -82,6 +82,25 @@ export default function OfficeApp() {
   const [error, setError] = useState<string | null>(null);
   const [mobile, setMobile] = useState(false);
   const [force3D, setForce3D] = useState(false);
+  // Lite view on any device: remembered choice, or ?lite in the address
+  const [litePref, setLitePref] = useState(false);
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.has("lite")) localStorage.setItem("ov:lite", q.get("lite") === "0" ? "0" : "1");
+      setLitePref(localStorage.getItem("ov:lite") === "1");
+    } catch {}
+    const on = (e: Event) => {
+      const v = (e as CustomEvent<boolean>).detail;
+      try {
+        localStorage.setItem("ov:lite", v ? "1" : "0");
+      } catch {}
+      setLitePref(v);
+      setForce3D(!v);
+    };
+    window.addEventListener("ov:lite", on);
+    return () => window.removeEventListener("ov:lite", on);
+  }, []);
   const [gl, setGl] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const selected = useUI((s) => s.selectedEmployeeId);
@@ -197,11 +216,11 @@ export default function OfficeApp() {
     </>
   );
 
-  if ((mobile && !force3D) || !gl) {
+  if (((mobile || litePref) && !force3D) || !gl) {
     return (
       <>
         {!gl && <div className="bg-amber-100 px-4 py-2 text-center text-xs text-amber-900">WebGL is unavailable in this browser — showing the dashboard view.</div>}
-        <MobileDashboard onOpen3D={() => (gl ? setForce3D(true) : undefined)} />
+        <MobileDashboard onOpen3D={() => (gl ? window.dispatchEvent(new CustomEvent("ov:lite", { detail: false })) : undefined)} />
         {selected && (
           <div className="fixed inset-0 z-40">
             <EmployeePanel />

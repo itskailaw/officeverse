@@ -70,6 +70,7 @@ export function CommandPalette() {
       { id: "reply", label: "Draft a buyer reply", hint: "Mei Ling · chat answers", keywords: "customer chat message answer question", run: () => openMarketing("reply") },
       { id: "campaign", label: "Sale campaigns", hint: "11.11, Raya, payday… with plans", keywords: "campaign festive 11.11 12.12 raya cny voucher calendar", run: () => openMarketing("campaign") },
       { id: "dance", label: "Dance break 💃", hint: "Everyone dances for a few seconds", keywords: "dance party fun celebrate", run: () => startDance() },
+      { id: "lite", label: "Switch to Lite view", hint: "Quick, no-3D layout (good on phone)", keywords: "lite mobile phone simple fast light", run: () => window.dispatchEvent(new CustomEvent("ov:lite", { detail: true })) },
       { id: "meeting", label: "Call a meeting", hint: "Gather staff in the boardroom", run: () => ui().set({ dialog: "meeting-call" }) },
       { id: "hire", label: "Hire an AI employee", hint: "Add someone to the team", run: () => ui().set({ dialog: "hire" }) },
       { id: "settings", label: "Settings", hint: "Integrations, system health, app & notifications", keywords: "health telegram notifications install", run: () => ui().set({ dialog: "settings" }) },
