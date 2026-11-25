@@ -11,6 +11,8 @@ export interface InvSku {
   price?: number;
   /** usual supplier */
   supplier?: string;
+  /** how it usually arrives (the stock-in row starts on this unit) */
+  unit?: Unit;
 }
 export interface ReceiptLine {
   sku: string;

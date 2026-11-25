@@ -21,8 +21,8 @@ function useInventory() {
   return { inv, save };
 }
 
-type Draft = { sku: string; qty: string; unit: Unit; price: string };
-const blankLine = (): Draft => ({ sku: "", qty: "", unit: "pcs", price: "" });
+type Draft = { sku: string; qty: string; unit: Unit; price: string; perBox: string };
+const blankLine = (): Draft => ({ sku: "", qty: "", unit: "pcs", price: "", perBox: "" });
 
 /** Priya's stock-in book: record deliveries (pcs or boxes), monthly supplier invoices, SKU prices. */
 export function StockIn() {
@@ -63,9 +63,10 @@ function RecordIn({ inv, save, toast }: { inv: Inventory; save: (i: Inventory) =
   const calc = lines.map((l) => {
     const s = skuOf(l.sku);
     const qty = Number(l.qty);
-    const pcs = l.sku && qty > 0 ? toPcs(qty, l.unit, s?.pcsPerBox) : 0;
+    const perBox = l.perBox === "" ? s?.pcsPerBox : Number(l.perBox);
+    const pcs = l.sku && qty > 0 ? toPcs(qty, l.unit, perBox) : 0;
     const price = l.price === "" ? (s?.price ?? 0) : Number(l.price);
-    return { ...l, s, pcs, priceNum: Number.isFinite(price) ? price : 0 };
+    return { ...l, s, pcs, perBoxNum: perBox, priceNum: Number.isFinite(price) ? price : 0 };
   });
   const filled = calc.filter((l) => l.sku && Number(l.qty) > 0);
   const total = filled.reduce((a, l) => a + (l.pcs ?? 0) * l.priceNum, 0);
@@ -75,7 +76,7 @@ function RecordIn({ inv, save, toast }: { inv: Inventory; save: (i: Inventory) =
     if (!supplier.trim()) return toast("error", "Enter the supplier name");
     if (!filled.length) return toast("error", "Add at least one SKU and quantity");
     const noBox = filled.find((l) => l.pcs === null);
-    if (noBox) return toast("error", `Set how many pcs are in one box of ${noBox.sku} (SKUs & prices tab), or enter it in pcs`);
+    if (noBox) return toast("error", `Enter how many pcs are in one box of ${noBox.sku}`);
     const r: Receipt = {
       id: `rc-${Date.now().toString(36)}`,
       date,
@@ -87,7 +88,8 @@ function RecordIn({ inv, save, toast }: { inv: Inventory; save: (i: Inventory) =
     const suppliers = inv.suppliers.includes(r.supplier) ? inv.suppliers : [...inv.suppliers, r.supplier];
     const skus = inv.skus.map((s) => {
       const l = r.lines.find((x) => x.sku === s.sku);
-      return l ? { ...s, price: l.price || s.price, supplier: s.supplier ?? r.supplier } : s;
+      const box = filled.find((x) => x.sku === s.sku && x.unit === "box" && x.perBoxNum && x.perBoxNum > 0)?.perBoxNum;
+      return l ? { ...s, price: l.price || s.price, supplier: s.supplier ?? r.supplier, pcsPerBox: box ?? s.pcsPerBox, unit: l.unit } : s;
     });
     save({ ...inv, suppliers, skus, receipts: [...inv.receipts, r] });
     toast("success", `Stock in saved — ${r.lines.reduce((a, l) => a + l.pcs, 0)} pcs from ${r.supplier} (${RM(receiptTotal(r))})`);
@@ -137,7 +139,7 @@ function RecordIn({ inv, save, toast }: { inv: Inventory; save: (i: Inventory) =
             {calc.map((l, i) => (
               <tr key={i}>
                 <td className="py-1 pr-2">
-                  <select value={l.sku} onChange={(e) => setLine(i, { sku: e.target.value, price: "" })} className={cn(inp, "w-40")}>
+                  <select value={l.sku} onChange={(e) => setLine(i, { sku: e.target.value, price: "", perBox: "", unit: skuOf(e.target.value)?.unit ?? "pcs" })} className={cn(inp, "w-40")}>
                     <option value="">— choose —</option>
                     {inv.skus.map((s) => (
                       <option key={s.sku} value={s.sku}>
@@ -158,9 +160,24 @@ function RecordIn({ inv, save, toast }: { inv: Inventory; save: (i: Inventory) =
                       </button>
                     ))}
                   </div>
-                  {l.unit === "box" && l.s?.pcsPerBox ? <span className="ml-1 text-[10px] text-slate-400">({l.s.pcsPerBox}/box)</span> : null}
+                  {l.unit === "box" && (
+                    <label className="ml-1 inline-flex items-center gap-1 text-[10px] text-slate-500">
+                      ×
+                      <input
+                        type="number"
+                        min={1}
+                        inputMode="numeric"
+                        value={l.perBox === "" ? (l.s?.pcsPerBox ?? "") : l.perBox}
+                        onChange={(e) => setLine(i, { perBox: e.target.value })}
+                        placeholder="pcs"
+                        className={cn(inp, "h-7 w-14 px-1 text-[11px]", !l.perBoxNum && Number(l.qty) > 0 && "border-amber-400")}
+                        aria-label="Pieces in one box"
+                      />
+                      pcs/box
+                    </label>
+                  )}
                 </td>
-                <td className={cn("py-1 pr-2 text-right tabular-nums", l.pcs === null ? "text-amber-700" : "text-slate-700")}>{l.pcs === null ? "set box size" : l.pcs || ""}</td>
+                <td className={cn("py-1 pr-2 text-right tabular-nums", l.pcs === null ? "text-amber-700" : "text-slate-700")}>{l.pcs === null ? "pcs/box?" : l.pcs || ""}</td>
                 <td className="py-1 pr-2 text-right">
                   <input
                     type="number"
