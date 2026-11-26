@@ -51,7 +51,7 @@ function Spark({ values }: { values: number[] }) {
   const mn = Math.min(...values);
   const pts = values.map((v, i) => `${((i / (values.length - 1)) * 88 + 1).toFixed(1)},${(25 - ((v - mn) / (mx - mn || 1)) * 22).toFixed(1)}`).join(" ");
   return (
-    <svg width="90" height="28" className="shrink-0 text-navy dark:text-sky-300" aria-hidden>
+    <svg width="60" height="20" viewBox="0 0 90 28" preserveAspectRatio="none" className="shrink-0 text-navy dark:text-sky-300" aria-hidden>
       <polyline fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={pts} />
     </svg>
   );
@@ -61,20 +61,52 @@ function Kpi({ label, value, delta, note, spark, tone }: { label: string; value:
   const up = (delta?.pct ?? 0) >= 0;
   return (
     <div className="rounded-2xl bg-panel p-4 shadow-sm ring-1 ring-slate-200/80">
-      <div className="text-[11px] font-semibold text-slate-500">{label}</div>
-      <div className="mt-1 text-[26px] font-bold leading-tight tracking-tight text-slate-900 tabular-nums">{value}</div>
-      <div className="mt-1.5 flex items-end justify-between gap-2">
-        <div className="min-w-0 text-[11.5px] leading-snug">
-          {delta && delta.pct !== null && (
-            <span className={cn("font-semibold", up ? "text-emerald-600" : "text-red-600")}>
-              {up ? "▲" : "▼"} {Math.abs(delta.pct).toFixed(1)}%{" "}
-            </span>
-          )}
-          {delta?.text && <span className="text-slate-400">{delta.text}</span>}
-          {note && <span className={cn("font-semibold", tone === "red" ? "text-red-600" : tone === "green" ? "text-emerald-600" : "text-slate-500")}>{note}</span>}
-        </div>
+      <div className="flex h-5 items-center justify-between gap-2">
+        <div className="truncate text-[11px] font-semibold text-slate-500">{label}</div>
         {spark && <Spark values={spark} />}
       </div>
+      <div className="mt-1 whitespace-nowrap text-[26px] font-bold leading-tight tracking-tight text-slate-900 tabular-nums">{value}</div>
+      <div className="mt-1.5 text-[11.5px] leading-snug">
+        {delta && delta.pct !== null && (
+          <span className={cn("whitespace-nowrap font-semibold", up ? "text-emerald-600" : "text-red-600")}>
+            {up ? "▲" : "▼"} {Math.abs(delta.pct).toFixed(1)}%{" "}
+          </span>
+        )}
+        {delta?.text && <span className="text-slate-400">{delta.text}</span>}
+        {note && <span className={cn("font-semibold", tone === "red" ? "text-red-600" : tone === "green" ? "text-emerald-600" : "text-slate-500")}>{note}</span>}
+      </div>
+    </div>
+  );
+}
+
+type PackSide = { label: string; sub: string; n: number; urgent: number; split: { p: "shopee" | "lazada"; n: number }[]; action: string; go?: () => void };
+/** Packing at a glance: orders still to accept / arrange drop-off, and parcels waiting to be handed over. */
+function PackTile({ sides }: { sides: PackSide[] }) {
+  return (
+    <div className="col-span-2 grid grid-cols-2 divide-x divide-slate-100 rounded-2xl bg-panel shadow-sm ring-1 ring-slate-200/80">
+      {sides.map((x) => (
+        <div key={x.label} className="flex min-w-0 flex-col p-4">
+          <div className="text-[11px] font-semibold text-slate-500">{x.label}</div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className={cn("text-[26px] font-bold leading-tight tracking-tight tabular-nums", x.urgent ? "text-red-600" : "text-slate-900")}>{x.n}</span>
+            <span className="truncate text-[11.5px] text-slate-500">{x.sub}</span>
+          </div>
+          <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11px] text-slate-500">
+            {x.split.map((sp) => (
+              <span key={sp.p} className="inline-flex items-center gap-1 tabular-nums">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: sp.p === "shopee" ? SHOPEE : LAZADA }} />
+                {sp.p === "shopee" ? "Shopee" : "Lazada"} <b className="text-slate-700">{sp.n}</b>
+              </span>
+            ))}
+          </div>
+          {x.urgent > 0 && <div className="mt-0.5 text-[11.5px] font-semibold text-red-600">{x.urgent} due within 24h</div>}
+          {x.go && (
+            <button type="button" onClick={x.go} className="mt-auto inline-flex w-fit items-center gap-1 pt-2 text-xs font-semibold text-navy hover:underline dark:text-sky-300">
+              {x.action} <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -123,7 +155,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
   const cur = range === "today" ? s.today : range === "month" ? s.monthToDate : sum(days.slice(-Number(range)));
   const prev = range === "today" ? s.yesterday : range === "7" ? sum(days.slice(-14, -7)) : null;
   const pct = (a: number, b: number | undefined) => (b && b > 0 ? ((a - b) / b) * 100 : null);
-  const vs = range === "today" ? "vs yesterday" : range === "7" ? "vs previous 7 days" : "";
+  const vs = range === "today" ? "vs yesterday" : range === "7" ? "vs prev. 7 days" : "";
   const spark = days.slice(-14).map((d) => d.revenue);
   const sparkOrders = days.slice(-14).map((d) => d.orders);
   const chartDays = days.slice(range === "30" || range === "month" ? -30 : -14);
@@ -133,6 +165,8 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
   const adSpend = range === "month" ? (lz?.monthToDate?.spend ?? null) : range === "today" ? (lz?.today?.spend ?? null) : (lz?.monthToDate?.spend ?? null);
   const toShip = s.toPack.processed;
   const toAccept = s.toPack.readyToShip;
+  const isOwner = useLive((x) => x.status?.role) === "owner";
+  const plats = (["shopee", "lazada"] as const).filter((p) => s.platforms?.[p]?.connected);
 
   // ── needs attention ──
   const low = (levels ?? []).filter((l) => l.level === "low" || l.level === "out");
@@ -252,10 +286,31 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
       </div>
 
       {/* key numbers */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
         <Kpi label="Revenue" value={RM(cur.revenue)} delta={prev ? { pct: pct(cur.revenue, prev.revenue), text: vs } : null} spark={spark} />
         <Kpi label="Orders" value={String(cur.orders)} delta={prev ? { pct: pct(cur.orders, prev.orders), text: vs } : null} note={cur.orders ? `${prev ? " · " : ""}AOV ${RM(cur.revenue / cur.orders)}` : undefined} spark={sparkOrders} />
-        <Kpi label="To ship" value={String(toShip)} note={s.toPack.urgentToShip ? `${s.toPack.urgentToShip} due within 24h` : toAccept ? `${toAccept} new to accept` : "nothing urgent"} tone={s.toPack.urgentToShip ? "red" : undefined} />
+        <PackTile
+          sides={[
+            {
+              label: "To process",
+              sub: "not accepted yet",
+              n: toAccept,
+              urgent: s.toPack.urgentToProcess ?? 0,
+              split: plats.map((p) => ({ p, n: s.byPlatform?.[p]?.toPack.readyToShip ?? 0 })),
+              action: "Arrange drop-off",
+              go: isOwner ? () => set({ dialog: "fulfil", fulfilStage: "process" }) : undefined,
+            },
+            {
+              label: "To ship",
+              sub: "awaiting drop-off",
+              n: toShip,
+              urgent: s.toPack.urgentToShip ?? 0,
+              split: plats.map((p) => ({ p, n: s.byPlatform?.[p]?.toPack.processed ?? 0 })),
+              action: "Print labels",
+              go: isOwner ? () => set({ dialog: "fulfil", fulfilStage: "ship" }) : undefined,
+            },
+          ]}
+        />
         <Kpi
           label="Net profit (month)"
           value={profit ? RM(profit.estProfit) : "—"}
