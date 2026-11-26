@@ -3,8 +3,6 @@
 import { memo, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
-import { VrmBody, restPose, type VrmPose } from "./VrmBody";
-import { graphicsLevel } from "@/lib/office/quality";
 import { Html } from "@react-three/drei";
 import type { Appearance, EmployeeStatus } from "@/lib/data/types";
 import { STATUS_META } from "@/lib/data/types";
@@ -98,8 +96,6 @@ interface Props {
   star?: number;
   /** profile photo for the name tag */
   photo?: string | null;
-  /** uploaded anime (VRM) avatar: replaces the chibi body when set (not on Battery graphics) */
-  vrm?: string | null;
   /** standalone preview (character creator): no simulation, slowly turning */
   preview?: boolean;
   onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
@@ -435,9 +431,6 @@ export const Character = memo(function Character(props: Props) {
   const lastBubble = useRef<string | null>(null);
   const bubbleClock = useRef(0);
   const [bubble, setBubble] = useState<string | null>(null);
-  const vrmUrl = props.vrm && graphicsLevel() !== "battery" ? props.vrm : null;
-  const vrmPose = useRef<VrmPose>(restPose());
-  const [vrmOn, setVrmOn] = useState(false);
 
   const m = useMemo(
     () => ({
@@ -762,30 +755,6 @@ export const Character = memo(function Character(props: Props) {
     }
     if (frown.current) frown.current.visible = worried && !mouthOpen;
     if (oMouth.current) oMouth.current.visible = mouthOpen;
-    if (vrmUrl) {
-      const v = vrmPose.current;
-      const bodyY = body.current ? body.current.position.y - DROP * (1 - sm.sit) : 0;
-      v.hipDy = (hips.current ? hips.current.position.y - HIP_Y : 0) + bodyY;
-      v.lUp = lUp.current?.rotation.x ?? 0;
-      v.rUp = rUp.current?.rotation.x ?? 0;
-      v.lLow = lLow.current?.rotation.x ?? 0;
-      v.rLow = rLow.current?.rotation.x ?? 0;
-      v.la = lArm.current?.rotation.x ?? 0;
-      v.ra = rArm.current?.rotation.x ?? 0;
-      v.lz = lArm.current?.rotation.z ?? 0;
-      v.rz = rArm.current?.rotation.z ?? 0;
-      v.lf = lFore.current?.rotation.x ?? 0;
-      v.rf = rFore.current?.rotation.x ?? 0;
-      v.lean = torso.current?.rotation.x ?? 0;
-      v.sway = torso.current?.rotation.z ?? 0;
-      v.yaw = head.current?.rotation.y ?? 0;
-      v.pitch = head.current?.rotation.x ?? 0;
-      v.blink = resting || blinking ? 1 : 0;
-      v.happy = happy && !mouthOpen ? 0.7 : 0;
-      v.sad = worried ? 0.5 : 0;
-      v.relaxed = resting ? 0.6 : 0;
-      v.mouth = mouthOpen ? 0.6 : 0;
-    }
     if (badge.current) {
       badge.current.position.y = (sitting ? 1.65 : 2.05) + (chibi ? 0.22 : 0) + ag.y + Math.sin(t * 2 + id.length) * 0.04;
       badge.current.rotation.y = t * 1.5;
@@ -836,8 +805,7 @@ export const Character = memo(function Character(props: Props) {
       )}
       <mesh position={[0, 0.9, 0]} scale={[0.6, 1.8, 0.6]} geometry={BOX} material={HIT_MAT} />
       <mesh geometry={BLOB_GEO} material={BLOB_MAT} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} scale={0.75} renderOrder={-1} />
-      {vrmUrl && <VrmBody url={vrmUrl} pose={vrmPose} onReady={setVrmOn} />}
-      <group ref={body} position={[0, DROP, 0]} visible={!vrmOn}>
+      <group ref={body} position={[0, DROP, 0]}>
         <group ref={hips} position={[0, HIP_Y, 0]}>
           {/* legs */}
           {[

@@ -318,7 +318,7 @@ export function SettingsDialog() {
             </div>
             <div>
               <Label>Avatar</Label>
-              <AppearanceEditor value={st.ceoAppearance} vrmKey="ceo" name={st.ceoName} onChange={(a) => s.updateSettings({ ceoAppearance: a })} />
+              <AppearanceEditor value={st.ceoAppearance} onChange={(a) => s.updateSettings({ ceoAppearance: a })} />
             </div>
             <div>
               <Label>CEO office photo frames</Label>

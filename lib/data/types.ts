@@ -256,8 +256,6 @@ export interface OfficeSettings {
   staffDates?: Record<string, { birthday?: string; joinedOn?: string }>;
   /** staff profile photos by employee id: small square JPEG data URLs (~10 KB each) */
   staffPhotos?: Record<string, string>;
-  /** anime (VRM) 3D avatars by employee id ("ceo" for you): file URL */
-  vrmAvatars?: Record<string, string>;
   /** office weather: live for a place (default Kuala Lumpur) or off */
   weather?: { mode?: "live" | "off"; lat?: number; lon?: number; place?: string };
   /** monthly sales goal in RM (dashboard target ring) */

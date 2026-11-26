@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
-import { AnimeAvatarPicker } from "./AnimeAvatarPicker";
 import type { Accessory, Appearance, Employee, HairStyle, HijabStyle, Outfit, Permission } from "@/lib/data/types";
 import { seatsFor } from "@/lib/office/catalog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -69,16 +68,13 @@ export function blankEmployee(): Omit<Employee, "id" | "createdAt" | "status" | 
   };
 }
 
-export function AppearanceEditor({ value, onChange, gender, vrmKey, name }: { value: Appearance; onChange: (a: Appearance) => void; gender?: string; vrmKey?: string; name?: string }) {
-  const vrm = useOffice((s) => (vrmKey ? s.settings.vrmAvatars?.[vrmKey] : undefined));
+export function AppearanceEditor({ value, onChange, gender }: { value: Appearance; onChange: (a: Appearance) => void; gender?: string }) {
   const set = (patch: Partial<Appearance>) => onChange({ ...value, ...patch });
   const acc = value.accessories ?? [];
   return (
-    <div className="space-y-3">
-    {vrmKey && <AnimeAvatarPicker vrmKey={vrmKey} name={name ?? ""} />}
     <div className="grid grid-cols-[auto_1fr] items-start gap-4">
       <div className="flex flex-col items-center gap-1">
-        <CharacterPreview appearance={value} gender={gender} vrm={vrm} />
+        <CharacterPreview appearance={value} gender={gender} />
         <span className="text-[10px] text-slate-400">Live 3D preview</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -157,7 +153,6 @@ export function AppearanceEditor({ value, onChange, gender, vrmKey, name }: { va
           ))}
         </div>
       </div>
-    </div>
     </div>
   );
 }
@@ -321,7 +316,7 @@ export function EmployeeEditor() {
             </div>
           </div>
 
-          <AppearanceEditor value={form.appearance} gender={form.gender} vrmKey={editing?.id} name={form.name} onChange={(appearance) => patch({ appearance })} />
+          <AppearanceEditor value={form.appearance} gender={form.gender} onChange={(appearance) => patch({ appearance })} />
 
           <div>
             <Label>Personality</Label>
