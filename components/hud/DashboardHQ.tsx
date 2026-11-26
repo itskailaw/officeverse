@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowRight, Download, Loader2, Pencil, RefreshCw } from "lucide-react";
+import { ArrowRight, ClipboardList, Download, Loader2, Pencil, RefreshCw } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { useLive, type LiveSummary } from "@/lib/integrations/client";
@@ -279,6 +279,11 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
           >
             {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Full sync
           </button>
+          {isOwner && (
+            <button type="button" onClick={() => set({ dialog: "purchases" })} className="inline-flex h-8 items-center gap-1 rounded-xl px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">
+              <ClipboardList className="h-3.5 w-3.5" /> Order history
+            </button>
+          )}
           <button onClick={() => window.print()} className="inline-flex h-8 items-center gap-1 rounded-xl bg-panel px-2.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
             <Download className="h-3.5 w-3.5" /> Export PDF
           </button>
