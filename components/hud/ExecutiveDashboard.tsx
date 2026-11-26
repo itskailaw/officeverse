@@ -39,6 +39,7 @@ import { ApprovalCard } from "./AIWork";
 import { ProfitPanel, ReturnsPanel } from "./ProfitReturns";
 import { Scorecards } from "./Scorecards";
 import { OrgChart } from "./OrgChart";
+import { useT } from "@/lib/i18n";
 import { liveSources, useLive, type LiveSummary, type PlatformFigures } from "@/lib/integrations/client";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
@@ -47,10 +48,11 @@ export function ExecutiveDashboard() {
   const open = useUI((s) => s.dialog === "dashboard");
   const tab = useUI((s) => s.dashboardTab);
   const set = useUI((s) => s.set);
+  const { t } = useT();
   return (
     <Dialog open={open} onOpenChange={(o) => set({ dialog: o ? "dashboard" : null })}>
       <DialogContent
-        title="Executive Dashboard"
+        title={t("Executive Dashboard")}
         description="Company overview, team activity and approvals — all times in Malaysia time (MYT)."
         className="h-[92vh] max-w-6xl"
       >
@@ -58,29 +60,29 @@ export function ExecutiveDashboard() {
           <div className="scrollbar-thin overflow-x-auto border-b border-slate-100 px-5 py-2">
             <TabsList>
               <TabsTrigger value="overview">
-                <LayoutDashboard /> Overview
+                <LayoutDashboard /> {t("Overview")}
               </TabsTrigger>
               <TabsTrigger value="companies">
-                <Building2 /> Companies
+                <Building2 /> {t("Companies")}
               </TabsTrigger>
               <TabsTrigger value="team">
-                <Users /> Team
+                <Users /> {t("Team")}
               </TabsTrigger>
               <TabsTrigger value="org">
-                <Network /> Org chart
+                <Network /> {t("Org chart")}
               </TabsTrigger>
               <TabsTrigger value="approvals">
-                <CheckSquare /> Approvals
+                <CheckSquare /> {t("Approvals")}
                 <PendingCount />
               </TabsTrigger>
               <TabsTrigger value="tasks">
-                <ClipboardList /> Tasks
+                <ClipboardList /> {t("Tasks")}
               </TabsTrigger>
               <TabsTrigger value="meetings">
-                <CalendarClock /> Meetings
+                <CalendarClock /> {t("Meetings")}
               </TabsTrigger>
               <TabsTrigger value="audit">
-                <ScrollText /> Audit log
+                <ScrollText /> {t("Audit log")}
               </TabsTrigger>
             </TabsList>
           </div>

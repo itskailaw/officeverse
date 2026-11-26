@@ -8,6 +8,7 @@ import { useLive } from "@/lib/integrations/client";
 import { demoEcommerce, formatMYR } from "@/lib/data/demo";
 import { festiveTheme } from "@/lib/office/festive";
 import { Button } from "@/components/ui/button";
+import { translate } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const SEEN_KEY = "ov:welcome-seen"; // sessionStorage: once per sign-in session
@@ -163,6 +164,7 @@ export function WelcomeBrief() {
   const b = briefFrom(summary, settings.demoMode);
   const now = new Date();
   const theme = festiveTheme(now);
+  const t = (x: string) => translate(settings.language, x);
   const pack = b ? b.toProcess + b.toShip : 0;
   const since = lastVisit ?? now.getTime() - 24 * 3600_000;
   const doneSince = tasks.filter((t) => t.status === "completed" && Date.parse(t.updatedAt) > since).length;
@@ -194,7 +196,7 @@ export function WelcomeBrief() {
             {new Intl.DateTimeFormat("en-MY", { timeZone: "Asia/Kuala_Lumpur", weekday: "long", day: "numeric", month: "long" }).format(now)}
           </div>
           <div className="mt-0.5 text-lg font-semibold">
-            {greeting(now)}, {settings.ceoName?.split(" ")[0] || "Boss"} 👋
+            {t(greeting(now))}, {settings.ceoName?.split(" ")[0] || t("Boss")} 👋
           </div>
           {theme && <div className="text-xs text-[#fdb927]">{FESTIVE[theme]}</div>}
           {b && !b.live && <div className="mt-1 inline-block rounded bg-amber-400/90 px-1.5 text-[10px] font-bold text-slate-900">DEMO DATA</div>}
@@ -214,7 +216,7 @@ export function WelcomeBrief() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-2xl font-bold leading-none text-slate-900">
-                  {pack} <span className="text-sm font-semibold text-slate-600">parcel{pack === 1 ? "" : "s"} to pack</span>
+                  {pack} <span className="text-sm font-semibold text-slate-600">{t(pack === 1 ? "parcel to pack" : "parcels to pack")}</span>
                 </div>
                 <div className="mt-1 text-[11px] text-slate-600">
                   {pack ? (
@@ -222,7 +224,7 @@ export function WelcomeBrief() {
                       {b.toShip} ready to ship · {b.toProcess} to confirm{b.toProcess ? (autoOn ? " (Farid's on it)" : "") : ""}
                     </>
                   ) : (
-                    "All caught up — nothing waiting 🎉"
+                    t("All caught up — nothing waiting 🎉")
                   )}
                 </div>
                 {b.perPlatform.length > 1 && pack > 0 && (
@@ -242,7 +244,7 @@ export function WelcomeBrief() {
             {/* sales */}
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-slate-200 p-2.5">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">Sales today</div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500">{t("Sales today")}</div>
                 <div className="text-base font-semibold text-slate-900">{formatMYR(b.today)}</div>
                 <div className={cn("flex items-center gap-1 text-[11px]", vsYesterday == null ? "text-slate-400" : vsYesterday >= 0 ? "text-emerald-700" : "text-slate-500")}>
                   {vsYesterday != null && (vsYesterday >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />)}
@@ -250,9 +252,9 @@ export function WelcomeBrief() {
                 </div>
               </div>
               <div className="rounded-xl border border-slate-200 p-2.5">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">This month</div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500">{t("This month")}</div>
                 <div className="text-base font-semibold text-slate-900">{formatMYR(b.mtd)}</div>
-                <div className="text-[11px] text-slate-500">month to date</div>
+                <div className="text-[11px] text-slate-500">{t("month to date")}</div>
               </div>
             </div>
 
@@ -273,7 +275,7 @@ export function WelcomeBrief() {
                 ))}
               </ul>
             ) : (
-              <p className="text-center text-[11px] text-slate-500">No alerts — a quiet day so far.</p>
+              <p className="text-center text-[11px] text-slate-500">{t("No alerts — a quiet day so far.")}</p>
             )}
           </div>
         )}

@@ -26,6 +26,7 @@ import { Avatar } from "./Avatar";
 import { Logo } from "./Extras";
 import { StatusBadge } from "./EmployeePanel";
 import { openWelcome } from "./WelcomeBrief";
+import { useT } from "@/lib/i18n";
 import { openCommandPalette } from "./CommandPalette";
 
 /** Lite view: the quick, no-3D version for phones (and anyone who switches to it). */
@@ -43,24 +44,25 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
   const owner = role === "owner";
   const set = useUI((s) => s.set);
   const [q, setQ] = useState("");
+  const { t, lang } = useT();
 
   const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
-  const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const greet = t(hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening");
   const toPack = live ? live.toPack.readyToShip + live.toPack.processed : null;
   const urgent = live?.toPack.urgent ?? 0;
   const people = employees.filter((e) => !q.trim() || `${e.name} ${e.title}`.toLowerCase().includes(q.trim().toLowerCase()));
 
   const actions: { label: string; icon: React.ReactNode; onClick: () => void; badge?: number; show?: boolean; tone?: string }[] = [
-    { label: "Packing", icon: <Package />, onClick: () => set({ dialog: "fulfil", fulfilStage: live?.toPack.readyToShip ? "process" : "ship" }), badge: toPack ?? undefined, show: owner, tone: "bg-sky-500" },
-    { label: "Approvals", icon: <CheckSquare />, onClick: () => set({ dialog: "dashboard", dashboardTab: "approvals" }), badge: pendingApprovals, tone: "bg-amber-500" },
-    { label: "Dashboard", icon: <LayoutDashboard />, onClick: () => set({ dialog: "dashboard", dashboardTab: "overview" }), tone: "bg-indigo-500" },
-    { label: "Order history", icon: <ClipboardList />, onClick: () => set({ dialog: "purchases" }), show: owner, tone: "bg-emerald-500" },
-    { label: "Stock", icon: <Boxes />, onClick: () => set({ dialog: "stock" }), tone: "bg-teal-500" },
-    { label: "Stock in", icon: <PackagePlus />, onClick: () => { try { sessionStorage.setItem("ov:stock-section", "in"); } catch {} set({ dialog: "stock" }); }, tone: "bg-cyan-600" },
-    { label: "Marketing", icon: <Megaphone />, onClick: () => set({ dialog: "marketing" }), tone: "bg-pink-500" },
-    { label: "Today", icon: <Sun />, onClick: () => openWelcome(), badge: unread, tone: "bg-orange-500" },
-    { label: "Org chart", icon: <Network />, onClick: () => set({ dialog: "dashboard", dashboardTab: "org" }), tone: "bg-violet-500" },
-    { label: "Meeting", icon: <CalendarPlus />, onClick: () => set({ dialog: "meeting-call" }), tone: "bg-slate-500" },
+    { label: t("Packing"), icon: <Package />, onClick: () => set({ dialog: "fulfil", fulfilStage: live?.toPack.readyToShip ? "process" : "ship" }), badge: toPack ?? undefined, show: owner, tone: "bg-sky-500" },
+    { label: t("Approvals"), icon: <CheckSquare />, onClick: () => set({ dialog: "dashboard", dashboardTab: "approvals" }), badge: pendingApprovals, tone: "bg-amber-500" },
+    { label: t("Dashboard"), icon: <LayoutDashboard />, onClick: () => set({ dialog: "dashboard", dashboardTab: "overview" }), tone: "bg-indigo-500" },
+    { label: t("Order history"), icon: <ClipboardList />, onClick: () => set({ dialog: "purchases" }), show: owner, tone: "bg-emerald-500" },
+    { label: t("Stock"), icon: <Boxes />, onClick: () => set({ dialog: "stock" }), tone: "bg-teal-500" },
+    { label: t("Stock in"), icon: <PackagePlus />, onClick: () => { try { sessionStorage.setItem("ov:stock-section", "in"); } catch {} set({ dialog: "stock" }); }, tone: "bg-cyan-600" },
+    { label: t("Marketing"), icon: <Megaphone />, onClick: () => set({ dialog: "marketing" }), tone: "bg-pink-500" },
+    { label: t("Today"), icon: <Sun />, onClick: () => openWelcome(), badge: unread, tone: "bg-orange-500" },
+    { label: t("Org chart"), icon: <Network />, onClick: () => set({ dialog: "dashboard", dashboardTab: "org" }), tone: "bg-violet-500" },
+    { label: t("Meeting"), icon: <CalendarPlus />, onClick: () => set({ dialog: "meeting-call" }), tone: "bg-slate-500" },
   ];
 
   return (
@@ -69,7 +71,7 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
         <Logo size={32} />
         <div className="flex-1 leading-tight">
           <div className="text-sm font-semibold text-slate-900">OfficeVerse</div>
-          <div className="text-[10px] text-slate-500">Lite</div>
+          <div className="text-[10px] text-slate-500">{t("Lite")}</div>
         </div>
         {demo && <Badge variant="demo">DEMO</Badge>}
         <button onClick={() => openCommandPalette()} className="grid h-9 w-9 place-items-center rounded-lg text-slate-600 active:bg-slate-100" aria-label="Search">
@@ -83,25 +85,25 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
       <div className="space-y-4 p-4">
         <div>
           <div className="text-lg font-bold text-slate-900">
-            {greet}, {ceoName?.split(" ")[0] || "Boss"} 👋
+            {greet}, {ceoName?.split(" ")[0] || t("Boss")} 👋
           </div>
-          <div className="text-xs text-slate-500">{new Date().toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kuala_Lumpur" })}</div>
+          <div className="text-xs text-slate-500">{new Date().toLocaleDateString(lang === "zh" ? "zh-CN" : lang === "ms" ? "ms-MY" : "en-MY", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kuala_Lumpur" })}</div>
         </div>
 
         {/* today at a glance */}
         <div className="grid grid-cols-3 gap-2">
-          <Tile label="Sales today" value={live ? formatMYR(live.today.revenue) : "—"} />
-          <Tile label="Orders today" value={live ? String(live.today.orders) : "—"} />
-          <Tile label="To pack" value={toPack === null ? "—" : String(toPack)} warn={urgent > 0} />
+          <Tile label={t("Sales today")} value={live ? formatMYR(live.today.revenue) : "—"} />
+          <Tile label={t("Orders today")} value={live ? String(live.today.orders) : "—"} />
+          <Tile label={t("To pack")} value={toPack === null ? "—" : String(toPack)} warn={urgent > 0} />
         </div>
         {urgent > 0 && owner && (
           <button onClick={() => set({ dialog: "fulfil", fulfilStage: "ship" })} className="w-full rounded-xl bg-red-50 px-3 py-2 text-left text-xs font-semibold text-red-800 ring-1 ring-red-200">
-            🔴 {urgent} parcel{urgent > 1 ? "s" : ""} must ship soon — open Packing →
+            🔴 {urgent} parcel{urgent > 1 ? "s" : ""} {t("must ship soon — open Packing →")}
           </button>
         )}
         {pendingApprovals > 0 && (
           <button onClick={() => set({ dialog: "dashboard", dashboardTab: "approvals" })} className="w-full rounded-xl bg-amber-50 px-3 py-2 text-left text-xs font-semibold text-amber-900 ring-1 ring-amber-200">
-            ✋ {pendingApprovals} waiting for your approval →
+            ✋ {pendingApprovals} {t("waiting for your approval →")}
           </button>
         )}
 
@@ -121,9 +123,9 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
         {/* team */}
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <div className="text-sm font-semibold text-slate-900">Your team</div>
+            <div className="text-sm font-semibold text-slate-900">{t("Your team")}</div>
             <span className="text-xs text-slate-500">{employees.length}</span>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find someone" className="ml-auto h-8 w-36 rounded-lg border border-slate-200 bg-panel px-2 text-xs text-slate-800" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Find someone")} className="ml-auto h-8 w-36 rounded-lg border border-slate-200 bg-panel px-2 text-xs text-slate-800" />
           </div>
           <div className="overflow-hidden rounded-2xl bg-panel ring-1 ring-slate-200">
             {people.map((e) => (
@@ -141,7 +143,7 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
         </div>
 
         <button onClick={onOpen3D} className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-200/70 py-3 text-xs font-medium text-slate-700 active:bg-slate-300/70">
-          <Box className="h-4 w-4" /> Open the full 3D office
+          <Box className="h-4 w-4" /> {t("Open the full 3D office")}
         </button>
       </div>
     </div>

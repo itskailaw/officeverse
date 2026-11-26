@@ -33,7 +33,9 @@ export async function sendBriefing(workspaceId: string, opts: { refresh?: boolea
   let notes: string[] = [];
   if (s && aiConfigured()) {
     try {
-      notes = await Promise.race([briefingNotes(briefingFacts(s)), new Promise<string[]>((r) => setTimeout(() => r([]), 45_000))]);
+      const { data: lay } = await getAdminSupabase().from("office_layouts").select("settings").eq("workspace_id", workspaceId).maybeSingle();
+      const l = (lay?.settings as { language?: string } | null)?.language;
+      notes = await Promise.race([briefingNotes(briefingFacts(s), undefined, l === "ms" || l === "zh" ? l : "en"), new Promise<string[]>((r) => setTimeout(() => r([]), 45_000))]);
     } catch (e) {
       console.error("[briefing] notes failed", e instanceof Error ? e.message : e);
     }

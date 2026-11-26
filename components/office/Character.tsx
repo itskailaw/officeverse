@@ -11,6 +11,7 @@ import { getSim } from "@/lib/office/runtime";
 import { mat, vinyl } from "./materials";
 import { useMoments, taskEmoji } from "@/lib/office/moments";
 import { useMusic } from "@/lib/audio/music";
+import { currentLang, translate } from "@/lib/i18n";
 import { klHourNow } from "@/lib/office/lighting";
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -282,6 +283,13 @@ const BREAK_TEXT: Record<string, string> = {
   vanity: "🧼 Washing hands",
   pantry_counter: "🍱 Heating up lunch",
 };
+
+/** Bubble text in the chosen language (task titles stay as written). */
+function translateBubble(text: string | null) {
+  if (!text) return text;
+  const lang = currentLang();
+  return lang === "en" ? text : translate(lang, text);
+}
 
 function activityText(ag: Agent, status: EmployeeStatus | undefined, seatKind: string | undefined, furnitureType?: string, task?: string | null): string | null {
   if (ag.pose === "held") return "😮 Whoa!";
@@ -770,7 +778,7 @@ export const Character = memo(function Character(props: Props) {
     bubbleClock.current -= dt;
     if (bubbleClock.current <= 0) {
       bubbleClock.current = 0.4;
-      const next = isCEO || props.preview ? null : activityText(ag, status, seat?.kind, seat ? getSim().layout.furniture.find((f) => f.id === seat.furnitureId)?.type : undefined, props.task);
+      const next = isCEO || props.preview ? null : translateBubble(activityText(ag, status, seat?.kind, seat ? getSim().layout.furniture.find((f) => f.id === seat.furnitureId)?.type : undefined, props.task));
       if (next !== lastBubble.current) {
         lastBubble.current = next;
         setBubble(next);

@@ -17,6 +17,7 @@ import { AIUsageCard } from "./AIUsageCard";
 import { SystemHealthCard } from "./SystemHealth";
 import { toProfilePhoto } from "./Avatar";
 import { PLACES, useWeather, weatherIcon } from "@/lib/office/weather";
+import { useT, LANGS } from "@/lib/i18n";
 import { AppInstallCard } from "./AppInstall";
 
 const MAX_UPLOAD = 5 * 1024 * 1024;
@@ -48,6 +49,7 @@ export function SettingsDialog() {
   const toast = useUI((s) => s.toast);
   const s = useOffice();
   const st = s.settings;
+  const { t } = useT();
   const [health, setHealth] = useState<Health | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -86,27 +88,45 @@ export function SettingsDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && setUI({ dialog: null })}>
-      <DialogContent title="Settings" description="Office customisation, CEO profile, notifications and data." className="max-w-2xl">
+      <DialogContent title={t("Settings")} description="Office customisation, CEO profile, notifications and data." className="max-w-2xl">
         <Tabs value={tab} onValueChange={(v) => setUI({ settingsTab: v })} className="flex flex-col">
           <div className="border-b border-slate-100 px-5 py-2">
             <TabsList>
               <TabsTrigger value="office">
-                <Lamp /> Office
+                <Lamp /> {t("Office")}
               </TabsTrigger>
               <TabsTrigger value="ceo">
-                <User /> CEO
+                <User /> {t("CEO")}
               </TabsTrigger>
-              <TabsTrigger value="notifications">Notifications</TabsTrigger>
+              <TabsTrigger value="notifications">{t("Notifications")}</TabsTrigger>
               <TabsTrigger value="integrations">
-                <PlugZap /> Integrations
+                <PlugZap /> {t("Integrations")}
               </TabsTrigger>
               <TabsTrigger value="data">
-                <Database /> Data & system
+                <Database /> {t("Data & system")}
               </TabsTrigger>
             </TabsList>
           </div>
 
           <TabsContent value="office" className="space-y-5 p-5">
+            <div className="flex items-start justify-between gap-4 rounded-xl border border-sky-200 bg-sky-50/60 p-3">
+              <div>
+                <div className="text-sm font-semibold text-slate-800">🌐 {t("Language")}</div>
+                <div className="text-xs text-slate-500">{t("Menus and labels, and the language your AI staff reply in.")}</div>
+              </div>
+              <select
+                value={st.language ?? "en"}
+                onChange={(e) => s.updateSettings({ language: e.target.value as "en" | "ms" | "zh" })}
+                className="h-9 shrink-0 rounded-md border border-slate-200 bg-panel px-2 text-sm text-slate-800"
+                aria-label="Language"
+              >
+                {LANGS.map((l) => (
+                  <option key={l.v} value={l.v}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <Label>Lighting</Label>
               <div className="grid grid-cols-4 gap-2">

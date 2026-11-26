@@ -258,6 +258,8 @@ export interface OfficeSettings {
   staffPhotos?: Record<string, string>;
   /** office weather: live for a place (default Kuala Lumpur) or off */
   weather?: { mode?: "live" | "off"; lat?: number; lon?: number; place?: string };
+  /** OfficeVerse language: English, Bahasa Melayu or Chinese (staff reply in it too) */
+  language?: "en" | "ms" | "zh";
   /** 3D graphics quality (auto = by device) */
   graphics?: import("../office/quality.ts").Quality;
   /** staff wear their team's uniform (WGS polo, Marketing hoodie, Finance shirt & tie, Amare smart casual, Artides apron) */

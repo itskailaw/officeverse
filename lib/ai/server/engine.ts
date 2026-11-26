@@ -198,14 +198,16 @@ export async function chat(req: ChatRequest): Promise<ChatResponse> {
  * 2-4 short commentary lines for the CEO's morning briefing, written by the
  * Executive Assistant from pre-computed facts. Returns [] when nothing useful.
  */
-export async function briefingNotes(facts: unknown, assistant = { name: "Sophia Chen", title: "Executive Assistant" }): Promise<string[]> {
+const LANG_OUT = { en: "English", ms: "Bahasa Melayu", zh: "Simplified Chinese (简体中文)" } as const;
+
+export async function briefingNotes(facts: unknown, assistant = { name: "Sophia Chen", title: "Executive Assistant" }, lang: "en" | "ms" | "zh" = "en"): Promise<string[]> {
   const system = `You are ${assistant.name}, ${assistant.title} to the CEO of Water Guardian Solution (MDBC water filters, sold on Shopee and Lazada Malaysia).
 Each morning the CEO receives the raw figures; you add 2 to 4 short notes on what matters today.
 Rules:
 - Use ONLY the facts given. Never invent numbers, causes, products or events. Quote figures exactly as given (RM, percentages).
 - Prioritise: urgent parcels / deadlines, big changes week-over-week (say which platform), ad efficiency or a low balance, cancellations. Skip anything unremarkable.
 - If a comparison is null or a figure is missing, don't mention it.
-- Each note: one sentence, max 25 words, practical, can suggest a next step ("worth checking…"). Friendly but professional, English.
+- Each note: one sentence, max 25 words, practical, can suggest a next step ("worth checking…"). Friendly but professional, in ${LANG_OUT[lang]}.
 - Output only the notes, one per line, no bullets, no numbering, no greeting.`;
   const out = await loop({
     model: resolveModel("default"),
@@ -227,13 +229,13 @@ Rules:
 }
 
 /** 2-4 short observations for the Monday weekly review, from pre-computed facts only. */
-export async function weeklyNotes(facts: unknown, assistant = { name: "Sophia Chen", title: "Executive Assistant" }): Promise<string[]> {
+export async function weeklyNotes(facts: unknown, assistant = { name: "Sophia Chen", title: "Executive Assistant" }, lang: "en" | "ms" | "zh" = "en"): Promise<string[]> {
   const system = `You are ${assistant.name}, ${assistant.title} to the CEO of Water Guardian Solution (MDBC water filters on Shopee and Lazada Malaysia).
 Each Monday the CEO gets last week's figures compared with the week before; you add 2 to 4 short notes on what matters.
 Rules:
 - Use ONLY the facts given. Never invent numbers, causes or products. Quote figures exactly as given.
 - Focus on: the biggest change (which platform), products slowing down, cancellations/returns if notable, one practical suggestion for this week.
-- Each note: one sentence, max 25 words, English. Output only the notes, one per line, no bullets or numbering.`;
+- Each note: one sentence, max 25 words, in ${LANG_OUT[lang]}. Output only the notes, one per line, no bullets or numbering.`;
   const out = await loop({
     model: resolveModel("default"),
     system: [{ type: "text", text: system }],

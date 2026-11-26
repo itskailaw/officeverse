@@ -25,6 +25,7 @@ import { lastMonth, topPerformers } from "@/lib/office/office-life";
 import { shootMiniHoop } from "./FunFurniture";
 import { QUALITY, graphicsLevel, resolveQuality, setGraphicsLevel } from "@/lib/office/quality";
 import { useMoments } from "@/lib/office/moments";
+import { translate } from "@/lib/i18n";
 import { ceoMonitorTexture, logoScreenTexture, meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
 /** Display pieces that zoom the camera in when clicked. */
@@ -696,6 +697,7 @@ function InteractionPlane() {
 
 // ------------------------------------------------------------------ root
 function Labels() {
+  const lang = useOffice((s) => s.settings.language);
   const departments = useOffice((s) => s.departments);
   const companies = useOffice((s) => s.companies);
   const camera = useUI((s) => s.camera);
@@ -704,10 +706,11 @@ function Labels() {
       ROOMS.filter((r) => r.id !== "corridor").map((room) => {
         const dept = departments.find((d) => d.id === room.departmentId);
         const co = companies.find((c) => c.id === dept?.companyId);
-        const text = room.id === "ceo" ? "CEO Suite" : dept ? (dept.active ? dept.name : `${dept.name} (inactive)`) : room.name;
+        const raw = room.id === "ceo" ? "CEO Suite" : dept ? (dept.active ? dept.name : `${dept.name} (inactive)`) : room.name;
+        const text = translate(lang, raw);
         return { room, text, color: co?.color };
       }),
-    [departments, companies],
+    [departments, companies, lang],
   );
   return <RoomLabels labels={labels} onFocus={(r: Room) => camera({ kind: "focus", x: (r.x0 + r.x1) / 2, z: (r.z0 + r.z1) / 2 })} />;
 }

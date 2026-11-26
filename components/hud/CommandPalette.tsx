@@ -8,6 +8,7 @@ import { useMusic } from "@/lib/audio/music";
 import { openWelcome } from "./WelcomeBrief";
 import { openMarketing } from "./MarketingStudio";
 import { startDance } from "@/lib/office/dance";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface Cmd {
@@ -28,6 +29,7 @@ export function CommandPalette() {
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const employees = useOffice((s) => s.employees);
+  const { t } = useT();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -128,13 +130,13 @@ export function CommandPalette() {
               }
               else if (e.key === "Escape") setOpen(false);
             }}
-            placeholder="Type to jump: print labels, stock, Farid, music…"
+            placeholder={t("Type to jump: print labels, stock, Farid, music…")}
             className="h-12 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
           />
           <kbd className="hidden rounded border border-slate-200 px-1.5 text-[10px] text-slate-400 sm:block">esc</kbd>
         </div>
         <div className="scrollbar-thin max-h-[50vh] overflow-y-auto p-1">
-          {!list.length && <p className="p-4 text-center text-xs text-slate-500">Nothing matches “{q}”.</p>}
+          {!list.length && <p className="p-4 text-center text-xs text-slate-500">{t("Nothing matches")} “{q}”.</p>}
           {list.map((c, i) => (
             <button
               key={c.id}
@@ -142,7 +144,7 @@ export function CommandPalette() {
               onClick={() => go(c)}
               className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left", i === sel ? "bg-sky-50" : "")}
             >
-              <span className="text-sm font-medium text-slate-800">{c.label}</span>
+              <span className="text-sm font-medium text-slate-800">{c.label.startsWith("Chat with ") ? `${t("Chat with")} ${c.label.slice(10)}` : t(c.label)}</span>
               {c.hint && <span className="ml-auto truncate text-[11px] text-slate-400">{c.hint}</span>}
             </button>
           ))}

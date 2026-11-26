@@ -43,6 +43,7 @@ import { cn, klTime, timeAgo } from "@/lib/utils";
 import type { LightingMode, WallMode } from "@/lib/data/types";
 import { PriorityDot } from "./ExecutiveDashboard";
 import { CompanySwitcher, Logo } from "./Extras";
+import { useT } from "@/lib/i18n";
 import { liveSources, useLive } from "@/lib/integrations/client";
 
 function Clock24() {
@@ -71,6 +72,7 @@ const LIGHT_ICON = { day: <Sun />, evening: <Sunset />, night: <Moon />, auto: <
 const WALL_LABEL = { cutaway: "Cut-away", full: "Walls up", hidden: "Walls down" };
 
 export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
+  const { t } = useT();
   const settings = useOffice((s) => s.settings);
   const update = useOffice((s) => s.updateSettings);
   const liveSummary = useLive((s) => s.summary);
@@ -86,7 +88,7 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         <Logo size={32} />
         <div className="hidden whitespace-nowrap leading-tight sm:block">
           <div className="text-sm font-semibold text-slate-900">OfficeVerse</div>
-          <div className="hidden text-[10px] text-slate-500 xl:block">Your Business. Your People. Your Universe.</div>
+          <div className="hidden text-[10px] text-slate-500 xl:block">{t("Your Business. Your People. Your Universe.")}</div>
         </div>
       </div>
       <CompanySwitcher />
@@ -102,7 +104,7 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
       ) : (
         !liveShopee && <Badge variant="outline">LIVE · no integrations</Badge>
       )}
-      {ui.mode === "build" && <Badge variant="warning">BUILD MODE</Badge>}
+      {ui.mode === "build" && <Badge variant="warning">{t("BUILD MODE")}</Badge>}
       <div className="ml-auto flex items-center gap-1">
         <Button variant="ghost" size="icon" title="Quick actions (⌘K / Ctrl+K)" onClick={openCommandPalette} aria-label="Quick actions">
           <Search />
@@ -118,11 +120,11 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
           onClick={() => update({ lighting: LIGHT_CYCLE[(LIGHT_CYCLE.indexOf(settings.lighting) + 1) % LIGHT_CYCLE.length] })}
         >
           {LIGHT_ICON[settings.lighting]}
-          <span className="hidden capitalize lg:inline">{settings.lighting}</span>
+          <span className="hidden capitalize lg:inline">{t(settings.lighting[0].toUpperCase() + settings.lighting.slice(1))}</span>
         </Button>
         <Button variant="ghost" size="sm" title="Walls" onClick={() => update({ walls: WALL_CYCLE[(WALL_CYCLE.indexOf(settings.walls) + 1) % WALL_CYCLE.length] })}>
           <Layers />
-          <span className="hidden lg:inline">{WALL_LABEL[settings.walls]}</span>
+          <span className="hidden lg:inline">{t(WALL_LABEL[settings.walls])}</span>
         </Button>
         <Button
           variant="ghost"
@@ -150,7 +152,7 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         {!touch && (
           <Button size="sm" onClick={() => ui.set({ dialog: "dashboard", dashboardTab: "overview" })}>
             <LayoutDashboard />
-            <span className="hidden sm:inline">Dashboard</span>
+            <span className="hidden sm:inline">{t("Dashboard")}</span>
           </Button>
         )}
         <div className="relative">

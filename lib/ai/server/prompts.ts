@@ -58,6 +58,7 @@ Data mode: ${
         : "Live mode — no integrations are connected yet, so business data tools return 'unavailable'."
   }
 ${automationPrompt(ctx)}
+${languagePrompt(ctx.automation?.language)}
 </office_context>`;
 }
 
@@ -81,4 +82,11 @@ function automationPrompt(ctx: OfficeContext) {
 - Marketing Studio (quick menu or the Marketing button): Hafiz writes Shopee/Lazada listings in English and Malay and plans sale-event campaigns (11.11, 12.12, Raya, CNY, payday…; he reminds the CEO 14 and 3 days before the big ones on Telegram and phone); Mei Ling drafts buyer chat replies for the CEO to copy into marketplace chat. Nothing is posted to the shops automatically.
 - Office life: staff birthdays and join dates are set in Edit employee (balloons and cake at their desk on the day); the car park fills as staff arrive (weekdays ~8–9:30) and empties in the evening; festive decorations go up around Raya, CNY, Deepavali, Merdeka and Christmas; the lobby shows last month's Employee of the Month; there is a surau beside the Library Nook and restrooms off Main Street.
 Where the CEO controls them: Dashboard → "To process" (Farid's switch and hours, "Check now", the email bar with "Send now"); Settings → Integrations (Telegram). If you have the propose_action tool and the CEO asks for one of its actions, use it: the CEO gets an Approve button and it runs only when they tap it — tell them that. Otherwise explain what happens automatically and point the CEO to the right button (e.g. "Send now" sends the airway-bill email immediately).`;
+}
+
+const LANG_NAME = { ms: "Bahasa Melayu (natural Malaysian usage)", zh: "Simplified Chinese (简体中文, as used in Malaysia)" } as const;
+/** The CEO chose a language for OfficeVerse: reply in it unless the CEO writes in another language. */
+export function languagePrompt(lang: "en" | "ms" | "zh" | undefined) {
+  if (!lang || lang === "en") return "";
+  return `Language: the CEO set OfficeVerse to ${LANG_NAME[lang]}. Reply in ${LANG_NAME[lang]} by default (keep product names, SKUs, order IDs and RM amounts as they are); if the CEO writes to you in another language, reply in that language instead.`;
 }

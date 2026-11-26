@@ -47,11 +47,12 @@ export async function sendWeeklyReview(ws: string) {
   });
   const { data: rets } = await sb.from("marketplace_returns").select("requested_at").eq("workspace_id", ws).gte("requested_at", since);
   const { data: lay } = await sb.from("office_layouts").select("settings").eq("workspace_id", ws).maybeSingle();
-  const settings = (lay?.settings ?? {}) as { stock?: StockItem[]; packingEmail?: { to?: string } };
+  const settings = (lay?.settings ?? {}) as { stock?: StockItem[]; packingEmail?: { to?: string }; language?: string };
+  const lang = settings.language === "ms" || settings.language === "zh" ? settings.language : "en";
   const facts = weekFacts(orders, (rets ?? []) as { requested_at: string }[], Date.now(), packNames(settings.stock));
 
   let notes: string[] = [];
-  if (aiConfigured()) notes = await Promise.race([weeklyNotes(facts).catch(() => []), new Promise<string[]>((r) => setTimeout(() => r([]), 45_000))]);
+  if (aiConfigured()) notes = await Promise.race([weeklyNotes(facts, undefined, lang).catch(() => []), new Promise<string[]>((r) => setTimeout(() => r([]), 45_000))]);
 
   const tg = (await listIntegrations(ws, "telegram")).find((r) => r.status === "connected" && r.shop_id);
   let sent = 0;
