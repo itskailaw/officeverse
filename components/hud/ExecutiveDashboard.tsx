@@ -39,8 +39,10 @@ import { ApprovalCard } from "./AIWork";
 import { ProfitPanel, ReturnsPanel } from "./ProfitReturns";
 import { Scorecards } from "./Scorecards";
 import { OrgChart } from "./OrgChart";
+import { DashboardHQ } from "./DashboardHQ";
 import { useT } from "@/lib/i18n";
 import { liveSources, useLive, type LiveSummary, type PlatformFigures } from "@/lib/integrations/client";
+import type { Employee, Task } from "@/lib/data/types";
 
 const SERIES = { lazada: "#2a78d6", shopee: "#eb6834" };
 
@@ -125,14 +127,12 @@ function Overview() {
   const departments = useOffice((s) => s.departments);
   const employees = useOffice((s) => s.employees);
   const tasks = useOffice((s) => s.tasks);
-  const meetings = useOffice((s) => s.meetings);
-  const notifications = useOffice((s) => s.notifications);
-  const activity = useOffice((s) => s.activity);
   const demo = useOffice((s) => s.settings.demoMode);
   const liveData = useLive((s) => s.summary);
   const companyFilter = useUI((s) => s.companyFilter);
   const set = useUI((s) => s.set);
   const [deptFilter, setDeptFilter] = useState("all");
+  const liveSyncing = useLive((s) => s.syncing);
 
   const scopedEmployees = employees.filter(
     (e) => e.active && (companyFilter === "all" || e.companyId === companyFilter || e.companyId === null) && (deptFilter === "all" || e.departmentId === deptFilter),
@@ -144,6 +144,19 @@ function Overview() {
   const showArtides = companyFilter === "all" || companyFilter === "co-artides";
   const showAmare = companyFilter === "all" || companyFilter === "co-amare";
 
+  if (liveData && showWgs)
+    return (
+      <div className="space-y-4">
+        <DashboardHQ s={liveData} quickRefresh={<QuickRefresh disabled={liveSyncing} />} />
+        {(showArtides || showAmare) && (
+          <div className="grid gap-4 md:grid-cols-2">
+            {showArtides && <ArtidesCard demo={demo} />}
+            {showAmare && <AmareCard demo={demo} />}
+          </div>
+        )}
+        <TeamBlock pending={pending} completed={completed.length} scopedEmployees={scopedEmployees} />
+      </div>
+    );
   return (
     <div className="space-y-4">
       <Hero />
@@ -213,6 +226,20 @@ function Overview() {
         </div>
       )}
 
+      <TeamBlock pending={pending} completed={completed.length} scopedEmployees={scopedEmployees} />
+    </div>
+  );
+}
+
+/** Tasks, meetings, notifications, team status and activity. */
+function TeamBlock({ pending, completed: completedCount, scopedEmployees }: { pending: Task[]; completed: number; scopedEmployees: Employee[] }) {
+  const meetings = useOffice((s) => s.meetings);
+  const notifications = useOffice((s) => s.notifications);
+  const activity = useOffice((s) => s.activity);
+  const set = useUI((s) => s.set);
+  const completed = { length: completedCount };
+  return (
+    <>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
@@ -313,7 +340,7 @@ function Overview() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </>
   );
 }
 

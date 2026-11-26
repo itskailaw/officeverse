@@ -258,6 +258,8 @@ export interface OfficeSettings {
   staffPhotos?: Record<string, string>;
   /** office weather: live for a place (default Kuala Lumpur) or off */
   weather?: { mode?: "live" | "off"; lat?: number; lon?: number; place?: string };
+  /** monthly sales goal in RM (dashboard target ring) */
+  salesTarget?: number;
   /** OfficeVerse language: English, Bahasa Melayu or Chinese (staff reply in it too) */
   language?: "en" | "ms" | "zh";
   /** 3D graphics quality (auto = by device) */
