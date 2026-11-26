@@ -24,6 +24,7 @@ import { BirthdayDecor, FestiveDecor } from "./OfficeLife";
 import { lastMonth, topPerformers } from "@/lib/office/office-life";
 import { shootMiniHoop } from "./FunFurniture";
 import { QUALITY, graphicsLevel, resolveQuality, setGraphicsLevel } from "@/lib/office/quality";
+import { useMoments } from "@/lib/office/moments";
 import { ceoMonitorTexture, logoScreenTexture, meetingTexture, perfScreenTexture, receptionTexture } from "./screens";
 
 /** Display pieces that zoom the camera in when clicked. */
@@ -280,6 +281,7 @@ function CameraRig() {
     w.__ovLive = useLive;
     w.__ovUI = useUI;
     w.__ovWeather = useWeather;
+    w.__ovMoments = useMoments;
     w.__ovProject = (x: number, y: number, z: number) => {
       const v = new THREE.Vector3(x, y, z).project(camera);
       return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height };
