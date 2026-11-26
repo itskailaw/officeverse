@@ -603,16 +603,18 @@ function LiveEcommerceSection({ s }: { s: LiveSummary }) {
         </div>
         <div className="flex items-center gap-2">
           {both && <PlatformSwitch view={view} onChange={setView} />}
+          <QuickRefresh disabled={syncing} />
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             disabled={syncing}
+            title="Full sync: orders, ads, fees, payouts and returns (slower)"
             onClick={async () => {
               const r = await syncAll();
               toast(r.ok ? "success" : "error", r.message);
             }}
           >
-            {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync now
+            {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Full sync
           </Button>
           <Button size="sm" variant="outline" onClick={() => setUI({ dialog: "stock" })} title="Stock levels and pack names">
             <Package /> Stock
@@ -1073,5 +1075,38 @@ function AuditLog() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Orders-only refresh: new orders and drop-off scans in a few seconds (Full sync also pulls ads, fees and returns). */
+function QuickRefresh({ disabled }: { disabled?: boolean }) {
+  const toast = useUI((s) => s.toast);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    const before = useLive.getState().summary;
+    try {
+      const r = await fetch("/api/fulfil/orders", { method: "POST" });
+      const j = (await r.json().catch(() => ({}))) as { errors?: string[]; finished?: boolean; error?: string };
+      if (!r.ok) throw new Error(j.error ?? `Refresh failed (${r.status})`);
+      await useLive.getState().loadSummary();
+      const after = useLive.getState().summary;
+      if (j.errors?.length) toast("error", `Couldn't reach ${j.errors.join("; ")}`);
+      else if (after && before) {
+        const newOrders = after.today.orders - before.today.orders;
+        const shipped = before.toPack.processed - after.toPack.processed;
+        const bits = [newOrders > 0 ? `🛒 ${newOrders} new order${newOrders > 1 ? "s" : ""}` : "", shipped > 0 ? `✅ ${shipped} parcel${shipped > 1 ? "s" : ""} scanned at drop-off` : ""].filter(Boolean);
+        toast(bits.length ? "success" : "info", bits.length ? bits.join(" · ") : "Up to date — nothing new since the last check");
+      } else toast("success", "Refreshed");
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Button size="sm" variant="outline" disabled={busy || disabled} onClick={() => void run()} title="Quick: new orders and drop-off scans only (a few seconds)">
+      <RefreshCw className={cn(busy && "animate-spin")} /> {busy ? "Refreshing…" : "Refresh"}
+    </Button>
   );
 }
