@@ -561,6 +561,7 @@ function Agents() {
   const active = employees.filter((e) => e.active);
   // name tags: photos, current task, last month's top 3, team uniforms
   const photos = useOffice((s) => s.settings.staffPhotos);
+  const vrms = useOffice((s) => s.settings.vrmAvatars);
   const uniforms = useOffice((s) => s.settings.uniforms ?? true);
   const tasks = useOffice((s) => s.tasks);
   const chats = useOffice((s) => s.chatMessages);
@@ -577,6 +578,7 @@ function Agents() {
         name={`${ceoName} (You)`}
         appearance={ceoLook}
         photo={ceoPhoto ?? null}
+        vrm={vrms?.ceo ?? null}
         chibi={chibi}
         theme={theme}
         isCEO
@@ -599,6 +601,7 @@ function Agents() {
           task={running.get(e.id) ?? null}
           star={top.indexOf(e.id) + 1 || undefined}
           photo={photos?.[e.id] ?? null}
+          vrm={vrms?.[e.id] ?? null}
           chibi={chibi}
           theme={theme}
           gender={e.gender}
