@@ -36,7 +36,7 @@ export interface LiveSummary {
   byPlatform?: { shopee?: PlatformFigures; lazada?: PlatformFigures };
   bestSellers30d: { name: string; units: number; revenue: number }[];
   ads: { shopee: { balance: number; at: string } | null; lazada?: LazadaAds | null };
-  profit?: { total: ProfitFigures; byPlatform: { shopee?: ProfitFigures; lazada?: ProfitFigures }; costsEntered: number; uncosted?: { name: string; variation: string; units: number }[]; note: string } | null;
+  profit?: { total: ProfitFigures; byPlatform: { shopee?: ProfitFigures; lazada?: ProfitFigures }; costsEntered: number; uncosted?: { name: string; variation: string; units: number }[]; ads?: { byChannel: Partial<Record<import("@/lib/data/ads").AdChannel, number>>; lazadaSource: "manual" | "synced" | "none"; keyedIn: number }; note: string } | null;
   returns?: {
     open: number;
     last30: number;

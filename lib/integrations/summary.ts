@@ -5,6 +5,8 @@ import type { LazadaAds } from "./lazada/ads";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { skuPrices, unitCost, type CostContext, type CostRecipes } from "@/lib/data/costs";
 import { itemKey } from "@/lib/data/stock";
+import { monthAds, platformAdSpend, type AdChannel, type AdEntry } from "@/lib/data/ads";
+export type ProfitAds = { byChannel: Partial<Record<AdChannel, number>>; lazadaSource: "manual" | "synced" | "none"; keyedIn: number };
 import type { Inventory } from "@/lib/data/inventory";
 
 type Platform = "shopee" | "lazada";
@@ -88,7 +90,7 @@ export interface LiveSummary {
   byPlatform: Partial<Record<Platform, PlatformFigures>>;
   bestSellers30d: { name: string; units: number; revenue: number }[];
   ads: { shopee: { balance: number; at: string } | null; lazada: LazadaAds | null };
-  profit: { total: ProfitFigures; byPlatform: Partial<Record<Platform, ProfitFigures>>; costsEntered: number; uncosted?: { name: string; variation: string; units: number }[]; note: string } | null;
+  profit: { total: ProfitFigures; byPlatform: Partial<Record<Platform, ProfitFigures>>; costsEntered: number; uncosted?: { name: string; variation: string; units: number }[]; ads?: ProfitAds; note: string } | null;
   returns: { open: number; last30: number; refund30: number; byPlatform: Partial<Record<Platform, { open: number; last30: number }>>; recent: ReturnRow[]; available: boolean };
 }
 
@@ -266,9 +268,11 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
   // ── profit (month to date): marketplace payouts − product cost − ad spend ──
   let costs: Record<string, number> = {};
   let costCtx: CostContext = { prices: new Map() };
+  let adEntries: AdEntry[] = [];
   try {
     const { data: lay } = await sb.from("office_layouts").select("settings").eq("workspace_id", workspaceId).maybeSingle();
-    const st = (lay?.settings ?? null) as { productCosts?: Record<string, number>; costRecipes?: CostRecipes; inventory?: Inventory } | null;
+    const st = (lay?.settings ?? null) as { productCosts?: Record<string, number>; costRecipes?: CostRecipes; inventory?: Inventory; adSpend?: AdEntry[] } | null;
+    adEntries = Array.isArray(st?.adSpend) ? st!.adSpend : [];
     const pc = st?.productCosts;
     if (pc && typeof pc === "object") costs = Object.fromEntries(Object.entries(pc).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)]));
     costCtx = { prices: skuPrices(st?.inventory), skus: (st?.inventory?.skus ?? []).map((x) => x.sku), recipes: st?.costRecipes ?? null, byName: costs };
@@ -334,7 +338,9 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
   }
 
   const profitBy: Partial<Record<Platform, ProfitFigures>> = {};
-  for (const p of platforms) profitBy[p] = finish(prof[p]!, p === "lazada" ? (lazadaAds?.monthToDate?.spend ?? 0) : 0);
+  const manualAds = monthAds(adEntries, month);
+  const adPlat = platformAdSpend(manualAds, lazadaAds?.monthToDate?.spend ?? null);
+  for (const p of platforms) profitBy[p] = finish(prof[p]!, p === "lazada" ? adPlat.lazada : adPlat.shopee);
   const pv = Object.values(profitBy) as ProfitFigures[];
   const totalRaw = {
     ...emptyProfit(),
@@ -350,7 +356,7 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
   };
   const units = platforms.reduce((a, p) => a + (prof[p]?.units ?? 0), 0);
   const costed = platforms.reduce((a, p) => a + (prof[p]?.costedUnits ?? 0), 0);
-  const totalProfit = finish({ ...totalRaw, units, costedUnits: costed }, pv.reduce((a, x) => a + x.adSpend, 0));
+  const totalProfit = finish({ ...totalRaw, units, costedUnits: costed }, pv.reduce((a, x) => a + x.adSpend, 0) + manualAds.outside);
 
   // ── returns / refunds (last 60 days) ──
   let returnsBlock: LiveSummary["returns"] = { open: 0, last30: 0, refund30: 0, byPlatform: {}, recent: [], available: false };
@@ -421,8 +427,9 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
           total: totalProfit,
           byPlatform: profitBy,
           costsEntered: costRules,
+          ads: { byChannel: { ...manualAds.byChannel, ...(adPlat.lazadaSource === "synced" ? { lazada: adPlat.lazada } : {}) }, lazadaSource: adPlat.lazadaSource, keyedIn: manualAds.entries },
           uncosted: [...uncosted.values()].sort((a, b) => b.units - a.units).slice(0, 12),
-          note: "Month to date. Net payout = what the marketplace pays after its fees (only orders with payout data yet). Estimated profit = net payout − product cost (per variation, from Stock-in SKU prices) − ad spend tracked so far (Lazada only; Shopee ad spend not tracked yet).",
+          note: "Month to date. Net payout = what the marketplace pays after its fees (only orders with payout data yet). Estimated profit = net payout − product cost (per variation, from Stock-in SKU prices) − ad spend this month (what you keyed in under Ad spend, plus Lazada's synced spend when you haven't keyed Lazada in).",
         }
       : null,
     returns: returnsBlock,

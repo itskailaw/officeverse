@@ -12,6 +12,8 @@ import { emptyInventory, monthStatement } from "@/lib/data/inventory";
 import { timeAgo, cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 import { openMarketing } from "./MarketingStudio";
+import { AdSpendDialog } from "./AdSpendDialog";
+import { AD_CHANNELS, monthAds, platformAdSpend } from "@/lib/data/ads";
 
 type Range = "today" | "7" | "30" | "month";
 const SHOPEE = "#eb6834";
@@ -57,13 +59,18 @@ function Spark({ values }: { values: number[] }) {
   );
 }
 
-function Kpi({ label, value, delta, note, spark, tone }: { label: string; value: string; delta?: { pct: number | null; text?: string } | null; note?: string; spark?: number[]; tone?: "red" | "green" }) {
+function Kpi({ label, value, delta, note, spark, tone, action }: { label: string; value: string; delta?: { pct: number | null; text?: string } | null; note?: string; spark?: number[]; tone?: "red" | "green"; action?: { label: string; onClick: () => void } }) {
   const up = (delta?.pct ?? 0) >= 0;
   return (
     <div className="rounded-2xl bg-panel p-4 shadow-sm ring-1 ring-slate-200/80">
       <div className="flex h-5 items-center justify-between gap-2">
         <div className="truncate text-[11px] font-semibold text-slate-500">{label}</div>
         {spark && <Spark values={spark} />}
+        {action && (
+          <button type="button" onClick={action.onClick} className="shrink-0 rounded-md px-1.5 text-[11px] font-semibold text-navy hover:bg-slate-100 dark:text-sky-300">
+            {action.label}
+          </button>
+        )}
       </div>
       <div className="mt-1 whitespace-nowrap text-[26px] font-bold leading-tight tracking-tight text-slate-900 tabular-nums">{value}</div>
       <div className="mt-1.5 text-[11.5px] leading-snug">
@@ -162,10 +169,26 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
   const chart = chartDays.map((d) => ({ date: d.date.slice(5).replace("-", "/"), Shopee: d.shopee ?? d.revenue, Lazada: d.lazada ?? 0 }));
   const profit = s.profit?.total ?? null;
   const lz = s.ads.lazada;
-  const adSpend = range === "month" ? (lz?.monthToDate?.spend ?? null) : range === "today" ? (lz?.today?.spend ?? null) : (lz?.monthToDate?.spend ?? null);
   const toShip = s.toPack.processed;
   const toAccept = s.toPack.readyToShip;
   const isOwner = useLive((x) => x.status?.role) === "owner";
+  const [adsOpen, setAdsOpen] = useState(false);
+  const adEntries = useOffice((x) => x.settings.adSpend);
+  const adMonth = useMemo(() => monthAds(adEntries, klDay().slice(0, 7)), [adEntries]);
+  const syncedLz = lz?.monthToDate?.spend ?? null;
+  const adPlat = platformAdSpend(adMonth, syncedLz);
+  const adsTotal = adPlat.shopee + adPlat.lazada + adMonth.outside;
+  const adsNote =
+    [
+      ...AD_CHANNELS.map((c) => [c, c.id === "lazada" ? adPlat.lazada : (adMonth.byChannel[c.id] ?? 0)] as const)
+        .filter(([, v]) => v > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2)
+        .map(([c, v]) => `${c.label.split(" ")[0]} ${RM(v)}`),
+      s.ads.shopee ? `Shopee balance ${RM(s.ads.shopee.balance)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ") || "nothing keyed in yet";
   const openCosts = () => {
     try {
       sessionStorage.setItem("ov:stock-section", "costs");
@@ -235,6 +258,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
 
   return (
     <div id="ov-dash" className="space-y-3.5">
+      <AdSpendDialog open={adsOpen} onOpenChange={setAdsOpen} syncedLazada={syncedLz} />
       {/* header */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="mr-2">
@@ -329,10 +353,11 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
           tone={profit && profit.estProfit > 0 ? "green" : undefined}
         />
         <Kpi
-          label={range === "today" ? "Ad spend (today)" : "Ad spend (month)"}
-          value={adSpend !== null ? RM(adSpend) : "—"}
-          note={[lz?.monthToDate?.roi != null ? `ROI ${lz.monthToDate.roi.toFixed(1)}×` : "", s.ads.shopee ? `Shopee balance ${RM(s.ads.shopee.balance)}` : ""].filter(Boolean).join(" · ") || "Lazada ads only"}
+          label="Ad spend · month"
+          value={RM(adsTotal)}
+          note={adsNote}
           tone={s.ads.shopee && s.ads.shopee.balance < 30 ? "red" : undefined}
+          action={{ label: "＋ Add", onClick: () => setAdsOpen(true) }}
         />
       </div>
 
