@@ -166,6 +166,12 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
   const toShip = s.toPack.processed;
   const toAccept = s.toPack.readyToShip;
   const isOwner = useLive((x) => x.status?.role) === "owner";
+  const openCosts = () => {
+    try {
+      sessionStorage.setItem("ov:stock-section", "costs");
+    } catch {}
+    set({ dialog: "stock" });
+  };
   const plats = (["shopee", "lazada"] as const).filter((p) => s.platforms?.[p]?.connected);
 
   // ── needs attention ──
@@ -319,7 +325,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
         <Kpi
           label="Net profit (month)"
           value={profit ? RM(profit.estProfit) : "—"}
-          note={profit ? (profit.margin !== null ? `${(profit.margin * 100).toFixed(1)}% margin${s.profit?.costsEntered ? "" : " · add product costs"}` : "after fees & ads") : "needs payout data"}
+          note={profit ? (profit.margin !== null ? `${profit.margin.toFixed(1)}% margin${!s.profit?.costsEntered ? " · add product costs" : profit.costCoverage < 0.95 ? ` · ${Math.round(profit.costCoverage * 100)}% costed` : ""}` : "after fees & ads") : "needs payout data"}
           tone={profit && profit.estProfit > 0 ? "green" : undefined}
         />
         <Kpi
@@ -397,7 +403,14 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
 
       {/* profit · best sellers · returns */}
       <div className="grid gap-3.5 md:grid-cols-3">
-        <Card title="Profit · month to date" right={<Muted>RM</Muted>}>
+        <Card
+          title="Profit · month to date"
+          right={
+            <button type="button" onClick={openCosts} className="text-[11px] font-semibold text-navy hover:underline dark:text-sky-300">
+              Product costs
+            </button>
+          }
+        >
           {!profit ? (
             <p className="py-6 text-center text-xs text-slate-500">Profit appears once Shopee / Lazada payout data has synced.</p>
           ) : (
@@ -429,10 +442,19 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
                 </div>
                 <b className={cn("text-right tabular-nums", profit.estProfit >= 0 ? "text-emerald-600" : "text-red-600")}>{profit.estProfit.toLocaleString("en-MY", { maximumFractionDigits: 0 })}</b>
               </div>
-              {!s.profit?.costsEntered && (
-                <button onClick={() => set({ dialog: "stock" })} className="text-[11px] font-semibold text-navy hover:underline dark:text-sky-300">
+              {!s.profit?.costsEntered ? (
+                <button type="button" onClick={openCosts} className="text-[11px] font-semibold text-navy hover:underline dark:text-sky-300">
                   Add product costs for a true profit →
                 </button>
+              ) : profit.costCoverage < 0.95 ? (
+                <button type="button" onClick={openCosts} className="block text-left text-[11px] font-semibold text-amber-700 hover:underline">
+                  {Math.round(profit.costCoverage * 100)}% of units have a cost{s.profit?.uncosted?.length ? ` · missing: ${s.profit.uncosted.slice(0, 3).map((u) => u.variation || u.name).join(", ")}` : ""} →
+                </button>
+              ) : null}
+              {profit.ordersWithFees < profit.ordersTotal && (
+                <p className="text-[10.5px] text-slate-400">
+                  {profit.ordersWithFees} of {profit.ordersTotal} orders have payout data · Full sync fetches the rest
+                </p>
               )}
             </div>
           )}

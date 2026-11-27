@@ -42,7 +42,7 @@ export function ProfitPanel({ s, view }: { s: LiveSummary; view: "all" | Plat })
         <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
           <TrendingUp className="h-3.5 w-3.5" /> Profit — month to date{view !== "all" ? ` · ${view === "shopee" ? "Shopee" : "Lazada"}` : ""}
         </div>
-        <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setCostsOpen(true)}>
+        <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => { try { sessionStorage.setItem("ov:stock-section", "costs"); } catch {} useUI.getState().set({ dialog: "stock" }); }}>
           <Calculator /> Product costs{p?.costsEntered ? ` (${p.costsEntered})` : ""}
         </Button>
       </div>

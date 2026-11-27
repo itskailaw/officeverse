@@ -7,6 +7,7 @@ import { useOffice } from "@/lib/store/office-store";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ProductCosts } from "./ProductCosts";
 import { StockIn } from "./StockIn";
 import { stockLevels, type CatalogRow, type OrderLite, type StockItem, type StockLevel } from "@/lib/data/stock";
 
@@ -30,11 +31,12 @@ export function StockDialog() {
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [onlyTracked, setOnlyTracked] = useState(false);
-  const [section, setSection] = useState<"levels" | "in">("levels");
+  const [section, setSection] = useState<"levels" | "in" | "costs">("levels");
   useEffect(() => {
     if (!open) return;
     try {
-      if (sessionStorage.getItem("ov:stock-section") === "in") setSection("in");
+      const want = sessionStorage.getItem("ov:stock-section");
+      if (want === "in" || want === "costs") setSection(want);
       sessionStorage.removeItem("ov:stock-section");
     } catch {}
   }, [open]);
@@ -105,6 +107,7 @@ export function StockDialog() {
             [
               ["levels", "Stock levels"],
               ["in", "Stock in & supplier invoices"],
+              ["costs", "Product costs"],
             ] as const
           ).map(([v, l]) => (
             <button
@@ -118,6 +121,8 @@ export function StockDialog() {
         </div>
         {section === "in" ? (
           <StockIn />
+        ) : section === "costs" ? (
+          <ProductCosts catalog={data?.catalog ?? []} onOpenStockIn={() => setSection("in")} />
         ) : (
         <div className="flex h-full min-h-0 flex-col">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-2 text-xs">

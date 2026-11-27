@@ -3,6 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { LAZADA_STATUS } from "./lazada/sign";
 import type { LazadaAds } from "./lazada/ads";
 import { getAdminSupabase } from "@/lib/supabase/admin";
+import { skuPrices, unitCost, type CostContext, type CostRecipes } from "@/lib/data/costs";
+import { itemKey } from "@/lib/data/stock";
+import type { Inventory } from "@/lib/data/inventory";
 
 type Platform = "shopee" | "lazada";
 const up = (s: Set<string>) => new Set([...s].map((x) => x.toUpperCase()));
@@ -85,7 +88,7 @@ export interface LiveSummary {
   byPlatform: Partial<Record<Platform, PlatformFigures>>;
   bestSellers30d: { name: string; units: number; revenue: number }[];
   ads: { shopee: { balance: number; at: string } | null; lazada: LazadaAds | null };
-  profit: { total: ProfitFigures; byPlatform: Partial<Record<Platform, ProfitFigures>>; costsEntered: number; note: string } | null;
+  profit: { total: ProfitFigures; byPlatform: Partial<Record<Platform, ProfitFigures>>; costsEntered: number; uncosted?: { name: string; variation: string; units: number }[]; note: string } | null;
   returns: { open: number; last30: number; refund30: number; byPlatform: Partial<Record<Platform, { open: number; last30: number }>>; recent: ReturnRow[]; available: boolean };
 }
 
@@ -140,7 +143,7 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
     status: string;
     gross_amount: number;
     ordered_at: string;
-    items: { name: string; qty: number; price: number }[] | null;
+    items: { name: string; qty: number; price: number; model?: string | null; sku?: string | null }[] | null;
     net_amount?: number | null;
     fees?: Record<string, number | boolean> | null;
   };
@@ -262,11 +265,16 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
 
   // ── profit (month to date): marketplace payouts − product cost − ad spend ──
   let costs: Record<string, number> = {};
+  let costCtx: CostContext = { prices: new Map() };
   try {
     const { data: lay } = await sb.from("office_layouts").select("settings").eq("workspace_id", workspaceId).maybeSingle();
-    const pc = (lay?.settings as { productCosts?: Record<string, number> } | null)?.productCosts;
+    const st = (lay?.settings ?? null) as { productCosts?: Record<string, number>; costRecipes?: CostRecipes; inventory?: Inventory } | null;
+    const pc = st?.productCosts;
     if (pc && typeof pc === "object") costs = Object.fromEntries(Object.entries(pc).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)]));
+    costCtx = { prices: skuPrices(st?.inventory), skus: (st?.inventory?.skus ?? []).map((x) => x.sku), recipes: st?.costRecipes ?? null, byName: costs };
   } catch {}
+  const costRules = Object.keys(costs).length + Object.keys(costCtx.recipes ?? {}).length + costCtx.prices.size;
+  const uncosted = new Map<string, { name: string; variation: string; units: number }>();
   const emptyProfit = (): ProfitFigures => ({ ordersWithFees: 0, ordersTotal: 0, gross: 0, fees: 0, net: 0, feeBreakdown: {}, productCost: 0, costCoverage: 0, adSpend: 0, estProfit: 0, margin: null });
   const prof: Partial<Record<Platform, ProfitFigures & { units: number; costedUnits: number }>> = {};
   for (const p of platforms) prof[p] = { ...emptyProfit(), units: 0, costedUnits: 0 };
@@ -283,10 +291,15 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
     for (const [k, v] of Object.entries(o.fees ?? {})) if (typeof v === "number") pf.feeBreakdown[k] = (pf.feeBreakdown[k] ?? 0) + v;
     for (const it of o.items ?? []) {
       pf.units += it.qty || 0;
-      const c = costs[it.name];
-      if (c) {
+      const c = unitCost(it, costCtx).cost;
+      if (c != null) {
         pf.productCost += c * (it.qty || 0);
         pf.costedUnits += it.qty || 0;
+      } else {
+        const k = itemKey(it);
+        const u = uncosted.get(k) ?? { name: it.name, variation: it.model ?? "", units: 0 };
+        u.units += it.qty || 0;
+        uncosted.set(k, u);
       }
     }
   }
@@ -407,8 +420,9 @@ export async function liveSummary(sb: SupabaseClient, workspaceId: string, opts:
       ? {
           total: totalProfit,
           byPlatform: profitBy,
-          costsEntered: Object.keys(costs).length,
-          note: "Month to date. Net payout = what the marketplace pays after its fees (only orders with payout data yet). Estimated profit = net payout − product cost (entered in OfficeVerse) − ad spend tracked so far (Lazada only; Shopee ad spend not tracked yet).",
+          costsEntered: costRules,
+          uncosted: [...uncosted.values()].sort((a, b) => b.units - a.units).slice(0, 12),
+          note: "Month to date. Net payout = what the marketplace pays after its fees (only orders with payout data yet). Estimated profit = net payout − product cost (per variation, from Stock-in SKU prices) − ad spend tracked so far (Lazada only; Shopee ad spend not tracked yet).",
         }
       : null,
     returns: returnsBlock,

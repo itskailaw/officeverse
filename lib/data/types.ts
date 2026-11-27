@@ -248,6 +248,8 @@ export interface OfficeSettings {
   festiveOutfits?: boolean;
   /** unit cost (RM) per product name, for estimated profit */
   productCosts?: Record<string, number>;
+  /** cost per listing variation (item key → Stock-in SKUs + fixed extra) */
+  costRecipes?: import("./costs").CostRecipes;
   /** Farid (Order Processing Executive) arranges drop-off for new paid orders automatically */
   autoArrange?: { enabled: boolean; start: string; end: string };
   /** reviewer track record: deliberate test mistakes caught, and mistakes the CEO reported as missed */
