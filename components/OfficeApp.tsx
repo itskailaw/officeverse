@@ -1,5 +1,6 @@
 "use client";
 
+import { PayoutCheck } from "@/components/hud/PayoutCheck";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -210,6 +211,7 @@ export default function OfficeApp() {
       <MarketingStudio />
       <WelcomeBrief />
       <StockDialog />
+      <PayoutCheck />
       <TeamMoments />
       <CommandPalette />
       <Toasts />

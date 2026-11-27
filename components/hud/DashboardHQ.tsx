@@ -478,7 +478,10 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
               ) : null}
               {profit.ordersWithFees < profit.ordersTotal && (
                 <p className="text-[10.5px] text-slate-400">
-                  {profit.ordersWithFees} of {profit.ordersTotal} orders have payout data · Full sync fetches the rest
+                  {profit.ordersWithFees} of {profit.ordersTotal} orders have payout data · Full sync fetches the rest ·{" "}
+                  <button type="button" onClick={() => set({ dialog: "payouts" })} className="font-semibold text-navy hover:underline dark:text-sky-300">
+                    Payout check
+                  </button>
                 </p>
               )}
             </div>
@@ -593,7 +596,14 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
             </div>
           )}
         </Card>
-        <Card title="Payouts · month to date" right={<Muted>after fees</Muted>}>
+        <Card
+          title="Payouts · month to date"
+          right={
+            <button type="button" onClick={() => set({ dialog: "payouts" })} className="text-[11px] font-semibold text-navy hover:underline dark:text-sky-300">
+              Check orders →
+            </button>
+          }
+        >
           {!s.profit ? (
             <p className="py-6 text-center text-xs text-slate-500">Payouts appear once payout data has synced.</p>
           ) : (
