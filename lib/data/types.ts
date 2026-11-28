@@ -254,6 +254,8 @@ export interface OfficeSettings {
   adSpend?: import("./ads").AdEntry[];
   /** soft sounds for new orders / target reached (off by default) */
   sounds?: boolean;
+  /** Prices screen: target margin %, count ads per unit, price endings */
+  pricing?: { targetMargin: number; includeAds: boolean; rounding: import("./pricing").Rounding };
   /** Farid (Order Processing Executive) arranges drop-off for new paid orders automatically */
   autoArrange?: { enabled: boolean; start: string; end: string };
   /** reviewer track record: deliberate test mistakes caught, and mistakes the CEO reported as missed */

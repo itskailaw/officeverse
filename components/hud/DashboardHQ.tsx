@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowRight, ClipboardList, Download, Loader2, Pencil, RefreshCw } from "lucide-react";
+import { ArrowRight, ClipboardList, Tag, Download, Loader2, Pencil, RefreshCw } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
 import { useLive, type LiveSummary } from "@/lib/integrations/client";
@@ -479,6 +479,11 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
             {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Full sync
           </button>
           {isOwner && (
+            <button type="button" onClick={() => set({ dialog: "prices" })} className="inline-flex h-8 items-center gap-1 rounded-xl px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">
+              <Tag className="h-3.5 w-3.5" /> Prices
+            </button>
+          )}
+          {isOwner && (
             <button type="button" onClick={() => set({ dialog: "purchases" })} className="inline-flex h-8 items-center gap-1 rounded-xl px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">
               <ClipboardList className="h-3.5 w-3.5" /> Order history
             </button>
@@ -619,9 +624,14 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
           i={7}
           title="Profit · month to date"
           right={
-            <button type="button" onClick={openCosts} className="text-[11px] font-semibold text-navy hover:underline dark:text-sky-300">
-              Product costs
-            </button>
+            <span className="flex gap-2">
+              <button type="button" onClick={openCosts} className="text-[11px] font-semibold text-navy hover:underline dark:text-sky-300">
+                Costs
+              </button>
+              <button type="button" onClick={() => set({ dialog: "prices" })} className="text-[11px] font-semibold text-navy hover:underline dark:text-sky-300">
+                Prices →
+              </button>
+            </span>
           }
         >
           {!profit ? (
