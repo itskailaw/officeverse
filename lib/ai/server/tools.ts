@@ -201,8 +201,8 @@ function metricData(metric: string, ctx: OfficeContext) {
     return {
       source: "unavailable",
       message:
-        "Data unavailable: no marketplace or business integration is connected yet, and demo mode is off. Do not estimate or invent figures. " +
-        "Ask the CEO to upload an export (CSV/Excel) or wait for the integration (Phase 3).",
+        "Data unavailable: Shopee / Lazada aren't connected for this workspace, and demo mode is off. Do not estimate or invent figures. " +
+        "Ask the CEO to connect them in Settings → Integrations, or to upload an export (CSV/Excel) for you to analyse.",
     };
   }
   const label = { source: "DEMO", warning: DEMO_LABEL };

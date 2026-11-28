@@ -1,5 +1,6 @@
 "use client";
 
+import { useLive } from "@/lib/integrations/client";
 import { useEffect, useState } from "react";
 import { PlugZap, Database, Download, ImagePlus, Lamp, Moon, RotateCcw, Sun, Sunset, Trash2, User } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
@@ -52,6 +53,8 @@ export function SettingsDialog() {
   const st = s.settings;
   const { t } = useT();
   const [health, setHealth] = useState<Health | null>(null);
+  const liveStatus = useLive((x) => x.status);
+  const connected = [...new Set((liveStatus?.integrations ?? []).filter((i) => i.status !== "expired").map((i) => (i.provider === "shopee" ? "Shopee" : i.provider === "lazada" ? "Lazada" : i.provider)))];
   const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
@@ -404,7 +407,12 @@ export function SettingsDialog() {
               <div className="mb-2 text-xs font-semibold text-slate-700">System status</div>
               <StatusRow label="Database & auth (Supabase)" ok={health?.supabase} okText="Configured" offText="Not configured — data stored in this browser" />
               <StatusRow label="AI engine (server-side)" ok={health?.ai} okText="Key configured" offText="Not configured — add AI_API_KEY" />
-              <StatusRow label="Marketplace integrations" ok={false} okText="" offText="0 connected (Phase 3)" />
+              <StatusRow
+                label="Marketplace integrations"
+                ok={connected.length > 0}
+                okText={`${connected.join(" + ")} connected`}
+                offText="None connected — Integrations tab"
+              />
             </div>
             <SystemHealthCard />
             <AppInstallCard />

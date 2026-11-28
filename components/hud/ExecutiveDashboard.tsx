@@ -213,7 +213,7 @@ function Overview() {
       ) : (
         <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-panel px-3 py-2 text-xs text-slate-600">
           <PlugZap className="h-4 w-4 shrink-0" />
-          No marketplace or business integrations are connected. Metrics show <b>Data Unavailable</b> until Shopee / Lazada APIs or CSV imports are set up (Phase 3).
+          No marketplace is connected yet. Metrics show <b>Data Unavailable</b> until you connect Shopee / Lazada in Settings → Integrations.
           <span className="ml-auto whitespace-nowrap text-slate-400">Last successful sync: never</span>
         </div>
       )}
@@ -1004,7 +1004,7 @@ function ApprovalsInbox() {
     <div className="space-y-4">
       <div className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-900">
         Employees never pay, change campaigns, edit listings, message customers or delete records on their own. They prepare a draft and wait here for
-        you. External integrations arrive in Phase 3, so an approved draft is for you to copy and use.
+        you. Shopee review replies and buyer cancellation decisions are sent to Shopee when you approve; other drafts are for you to copy and use.
       </div>
       <div>
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Waiting for you ({pending.length})</div>
