@@ -1,4 +1,6 @@
 import "server-only";
+import type { Amare, Artides } from "@/lib/data/business";
+import type { OfficeContext } from "@/lib/ai/protocol";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { getMembership } from "./store";
 import { liveSummary } from "./summary";
@@ -37,6 +39,20 @@ export async function automationForUser(): Promise<AutomationInfo | null> {
     const { data } = await sb.from("office_layouts").select("settings").eq("workspace_id", m.workspaceId).maybeSingle();
     const tg = (await listIntegrations(m.workspaceId, "telegram")).some((r) => r.status === "connected");
     return automationFrom(data?.settings as Record<string, unknown> | null, tg);
+  } catch {
+    return null;
+  }
+}
+
+/** Artides projects/quotations and Amare jobs for the signed-in workspace (server-side, for the AI staff). */
+export async function businessForUser(): Promise<OfficeContext["business"]> {
+  try {
+    const sb = await getServerSupabase();
+    if (!sb) return null;
+    const m = await getMembership();
+    const { data } = await sb.from("office_layouts").select("settings").eq("workspace_id", m.workspaceId).maybeSingle();
+    const st = (data?.settings ?? null) as { artides?: Artides; amare?: Amare } | null;
+    return { artides: st?.artides ?? null, amare: st?.amare ?? null };
   } catch {
     return null;
   }

@@ -1,9 +1,11 @@
 "use client";
 
+import { openTracker } from "./BusinessTracker";
 import { useUrgentGlow } from "@/lib/motion";
 import { useMemo, useRef, useState } from "react";
 import {
   Box,
+  Briefcase,
   Boxes,
   CalendarPlus,
   CheckSquare,
@@ -65,6 +67,7 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
     { label: t("Stock in"), icon: <PackagePlus />, onClick: () => { try { sessionStorage.setItem("ov:stock-section", "in"); } catch {} set({ dialog: "stock" }); }, tone: "bg-cyan-600" },
     { label: t("Marketing"), icon: <Megaphone />, onClick: () => set({ dialog: "marketing" }), tone: "bg-pink-500" },
     { label: t("Today"), icon: <Sun />, onClick: () => openWelcome(), badge: unread, tone: "bg-orange-500" },
+    { label: "Artides & Amare", icon: <Briefcase />, onClick: () => openTracker("projects"), tone: "bg-amber-600" },
     { label: t("Org chart"), icon: <Network />, onClick: () => set({ dialog: "dashboard", dashboardTab: "org" }), tone: "bg-violet-500" },
     { label: t("Meeting"), icon: <CalendarPlus />, onClick: () => set({ dialog: "meeting-call" }), tone: "bg-slate-500" },
   ];

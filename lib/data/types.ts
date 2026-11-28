@@ -254,6 +254,10 @@ export interface OfficeSettings {
   adSpend?: import("./ads").AdEntry[];
   /** soft sounds for new orders / target reached (off by default) */
   sounds?: boolean;
+  /** Artides Home projects & quotations */
+  artides?: import("./business").Artides;
+  /** Amare Localization translation jobs */
+  amare?: import("./business").Amare;
   /** Prices screen: target margin %, count ads per unit, price endings */
   pricing?: { targetMargin: number; includeAds: boolean; rounding: import("./pricing").Rounding };
   /** Farid (Order Processing Executive) arranges drop-off for new paid orders automatically */

@@ -37,6 +37,8 @@ export interface OfficeContext {
   live?: Record<string, unknown> | null;
   /** Server-only: what OfficeVerse automates for this workspace and how it is set (read from saved settings). */
   automation?: AutomationInfo | null;
+  /** Server-only: Artides projects/quotations and Amare jobs from the workspace's saved settings. */
+  business?: { artides?: import("@/lib/data/business").Artides | null; amare?: import("@/lib/data/business").Amare | null } | null;
 }
 
 export interface UploadedFile {

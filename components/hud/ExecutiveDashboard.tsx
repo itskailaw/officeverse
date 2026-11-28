@@ -1,10 +1,13 @@
 "use client";
 
+import { openTracker } from "./BusinessTracker";
+import { amareSummary, artidesSummary } from "@/lib/data/business";
 import { EmptyState } from "@/components/ui/motion";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   Network,
+  ArrowRight,
   AlertTriangle,
   CheckSquare,
   Loader2,
@@ -425,7 +428,7 @@ function DataSourceBadge({ demo }: { demo: boolean }) {
   );
 }
 
-function Kpi({ icon, label, value, sub, warn, demo }: { icon: React.ReactNode; label: string; value: string | null; sub?: string; warn?: boolean; demo: boolean }) {
+function Kpi({ icon, label, value, sub, warn, demo = false }: { icon: React.ReactNode; label: string; value: string | null; sub?: string; warn?: boolean; demo?: boolean }) {
   return (
     <div className={cn("rounded-xl border bg-panel p-3.5 shadow-sm", warn ? "border-amber-300" : "border-slate-200")}>
       <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-slate-500 [&_svg]:h-3.5 [&_svg]:w-3.5">
@@ -953,30 +956,62 @@ function EcommerceSection({ demo }: { demo: boolean }) {
 }
 
 function ArtidesCard({ demo }: { demo: boolean }) {
-  const d = demo ? demoArtides() : null;
+  const data = useOffice((s) => s.settings.artides);
+  const real = !!(data && (data.projects.length || data.quotes.length));
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date());
+  const r = real ? artidesSummary(data, today) : null;
+  const d = !real && demo ? demoArtides() : null;
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between gap-2">
         <CardTitle>Artides Home — Projects</CardTitle>
+        <Button size="sm" variant="ghost" onClick={() => openTracker("projects")}>
+          {real ? "Open" : "Set up"} <ArrowRight />
+        </Button>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-3">
-        <Kpi demo={demo} icon={<Building2 />} label="Active projects" value={d ? String(d.activeProjects) : null} sub={d ? `${d.overdueMilestones} overdue milestone` : undefined} warn={!!d?.overdueMilestones} />
-        <Kpi demo={demo} icon={<ClipboardList />} label="Quotations pending" value={d ? String(d.quotationsPending) : null} sub={d ? `Pipeline ${formatMYR(d.pipelineValue)}` : undefined} />
+        {r ? (
+          <>
+            <Kpi icon={<Building2 />} label="Active projects" value={String(r.activeProjects)} sub={r.overdueMilestones ? `${r.overdueMilestones} overdue milestone${r.overdueMilestones > 1 ? "s" : ""}` : r.installationsThisWeek ? `${r.installationsThisWeek} install${r.installationsThisWeek > 1 ? "s" : ""} this week` : `${formatMYR(r.outstanding)} to collect`} warn={r.overdueMilestones > 0} />
+            <Kpi icon={<ClipboardList />} label="Quotations pending" value={String(r.quotationsPending)} sub={`Pipeline ${formatMYR(r.pipelineValue)}${r.followUpsDue.length ? ` · ${r.followUpsDue.length} to chase` : ""}`} warn={r.followUpsDue.length > 0} />
+          </>
+        ) : (
+          <>
+            <Kpi demo={demo} icon={<Building2 />} label="Active projects" value={d ? String(d.activeProjects) : null} sub={d ? `${d.overdueMilestones} overdue milestone` : "Add projects or import your sheet"} warn={!!d?.overdueMilestones} />
+            <Kpi demo={demo} icon={<ClipboardList />} label="Quotations pending" value={d ? String(d.quotationsPending) : null} sub={d ? `Pipeline ${formatMYR(d.pipelineValue)}` : undefined} />
+          </>
+        )}
       </CardContent>
     </Card>
   );
 }
 
 function AmareCard({ demo }: { demo: boolean }) {
-  const d = demo ? demoAmare() : null;
+  const data = useOffice((s) => s.settings.amare);
+  const real = !!data?.jobs.length;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date());
+  const r = real ? amareSummary(data, today) : null;
+  const d = !real && demo ? demoAmare() : null;
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between gap-2">
         <CardTitle>Amare Localization — Jobs</CardTitle>
+        <Button size="sm" variant="ghost" onClick={() => openTracker("jobs")}>
+          {real ? "Open" : "Set up"} <ArrowRight />
+        </Button>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-3">
-        <Kpi demo={demo} icon={<ClipboardList />} label="Jobs in progress" value={d ? String(d.jobsInProgress) : null} sub={d ? `${d.dueThisWeek} due this week` : undefined} />
-        <Kpi demo={demo} icon={<ScrollText />} label="Words this month" value={d ? d.wordsThisMonth.toLocaleString("en-MY") : null} sub={d ? `${d.qaPending} awaiting QA` : undefined} />
+        {r ? (
+          <>
+            <Kpi icon={<ClipboardList />} label="Jobs in progress" value={String(r.jobsInProgress)} sub={r.overdue.length ? `${r.overdue.length} overdue` : `${r.dueThisWeek} due this week`} warn={r.overdue.length > 0} />
+            <Kpi icon={<ScrollText />} label="Words this month" value={r.wordsThisMonth.toLocaleString("en-MY")} sub={`${formatMYR(r.revenueThisMonth)} delivered${r.qaPending ? ` · ${r.qaPending} in QA` : ""}`} />
+          </>
+        ) : (
+          <>
+            <Kpi demo={demo} icon={<ClipboardList />} label="Jobs in progress" value={d ? String(d.jobsInProgress) : null} sub={d ? `${d.dueThisWeek} due this week` : "Add jobs or import your sheet"} />
+            <Kpi demo={demo} icon={<ScrollText />} label="Words this month" value={d ? d.wordsThisMonth.toLocaleString("en-MY") : null} sub={d ? `${d.qaPending} awaiting QA` : undefined} />
+          </>
+        )}
       </CardContent>
     </Card>
   );

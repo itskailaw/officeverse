@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { ApprovalKind, Permission } from "@/lib/data/types";
 import type { ApprovalRequest, EmployeeBrief, OfficeContext } from "@/lib/ai/protocol";
 import { DEMO_LABEL, demoAmare, demoArtides, demoEcommerce } from "@/lib/data/demo";
+import { amareSummary, artidesSummary, jobAmount } from "@/lib/data/business";
 import { actionsFor, isStaffAction, STAFF_ACTIONS, type ProposedAction } from "@/lib/ai/actions";
 
 type Tool = Anthropic.Beta.BetaTool;
@@ -191,11 +192,54 @@ function liveData(metric: string, live: Live) {
   }
 }
 
+function businessData(metric: string, ctx: OfficeContext) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date());
+  if (metric === "artides_projects") {
+    const a = ctx.business?.artides;
+    if (!a || (!a.projects.length && !a.quotes.length)) return null;
+    const s = artidesSummary(a, today);
+    return {
+      source: "live (Artides tracker in OfficeVerse)",
+      currency: "MYR",
+      today,
+      summary: { ...s, overdue: s.overdue.slice(0, 15), followUpsDue: s.followUpsDue.slice(0, 15) },
+      activeProjects: a.projects
+        .filter((p) => !["completed", "cancelled"].includes(p.stage))
+        .slice(0, 40)
+        .map((p) => ({ client: p.client, type: p.type, stage: p.stage, value: p.value, paid: p.paid, installDate: p.installDate, site: p.site, milestones: (p.milestones ?? []).map((m) => ({ name: m.name, due: m.due, done: !!m.done })), notes: p.notes?.slice(0, 300) })),
+      openQuotations: a.quotes.filter((q) => q.status === "draft" || q.status === "sent").slice(0, 40),
+      note: "Contact details are for drafting messages only — never send anything yourself; use request_approval (customer_message).",
+    };
+  }
+  if (metric === "amare_jobs") {
+    const m = ctx.business?.amare;
+    if (!m?.jobs.length) return null;
+    const s = amareSummary(m, today);
+    return {
+      source: "live (Amare tracker in OfficeVerse)",
+      currency: "MYR",
+      today,
+      summary: { ...s, overdue: s.overdue.slice(0, 15), byPair: s.byPair.slice(0, 10) },
+      openJobs: m.jobs.filter((j) => ["new", "translating", "qa"].includes(j.status)).slice(0, 40).map((j) => ({ ...j, amount: jobAmount(j) })),
+      deliveredNotPaid: m.jobs.filter((j) => j.status === "delivered" || j.status === "invoiced").slice(0, 30).map((j) => ({ client: j.client, title: j.title, status: j.status, amount: jobAmount(j), deliveredAt: j.deliveredAt })),
+    };
+  }
+  return null;
+}
+
 function metricData(metric: string, ctx: OfficeContext) {
+  const b = businessData(metric, ctx);
+  if (b) return b;
   if (ctx.live) {
     const d = liveData(metric, ctx.live as unknown as Live);
     if (d) return d;
-    return { source: "unavailable", message: `No live data for ${metric} yet (only marketplace orders, revenue and ads figures are connected). Do not estimate.` };
+    return {
+      source: "unavailable",
+      message:
+        metric === "artides_projects" || metric === "amare_jobs"
+          ? `No ${metric === "amare_jobs" ? "Amare jobs" : "Artides projects or quotations"} recorded yet. Ask the CEO to add them in Dashboard → Artides & Amare (or import their spreadsheet). Do not estimate.`
+          : `No live data for ${metric} yet (only marketplace orders, revenue and ads figures are connected). Do not estimate.`,
+    };
   }
   if (!ctx.demoMode) {
     return {

@@ -1,5 +1,6 @@
 "use client";
 
+import { openTracker } from "./BusinessTracker";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { useUI } from "@/lib/store/ui-store";
@@ -61,6 +62,8 @@ export function CommandPalette() {
       { id: "dash", label: "Dashboard", hint: "Sales, parcels, ads, profit", keywords: "overview sales revenue", run: () => ui().set({ dialog: "dashboard", dashboardTab: "overview" }) },
       { id: "process", label: "Arrange drop-off", hint: "Orders to process", keywords: "confirm orders to process farid", run: () => ui().set({ dialog: "fulfil", fulfilStage: "process" }) },
       { id: "labels", label: "Print airway bills", hint: "To ship → print labels", keywords: "awb labels print to ship packing", run: () => ui().set({ dialog: "fulfil", fulfilStage: "ship" }) },
+      { id: "artides", label: "Artides projects & quotations", hint: "Cabinetry projects, milestones, installs, quotations and follow-ups", keywords: "artides project quotation quote cabinet kitchen wardrobe install milestone client follow up", run: () => openTracker("projects") },
+      { id: "amare", label: "Amare translation jobs", hint: "Jobs, words, deadlines, QA, invoices", keywords: "amare translation job words deadline qa invoice localization", run: () => openTracker("jobs") },
       { id: "prices", label: "Prices & margin", hint: "Profit per variation, price for your target margin, update Shopee / Lazada prices", keywords: "price pricing margin profit raise increase selling price harga untung", run: () => ui().set({ dialog: "prices" }) },
       { id: "payouts", label: "Payout check", hint: "Sales, fees and payout per order — compare with Shopee / Lazada", keywords: "payout income escrow fees statement settlement reconcile profit csv", run: () => ui().set({ dialog: "payouts" }) },
       { id: "purchases", label: "Order history", hint: "Past orders, product totals, Excel download", keywords: "purchase list orders bought items history record stock export csv excel farid", run: () => ui().set({ dialog: "purchases" }) },

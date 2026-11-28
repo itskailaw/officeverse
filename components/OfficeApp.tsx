@@ -2,6 +2,7 @@
 
 import { PayoutCheck } from "@/components/hud/PayoutCheck";
 import { PriceStudio } from "@/components/hud/PriceStudio";
+import { BusinessTracker } from "@/components/hud/BusinessTracker";
 import { useEffect, useRef, useState } from "react";
 import { reducedMotion } from "@/lib/motion";
 import { useBusinessMoments } from "@/lib/hooks/useBusinessMoments";
@@ -224,6 +225,7 @@ export default function OfficeApp() {
       <StockDialog />
       <PayoutCheck />
       <PriceStudio />
+      <BusinessTracker />
       <TeamMoments />
       <CommandPalette />
       <Toasts />
