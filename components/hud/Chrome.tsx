@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   CalendarPlus,
@@ -78,6 +78,15 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
   const liveSummary = useLive((s) => s.summary);
   const liveShopee = !!liveSummary && (liveSummary.platforms.shopee.connected || liveSummary.platforms.lazada.connected);
   const unread = useOffice((s) => s.notifications.filter((n) => !n.read).length);
+  const pendingApprovals = useOffice((s) => s.approvals.filter((a) => a.status === "pending").length);
+  // the bell gives a little wiggle whenever something new arrives
+  const lastCount = useRef(unread + pendingApprovals);
+  const [bellKey, setBellKey] = useState(0);
+  useEffect(() => {
+    const n = unread + pendingApprovals;
+    if (n > lastCount.current) setBellKey((k) => k + 1);
+    lastCount.current = n;
+  }, [unread, pendingApprovals]);
   const health = useHealthPolling();
   const touch = useTouchLayout();
   const companies = useOffice((s) => s.companies);
@@ -141,7 +150,7 @@ export function TopBar({ authLabel }: { authLabel?: React.ReactNode }) {
         <ApprovalsButton />
         <div className="relative">
           <Button variant="ghost" size="icon" title="Notifications" onClick={() => ui.set({ notificationsOpen: !ui.notificationsOpen })}>
-            <Bell />
+            <Bell key={bellKey} className={bellKey ? "ov-bounce" : undefined} />
           </Button>
           {unread > 0 && (
             <span className="pointer-events-none absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
@@ -173,10 +182,11 @@ function ApprovalsButton() {
   if (!n) return null;
   return (
     <Button
+      key={n}
       variant="ghost"
       size="sm"
       title="Approvals waiting"
-      className="bg-purple-100 text-purple-800 hover:bg-purple-200"
+      className="ov-pop bg-purple-100 text-purple-800 hover:bg-purple-200"
       onClick={() => set({ dialog: "dashboard", dashboardTab: "approvals" })}
     >
       <CheckSquare />
@@ -365,22 +375,70 @@ export function BuildPanel() {
 export function Toasts() {
   const toasts = useUI((s) => s.toasts);
   const dismiss = useUI((s) => s.dismiss);
+  const [hover, setHover] = useState(false);
+  const list = toasts.slice(-4).reverse(); // newest on top
   return (
-    <div className="pointer-events-none fixed left-1/2 top-[72px] z-[60] flex w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-2">
-      {toasts.map((t) => (
-        <button
-          key={t.id}
-          onClick={() => dismiss(t.id)}
-          className={cn(
-            "anim-up pointer-events-auto flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-medium shadow-lg",
-            t.kind === "error" ? "border-red-200 bg-red-50 text-red-800" : t.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-panel text-slate-700",
-          )}
-        >
-          {t.kind === "error" ? <XCircle className="h-4 w-4 shrink-0" /> : t.kind === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <Info className="h-4 w-4 shrink-0" />}
-          {t.text}
-        </button>
-      ))}
+    <div
+      className="pointer-events-none fixed right-3 top-[72px] z-[60] w-[min(380px,calc(100vw-1.5rem))]"
+      onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => setHover(false)}
+      aria-live="polite"
+    >
+      <div className="relative" style={{ height: list.length ? (hover ? list.length * 52 : 52 + Math.min(2, list.length - 1) * 8) : 0, transition: "height .25s" }}>
+        {list.map((t, i) => (
+          <ToastCard key={t.id} t={t} i={i} spread={hover} onDismiss={() => dismiss(t.id)} />
+        ))}
+      </div>
     </div>
+  );
+}
+
+/** One alert card: stacked behind newer ones (fanned out on hover), tap or swipe sideways to dismiss. */
+function ToastCard({ t, i, spread, onDismiss }: { t: { id: number; kind: string; text: string }; i: number; spread: boolean; onDismiss: () => void }) {
+  const [dx, setDx] = useState(0);
+  const start = useRef<number | null>(null);
+  const moved = useRef(false);
+  const y = spread ? i * 52 : i * 8;
+  const scale = spread ? 1 : 1 - i * 0.04;
+  return (
+    <button
+      onPointerDown={(e) => {
+        start.current = e.clientX;
+        moved.current = false;
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (start.current == null) return;
+        const d = e.clientX - start.current;
+        if (Math.abs(d) > 4) moved.current = true;
+        setDx(d);
+      }}
+      onPointerUp={() => {
+        const far = Math.abs(dx) > 90;
+        start.current = null;
+        if (far || !moved.current) onDismiss();
+        else setDx(0);
+      }}
+      onPointerCancel={() => {
+        start.current = null;
+        setDx(0);
+      }}
+      className={cn(
+        "pointer-events-auto absolute inset-x-0 top-0 flex touch-pan-y items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-medium shadow-lg",
+        t.kind === "error" ? "border-red-200 bg-red-50 text-red-800" : t.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-panel text-slate-700",
+      )}
+      style={{
+        transform: `translate(${dx}px, ${y}px) scale(${scale})`,
+        opacity: Math.max(0, 1 - Math.abs(dx) / 220) * (spread || i === 0 ? 1 : 0.92 - i * 0.12),
+        zIndex: 10 - i,
+        transition: start.current == null ? "transform .3s cubic-bezier(.2,.9,.3,1), opacity .3s" : "none",
+        animation: i === 0 ? "ov-slide-in-corner .32s cubic-bezier(.2,.9,.3,1)" : undefined,
+        transformOrigin: "top center",
+      }}
+    >
+      {t.kind === "error" ? <XCircle className="h-4 w-4 shrink-0" /> : t.kind === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <Info className="h-4 w-4 shrink-0" />}
+      <span className={cn("min-w-0 flex-1", !spread && i > 0 && "truncate")}>{t.text}</span>
+    </button>
   );
 }
 

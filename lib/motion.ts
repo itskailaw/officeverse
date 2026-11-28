@@ -105,6 +105,9 @@ export interface OfficeFx {
   partyAt: number;
   /** big order: flash the TV wall */
   tvFlashAt: number;
+  /** staff writing a chat reply right now */
+  typing: Record<string, boolean>;
+  setTyping(id: string, on: boolean): void;
   coin(platform: "shopee" | "lazada"): void;
   parcelRun(count: number): void;
   party(): void;
@@ -116,6 +119,8 @@ export const useOfficeFx = create<OfficeFx>()((set) => ({
   parcels: null,
   partyAt: 0,
   tvFlashAt: 0,
+  typing: {},
+  setTyping: (id, on) => set((s) => (!!s.typing[id] === on ? s : { typing: { ...s.typing, [id]: on } })),
   coin: (platform) => {
     const id = ++fxId;
     set((s) => ({ coins: [...s.coins.slice(-11), { id, platform, at: Date.now() }] }));
@@ -125,3 +130,19 @@ export const useOfficeFx = create<OfficeFx>()((set) => ({
   party: () => set({ partyAt: Date.now() }),
   tvFlash: () => set({ tvFlashAt: Date.now() }),
 }));
+
+/** Red pulse while something is urgent; a green flash the moment it's cleared. */
+export function useUrgentGlow(urgent: number): string {
+  const was = useRef(urgent);
+  const [cleared, setCleared] = useState(false);
+  useEffect(() => {
+    if (was.current > 0 && urgent === 0) {
+      setCleared(true);
+      const t = setTimeout(() => setCleared(false), 1100);
+      was.current = urgent;
+      return () => clearTimeout(t);
+    }
+    was.current = urgent;
+  }, [urgent]);
+  return urgent > 0 ? "ov-glow-red" : cleared ? "ov-glow-green" : "";
+}

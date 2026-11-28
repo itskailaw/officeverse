@@ -1,5 +1,6 @@
 "use client";
 
+import { CountUp, TypeText } from "@/components/ui/motion";
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, CheckSquare, Megaphone, Package, PackageCheck, RotateCcw, TrendingDown, TrendingUp, X } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
@@ -187,7 +188,7 @@ export function WelcomeBrief() {
 
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[2px]" onClick={() => setOpen(false)}>
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-panel shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Today at a glance">
+      <div className="ov-pop w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-panel shadow-2xl" style={{ animationDuration: "0.4s" }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Today at a glance">
         <div className="relative bg-gradient-to-br from-[#0f1f36] to-[#1e3a5f] px-5 pb-4 pt-5 text-white">
           <button onClick={() => setOpen(false)} className="absolute right-3 top-3 rounded-md p-1 text-white/60 hover:bg-white/10 hover:text-white" aria-label="Close">
             <X className="h-4 w-4" />
@@ -196,7 +197,7 @@ export function WelcomeBrief() {
             {new Intl.DateTimeFormat("en-MY", { timeZone: "Asia/Kuala_Lumpur", weekday: "long", day: "numeric", month: "long" }).format(now)}
           </div>
           <div className="mt-0.5 text-lg font-semibold">
-            {t(greeting(now))}, {settings.ceoName?.split(" ")[0] || t("Boss")} 👋
+            <TypeText text={`${t(greeting(now))}, ${settings.ceoName?.split(" ")[0] || t("Boss")} 👋`} delay={250} cps={40} />
           </div>
           {theme && <div className="text-xs text-[#fdb927]">{FESTIVE[theme]}</div>}
           {b && !b.live && <div className="mt-1 inline-block rounded bg-amber-400/90 px-1.5 text-[10px] font-bold text-slate-900">DEMO DATA</div>}
@@ -216,7 +217,7 @@ export function WelcomeBrief() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-2xl font-bold leading-none text-slate-900">
-                  {pack} <span className="text-sm font-semibold text-slate-600">{t(pack === 1 ? "parcel to pack" : "parcels to pack")}</span>
+                  <CountUp value={pack} format={(n) => String(Math.round(n))} ms={900} /> <span className="text-sm font-semibold text-slate-600">{t(pack === 1 ? "parcel to pack" : "parcels to pack")}</span>
                 </div>
                 <div className="mt-1 text-[11px] text-slate-600">
                   {pack ? (
@@ -245,7 +246,9 @@ export function WelcomeBrief() {
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-slate-200 p-2.5">
                 <div className="text-[10px] uppercase tracking-wide text-slate-500">{t("Sales today")}</div>
-                <div className="text-base font-semibold text-slate-900">{formatMYR(b.today)}</div>
+                <div className="text-base font-semibold text-slate-900">
+                  <CountUp value={b.today} format={(n) => formatMYR(n)} ms={1000} />
+                </div>
                 <div className={cn("flex items-center gap-1 text-[11px]", vsYesterday == null ? "text-slate-400" : vsYesterday >= 0 ? "text-emerald-700" : "text-slate-500")}>
                   {vsYesterday != null && (vsYesterday >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />)}
                   {b.todayOrders ? `${b.todayOrders} orders · ` : ""}yesterday {formatMYR(b.yesterday)}
@@ -253,7 +256,9 @@ export function WelcomeBrief() {
               </div>
               <div className="rounded-xl border border-slate-200 p-2.5">
                 <div className="text-[10px] uppercase tracking-wide text-slate-500">{t("This month")}</div>
-                <div className="text-base font-semibold text-slate-900">{formatMYR(b.mtd)}</div>
+                <div className="text-base font-semibold text-slate-900">
+                  <CountUp value={b.mtd} format={(n) => formatMYR(n)} ms={1200} />
+                </div>
                 <div className="text-[11px] text-slate-500">{t("month to date")}</div>
               </div>
             </div>
@@ -264,13 +269,14 @@ export function WelcomeBrief() {
                 {updates.slice(0, 5).map((u, i) => (
                   <li
                     key={i}
+                    style={{ "--i": 6 + i * 4 } as React.CSSProperties}
                     className={cn(
-                      "flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:shrink-0",
+                      "ov-rise flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:shrink-0",
                       u.tone === "bad" ? "bg-red-50 text-red-800" : u.tone === "warn" ? "bg-amber-50 text-amber-900" : "bg-slate-50 text-slate-700",
                     )}
                   >
                     {u.icon}
-                    {u.text}
+                    <TypeText text={u.text} delay={450 + i * 260} cps={70} />
                   </li>
                 ))}
               </ul>

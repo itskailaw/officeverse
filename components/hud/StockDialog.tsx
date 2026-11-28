@@ -8,6 +8,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ProductCosts } from "./ProductCosts";
+import { useSlider } from "@/components/ui/motion";
 import { StockIn } from "./StockIn";
 import { stockLevels, type CatalogRow, type OrderLite, type StockItem, type StockLevel } from "@/lib/data/stock";
 
@@ -32,6 +33,7 @@ export function StockDialog() {
   const [q, setQ] = useState("");
   const [onlyTracked, setOnlyTracked] = useState(false);
   const [section, setSection] = useState<"levels" | "in" | "costs">("levels");
+  const tabSlider = useSlider<HTMLDivElement>(section);
   useEffect(() => {
     if (!open) return;
     try {
@@ -102,7 +104,8 @@ export function StockDialog() {
         onBack={() => set({ dialog: "dashboard" })}
         backLabel="Dashboard"
       >
-        <div className="flex gap-1 border-b border-slate-100 px-5 pt-2 print:hidden">
+        <div ref={tabSlider.ref} className="relative flex gap-1 border-b border-slate-100 px-5 pt-2 print:hidden">
+          {tabSlider.box && <span aria-hidden className="pointer-events-none absolute h-0.5 rounded-full bg-navy transition-[left,width] duration-300 ease-[cubic-bezier(.3,1.3,.5,1)] dark:bg-sky-400" style={{ left: tabSlider.box.left, width: tabSlider.box.width, top: tabSlider.box.top + tabSlider.box.height - 2 }} />}
           {(
             [
               ["levels", "Stock levels"],
@@ -112,8 +115,9 @@ export function StockDialog() {
           ).map(([v, l]) => (
             <button
               key={v}
+              data-active={section === v}
               onClick={() => setSection(v)}
-              className={`-mb-px rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold ${section === v ? "border-navy text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+              className={`-mb-px rounded-t-lg px-3 py-2 text-xs font-semibold transition-colors ${section === v ? "text-slate-900" : "text-slate-500 hover:text-slate-800"}`}
             >
               {l}
             </button>

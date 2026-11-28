@@ -3,6 +3,7 @@
 import { memo, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { useOfficeFx } from "@/lib/motion";
 import { Html } from "@react-three/drei";
 import type { Appearance, EmployeeStatus } from "@/lib/data/types";
 import { STATUS_META } from "@/lib/data/types";
@@ -778,7 +779,7 @@ export const Character = memo(function Character(props: Props) {
     bubbleClock.current -= dt;
     if (bubbleClock.current <= 0) {
       bubbleClock.current = 0.4;
-      const next = isCEO || props.preview ? null : translateBubble(activityText(ag, status, seat?.kind, seat ? getSim().layout.furniture.find((f) => f.id === seat.furnitureId)?.type : undefined, props.task));
+      const next = isCEO || props.preview ? null : useOfficeFx.getState().typing[id] ? "💬 typing…" : translateBubble(activityText(ag, status, seat?.kind, seat ? getSim().layout.furniture.find((f) => f.id === seat.furnitureId)?.type : undefined, props.task));
       if (next !== lastBubble.current) {
         lastBubble.current = next;
         setBubble(next);

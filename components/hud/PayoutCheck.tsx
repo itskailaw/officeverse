@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EmptyState, SkeletonRows } from "@/components/ui/motion";
 import { Download, Loader2, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useUI } from "@/lib/store/ui-store";
@@ -31,6 +32,9 @@ export function PayoutCheck() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [openRow, setOpenRow] = useState<string | null>(null);
+  // orders whose payout just became final flip their chip
+  const prevStates = useRef(new Map<string, PayoutState>());
+  const [flipped, setFlipped] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -39,6 +43,15 @@ export function PayoutCheck() {
       const r = await fetch(`/api/payouts?month=${month}`, { cache: "no-store" });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? `Request failed (${r.status})`);
+      const changed = new Set<string>();
+      for (const row of (j.rows ?? []) as PayoutRow[]) {
+        const k = `${row.platform}-${row.id}`;
+        const was = prevStates.current.get(k);
+        if (was && was !== row.state && row.state === "final") changed.add(k);
+        prevStates.current.set(k, row.state);
+      }
+      setFlipped(changed);
+      if (changed.size) setTimeout(() => setFlipped(new Set()), 1400);
       setData(j);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -137,9 +150,9 @@ export function PayoutCheck() {
               {err ? (
                 <p className="py-8 text-center text-xs text-red-600">{err}</p>
               ) : !data ? (
-                <p className="py-8 text-center text-xs text-slate-500">Loading…</p>
+                <SkeletonRows rows={8} />
               ) : !rows.length ? (
-                <p className="py-8 text-center text-xs text-slate-500">No orders here.</p>
+                <EmptyState kind="boxes" text="No orders here." sub="Try another month or filter" />
               ) : (
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-panel text-[10.5px] text-slate-500">
@@ -173,7 +186,7 @@ export function PayoutCheck() {
                             <td className="text-right tabular-nums text-red-600">{r.net != null ? RM(r.net - r.gross) : ""}</td>
                             <td className="text-right font-semibold tabular-nums text-slate-900">{r.net != null ? RM(r.net) : "—"}</td>
                             <td className="pl-3">
-                              <span className={cn("whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1", TONE[r.state])}>{STATE_LABEL[r.state]}</span>
+                              <span className={cn("inline-block whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1", TONE[r.state], flipped.has(k) && "ov-flip")}>{STATE_LABEL[r.state]}</span>
                             </td>
                             <td className="text-right tabular-nums text-slate-500">{r.cost != null ? RM(r.cost) : "?"}</td>
                           </tr>

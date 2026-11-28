@@ -150,7 +150,7 @@ body {
 @keyframes ov-shine { 0% { opacity: 0; transform: scale(0.6); } 40% { opacity: 1; transform: scale(1.25); } 100% { opacity: 0; transform: scale(1.6); } }
 @keyframes ov-caret { 50% { opacity: 0; } }
 
-.ov-rise { animation: ov-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.ov-rise { animation: ov-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
 .ov-pop { animation: ov-pop 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
 .ov-pulse { animation: ov-pulse-green 1.1s ease-out; }
 .ov-bump { display: inline-block; animation: ov-bump 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
@@ -183,3 +183,5 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: 0.001s !important; transition-delay: 0s !important; }
 }
+@keyframes ov-line-y { from { transform: scaleY(0); } }
+@keyframes ov-line-x { from { transform: scaleX(0); } }

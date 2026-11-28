@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/motion";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
@@ -987,7 +988,7 @@ export function PriorityDot({ p }: { p: "critical" | "important" | "info" }) {
 }
 
 function Empty({ text }: { text: string }) {
-  return <p className="py-4 text-center text-xs text-slate-400">{text}</p>;
+  return <EmptyState kind={/approv/i.test(text) ? "relax" : /task|meeting/i.test(text) ? "sleep" : "sparkle"} text={text} />;
 }
 
 function PendingCount() {

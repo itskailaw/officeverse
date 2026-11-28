@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/ui/motion";
 import { useMemo, useState } from "react";
 import { Bot, Calculator, RotateCcw, TrendingUp } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
@@ -183,7 +184,7 @@ export function ReturnsPanel({ s, view }: { s: LiveSummary; view: "all" | Plat }
       {!r?.available ? (
         <p className="py-3 text-xs text-slate-500">Run the 0005 database update in Supabase (SQL Editor); returns then sync with your orders.</p>
       ) : !rows.length ? (
-        <p className="py-3 text-xs text-slate-500">No return or refund requests in the last 60 days. 🎉</p>
+        <EmptyState kind="coffee" text="No returns 🎉" sub="No return or refund requests in the last 60 days — Mei Ling is having a coffee" />
       ) : (
         <>
           <div className="mb-1 text-[11px] text-slate-500">

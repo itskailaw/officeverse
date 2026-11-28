@@ -1,5 +1,6 @@
 "use client";
 
+import { useUrgentGlow } from "@/lib/motion";
 import { useState } from "react";
 import { Boxes, Building2, Megaphone, Music2, CalendarPlus, Hammer, Layers, LayoutDashboard, Lightbulb, MoreHorizontal, Package, Settings, Tag, UserPlus, Users, X } from "lucide-react";
 import { useUI } from "@/lib/store/ui-store";
@@ -23,6 +24,7 @@ export function TabBar() {
   const live = useLive((s) => s.summary);
   const role = useLive((s) => s.status?.role);
   const [more, setMore] = useState(false);
+  const glow = useUrgentGlow(live?.toPack.urgent ?? 0);
   const { t } = useT();
   if (!touch) return null;
   const parcels = live ? live.toPack.readyToShip + live.toPack.processed : 0;
@@ -31,7 +33,7 @@ export function TabBar() {
     <button
       key={id}
       onClick={onClick}
-      className={cn("relative flex h-14 min-w-[4.25rem] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-medium transition [&_svg]:h-5 [&_svg]:w-5", active === id ? "bg-navy text-white" : "text-slate-600 active:bg-slate-100")}
+      className={cn(id === "pack" && glow, "relative flex h-14 min-w-[4.25rem] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-medium transition [&_svg]:h-5 [&_svg]:w-5", active === id ? "bg-navy text-white" : "text-slate-600 active:bg-slate-100")}
       aria-label={label}
     >
       {icon}

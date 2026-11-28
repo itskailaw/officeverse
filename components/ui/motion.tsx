@@ -64,10 +64,9 @@ export function EmptyState({ kind = "sparkle", text, sub, className }: { kind?: 
  * Put `ref` on the bar (position: relative) and `data-active="true"` on the active button.
  */
 export function useSlider<T extends HTMLElement>(dep: unknown) {
-  const ref = useRef<T>(null);
+  const [el, setEl] = useState<T | null>(null);
   const [box, setBox] = useState<{ left: number; width: number; top: number; height: number } | null>(null);
   useLayoutEffect(() => {
-    const el = ref.current;
     if (!el) return;
     const measure = () => {
       const a = el.querySelector<HTMLElement>('[data-active="true"]');
@@ -77,8 +76,8 @@ export function useSlider<T extends HTMLElement>(dep: unknown) {
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [dep]);
-  return { ref, box };
+  }, [el, dep]);
+  return { ref: setEl, box };
 }
 export function SliderPill({ box, className }: { box: { left: number; width: number; top: number; height: number } | null; className?: string }) {
   if (!box) return null;
@@ -166,5 +165,40 @@ export function ExpandSheet({ from, onClose, children, width = 860, height = 500
         </div>
       </div>
     </div>
+  );
+}
+
+/** Text that types itself out (after `delay` ms), with a blinking caret while it types. */
+export function TypeText({ text, delay = 0, cps = 55 }: { text: string; delay?: number; cps?: number }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setN(text.length);
+      return;
+    }
+    setN(0);
+    let i = 0;
+    let iv: ReturnType<typeof setInterval> | undefined;
+    const start = setTimeout(() => {
+      iv = setInterval(() => {
+        i += 1;
+        setN(i);
+        if (i >= text.length) clearInterval(iv);
+      }, 1000 / cps);
+    }, delay);
+    return () => {
+      clearTimeout(start);
+      if (iv) clearInterval(iv);
+    };
+  }, [text, delay, cps]);
+  return (
+    <span aria-label={text}>
+      <span aria-hidden className={n > 0 && n < text.length ? "ov-caret" : undefined}>
+        {text.slice(0, n)}
+      </span>
+      <span aria-hidden className="invisible">
+        {text.slice(n)}
+      </span>
+    </span>
   );
 }

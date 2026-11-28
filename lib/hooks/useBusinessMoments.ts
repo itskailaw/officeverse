@@ -14,6 +14,42 @@ const BIG_ORDER = 200;
  * a coin per new order (and a ding), a TV flash for a big order, and a party when the monthly target is hit.
  */
 export function useBusinessMoments() {
+  // staff: a star burst when a task is done, a raised hand when they need your approval
+  useEffect(() => {
+    let done = new Set(useOffice.getState().tasks.filter((t) => t.status === "completed").map((t) => t.id));
+    let asks = new Set(useOffice.getState().approvals.filter((a) => a.status === "pending").map((a) => a.id));
+    return useOffice.subscribe((st, old) => {
+      const m = useMoments.getState();
+      if (st.tasks !== old.tasks) {
+        const now = new Set<string>();
+        const fresh: string[] = [];
+        for (const t of st.tasks) {
+          if (t.status !== "completed") continue;
+          now.add(t.id);
+          if (!done.has(t.id)) fresh.push(t.employeeId);
+        }
+        // a handful at a time (a sync that loads old history shouldn't light everyone up)
+        if (fresh.length <= 3)
+          for (const id of fresh) {
+            m.emote(id, "⭐", 3500);
+            m.happy(id, 20_000);
+          }
+        done = now;
+      }
+      if (st.approvals !== old.approvals) {
+        const now = new Set<string>();
+        const fresh: string[] = [];
+        for (const a of st.approvals) {
+          if (a.status !== "pending") continue;
+          now.add(a.id);
+          if (!asks.has(a.id)) fresh.push(a.employeeId);
+        }
+        if (fresh.length <= 3) for (const id of fresh) m.emote(id, "✋", 6000);
+        asks = now;
+      }
+    });
+  }, []);
+
   useEffect(() => {
     let prev: LiveSummary | null = useLive.getState().summary;
     return useLive.subscribe((st) => {

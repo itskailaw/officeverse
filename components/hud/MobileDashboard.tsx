@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useUrgentGlow } from "@/lib/motion";
+import { useMemo, useRef, useState } from "react";
 import {
   Box,
   Boxes,
@@ -13,6 +14,7 @@ import {
   Network,
   Package,
   PackagePlus,
+  RefreshCw,
   Search,
   Settings,
   Sun,
@@ -22,6 +24,7 @@ import { useUI } from "@/lib/store/ui-store";
 import { useLive } from "@/lib/integrations/client";
 import { formatMYR } from "@/lib/data/demo";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Avatar } from "./Avatar";
 import { Logo } from "./Extras";
 import { StatusBadge } from "./EmployeePanel";
@@ -52,6 +55,7 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
   const urgent = live?.toPack.urgent ?? 0;
   const people = employees.filter((e) => !q.trim() || `${e.name} ${e.title}`.toLowerCase().includes(q.trim().toLowerCase()));
 
+  const packGlow = useUrgentGlow(urgent);
   const actions: { label: string; icon: React.ReactNode; onClick: () => void; badge?: number; show?: boolean; tone?: string }[] = [
     { label: t("Packing"), icon: <Package />, onClick: () => set({ dialog: "fulfil", fulfilStage: live?.toPack.readyToShip ? "process" : "ship" }), badge: toPack ?? undefined, show: owner, tone: "bg-sky-500" },
     { label: t("Approvals"), icon: <CheckSquare />, onClick: () => set({ dialog: "dashboard", dashboardTab: "approvals" }), badge: pendingApprovals, tone: "bg-amber-500" },
@@ -65,8 +69,53 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
     { label: t("Meeting"), icon: <CalendarPlus />, onClick: () => set({ dialog: "meeting-call" }), tone: "bg-slate-500" },
   ];
 
+  // pull down from the top to refresh (new orders + drop-off scans), with a little bounce
+  const scroller = useRef<HTMLDivElement>(null);
+  const startY = useRef<number | null>(null);
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      if (owner) await fetch("/api/fulfil/orders", { method: "POST" }).catch(() => {});
+      await useLive.getState().loadSummary();
+      useUI.getState().toast("success", t("Up to date"));
+    } finally {
+      setRefreshing(false);
+      setPull(0);
+    }
+  };
+  const touch = {
+    onTouchStart: (e: React.TouchEvent) => {
+      startY.current = (scroller.current?.scrollTop ?? 0) <= 0 && !refreshing ? e.touches[0].clientY : null;
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      if (startY.current == null) return;
+      const d = e.touches[0].clientY - startY.current;
+      setPull(d > 0 ? Math.min(96, d * 0.45) : 0);
+    },
+    onTouchEnd: () => {
+      if (startY.current == null) return;
+      startY.current = null;
+      if (pull >= 64) {
+        setPull(56);
+        void refresh();
+      } else setPull(0);
+    },
+  };
+
   return (
-    <div className="h-dvh overflow-y-auto bg-slate-50 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+    <div ref={scroller} {...touch} className="h-dvh overflow-y-auto bg-slate-50 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+      <div
+        aria-hidden={!refreshing}
+        className="pointer-events-none flex items-end justify-center overflow-hidden text-[11px] font-semibold text-slate-500"
+        style={{ height: pull, transition: startY.current == null ? "height .35s cubic-bezier(.3,1.5,.5,1)" : "none" }}
+      >
+        <span className="mb-2 flex items-center gap-1.5">
+          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} style={refreshing ? undefined : { transform: `rotate(${pull * 3.2}deg)` }} />
+          {refreshing ? t("Refreshing…") : pull >= 64 ? t("Release to refresh") : t("Pull to refresh")}
+        </span>
+      </div>
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-panel/95 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
         <Logo size={32} />
         <div className="flex-1 leading-tight">
@@ -112,7 +161,7 @@ export function MobileDashboard({ onOpen3D }: { onOpen3D: () => void }) {
           {actions
             .filter((a) => a.show !== false)
             .map((a) => (
-              <button key={a.label} onClick={a.onClick} className="relative flex flex-col items-center gap-1.5 rounded-2xl bg-panel p-2.5 text-[11px] font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 active:scale-95">
+              <button key={a.label} onClick={a.onClick} className={`${a.label === t("Packing") ? packGlow : ""} relative flex flex-col items-center gap-1.5 rounded-2xl bg-panel p-2.5 text-[11px] font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 transition-transform active:scale-95`}>
                 <span className={`grid h-10 w-10 place-items-center rounded-xl text-white ${a.tone ?? "bg-slate-500"} [&_svg]:h-5 [&_svg]:w-5`}>{a.icon}</span>
                 <span className="text-center leading-tight">{a.label}</span>
                 {!!a.badge && <span className="absolute right-1.5 top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{a.badge > 99 ? "99+" : a.badge}</span>}

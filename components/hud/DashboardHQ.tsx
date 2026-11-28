@@ -15,7 +15,7 @@ import { openMarketing } from "./MarketingStudio";
 import { AdSpendDialog } from "./AdSpendDialog";
 import { AD_CHANNELS, monthAds, platformAdSpend } from "@/lib/data/ads";
 import { CountUp, EmptyState, ExpandSheet, Skeleton, SliderPill, useSlider } from "@/components/ui/motion";
-import { reducedMotion, useFlash } from "@/lib/motion";
+import { reducedMotion, useFlash, useUrgentGlow } from "@/lib/motion";
 import { KpiDetail, type DetailKind } from "./DashboardDetail";
 
 type Range = "today" | "7" | "30" | "month";
@@ -99,9 +99,10 @@ function Kpi({
       aria-label={onOpen ? `${label}: open details` : undefined}
       onClick={onOpen ? (e) => onOpen(e.currentTarget) : undefined}
       onKeyDown={onOpen ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen(e.currentTarget)) : undefined}
-      className={cn("ov-rise group/kpi relative rounded-2xl bg-panel p-4 shadow-sm ring-1 ring-slate-200/80", onOpen && "ov-lift cursor-pointer focus-visible:outline-2 focus-visible:outline-sky-400", flash && "ov-pulse")}
+      className={cn("ov-rise group/kpi relative rounded-2xl bg-panel p-4 shadow-sm ring-1 ring-slate-200/80", onOpen && "ov-lift cursor-pointer focus-visible:outline-2 focus-visible:outline-sky-400")}
       style={{ "--i": i } as React.CSSProperties}
     >
+      {flash && <span aria-hidden className="ov-pulse pointer-events-none absolute inset-0 rounded-2xl" />}
       <div className="flex h-5 items-center justify-between gap-2">
         <div className="truncate text-[11px] font-semibold text-slate-500">{label}</div>
         {spark && <Spark values={spark} />}
@@ -141,8 +142,11 @@ function Kpi({
 type PackSide = { label: string; sub: string; n: number; urgent: number; split: { p: "shopee" | "lazada"; n: number }[]; action: string; go?: () => void };
 /** Packing at a glance: orders still to accept / arrange drop-off, and parcels waiting to be handed over. */
 function PackTile({ sides }: { sides: PackSide[] }) {
+  const glow = useUrgentGlow(sides.reduce((a, x) => a + x.urgent, 0));
   return (
-    <div className="ov-rise col-span-2 grid grid-cols-2 divide-x divide-slate-100 rounded-2xl bg-panel shadow-sm ring-1 ring-slate-200/80" style={{ "--i": 2 } as React.CSSProperties}>
+    <div className="ov-rise relative col-span-2 rounded-2xl" style={{ "--i": 2 } as React.CSSProperties}>
+    {glow && <span key={glow} aria-hidden className={cn("pointer-events-none absolute inset-0 z-10 rounded-2xl", glow)} />}
+    <div className="grid h-full grid-cols-2 divide-x divide-slate-100 rounded-2xl bg-panel shadow-sm ring-1 ring-slate-200/80">
       {sides.map((x) => (
         <div key={x.label} className="flex min-w-0 flex-col p-4">
           <div className="text-[11px] font-semibold text-slate-500">{x.label}</div>
@@ -172,6 +176,7 @@ function PackTile({ sides }: { sides: PackSide[] }) {
           )}
         </div>
       ))}
+    </div>
     </div>
   );
 }
@@ -712,6 +717,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
         </Card>
         <Card i={9} title="Returns & cancellations" right={s.returns?.open ? <Chip tone="amber">{s.returns.open} open</Chip> : <Chip tone="green">none open</Chip>}>
           <div className="divide-y divide-slate-100 text-[12.5px]">
+            {!recentReturns.length && <EmptyState kind="coffee" text="No returns 🎉" sub="Mei Ling is having a coffee" className="py-3" />}
             {recentReturns.map((r) => (
               <div key={`${r.platform}${r.id}`} className="flex items-start gap-2 py-2">
                 <div className="min-w-0 flex-1">
