@@ -63,3 +63,16 @@ export function applyChange(price: number, c: Change): number {
 export function monthlyImpact(unitsPerMonth: number, oldProfit: number, newProfit: number) {
   return money(unitsPerMonth * (newProfit - oldProfit));
 }
+
+/**
+ * The simple question: "I sell at `price` with `margin` profit — what price gives `target`?"
+ * Marketplace fees (`feeRate`, share of the price) grow with the price; everything else (product, packing, ads) stays the same.
+ */
+export function priceForNewMargin(price: number, margin: number, target: number, feeRate = 0): { price: number; add: number; fixed: number } | null {
+  if (!(price > 0)) return null;
+  const fixed = price * (1 - margin - feeRate);
+  const d = 1 - feeRate - target;
+  if (fixed < 0 || d <= 0.02) return null;
+  const p = money(fixed / d);
+  return { price: p, add: money(p - price), fixed: money(fixed) };
+}

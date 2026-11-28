@@ -38,3 +38,10 @@ test("bulk changes and impact", () => {
   assert.equal(applyChange(80, { kind: "set", value: 49.9 }), 49.9);
   assert.equal(monthlyImpact(79, 25, 29.5), 355.5);
 });
+
+test("simple: RM 50 at 25% → 40%", async () => {
+  const { priceForNewMargin } = await import("../lib/data/pricing.ts");
+  assert.deepEqual(priceForNewMargin(50, 0.25, 0.4), { price: 62.5, add: 12.5, fixed: 37.5 });
+  assert.deepEqual(priceForNewMargin(50, 0.25, 0.4, 0.18), { price: 67.86, add: 17.86, fixed: 28.5 });
+  assert.equal(priceForNewMargin(50, 0.25, 0.9, 0.18), null);
+});

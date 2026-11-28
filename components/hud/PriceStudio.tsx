@@ -8,7 +8,7 @@ import { useUI } from "@/lib/store/ui-store";
 import { useOffice } from "@/lib/store/office-store";
 import { useLive } from "@/lib/integrations/client";
 import { enqueueTask } from "@/lib/ai/runner";
-import { applyChange, economics, monthlyImpact, priceForMargin, roundPrice, type Change, type Rounding } from "@/lib/data/pricing";
+import { applyChange, economics, monthlyImpact, priceForMargin, priceForNewMargin, roundPrice, type Change, type Rounding } from "@/lib/data/pricing";
 import { CountUp, EmptyState, SkeletonRows } from "@/components/ui/motion";
 import { cn } from "@/lib/utils";
 
@@ -224,6 +224,7 @@ export function PriceStudio() {
           <p className="p-6 text-sm text-slate-600">Only the workspace owner can see and change prices.</p>
         ) : (
           <div className="flex h-full min-h-0 flex-col">
+            <QuickCalc defaultFee={Math.round(rate("shopee") * 1000) / 10} rounding={rounding} />
             {/* settings */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 px-5 py-2.5 text-xs">
               <label className="flex items-center gap-1.5 font-semibold text-slate-700">
@@ -352,7 +353,7 @@ export function PriceStudio() {
                       <th className="text-right font-semibold">Fees</th>
                       <th className="text-right font-semibold">Profit</th>
                       <th className="text-right font-semibold">Margin</th>
-                      <th className="text-right font-semibold">For {Math.round(target * 100)}%</th>
+                      <th className="text-right font-semibold">Price for {Math.round(target * 100)}%</th>
                       <th className="pl-3 font-semibold">New price</th>
                       <th className="text-right font-semibold">New margin</th>
                     </tr>
@@ -400,6 +401,7 @@ export function PriceStudio() {
                             ) : (
                               <button type="button" onClick={() => setDraftFor([k], () => goal)} className={cn("rounded px-1 font-semibold hover:bg-slate-100", goal > r.price ? "text-navy dark:text-sky-300" : "text-slate-500")} title="Use this price">
                                 {goal.toFixed(2)}
+                                {goal > r.price && <span className="block text-[10px] font-semibold text-emerald-700">+RM {(goal - r.price).toFixed(2)}</span>}
                               </button>
                             )}
                           </td>
@@ -499,6 +501,59 @@ function Stat({ label, value, sub, tone }: { label: string; value: React.ReactNo
       <div className="text-[10.5px] font-semibold text-slate-500">{label}</div>
       <div className={cn("text-lg font-bold tabular-nums", tone === "bad" ? "text-red-600" : tone === "good" ? "text-emerald-700" : "text-slate-900")}>{value}</div>
       {sub && <div className="text-[10.5px] text-slate-400">{sub}</div>}
+    </div>
+  );
+}
+
+/** The simple version: "I sell at RM 50 with 25% margin — what do I add to get 40%?" */
+function QuickCalc({ defaultFee, rounding }: { defaultFee: number; rounding: Rounding }) {
+  const [price, setPrice] = useState("50");
+  const [margin, setMargin] = useState("25");
+  const [target, setTarget] = useState("40");
+  const [fee, setFee] = useState<string | null>(null);
+  const feeV = fee ?? String(defaultFee);
+  const r = priceForNewMargin(Number(price), Number(margin) / 100, Number(target) / 100, Number(feeV) / 100);
+  const nice = r ? roundPrice(r.price, rounding === "none" ? "none" : rounding) : null;
+  const field = (label: string, v: string, set: (x: string) => void, suffix: string, prefix?: string) => (
+    <label className="flex flex-col gap-0.5 text-[10.5px] font-semibold text-slate-500">
+      {label}
+      <span className="flex items-center gap-1 text-sm text-slate-900">
+        {prefix && <span className="text-xs text-slate-400">{prefix}</span>}
+        <input value={v} onChange={(e) => set(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" className="h-9 w-20 rounded-lg border border-slate-200 bg-panel px-2 text-right text-sm font-semibold tabular-nums text-slate-900" aria-label={label} />
+        <span className="text-xs text-slate-400">{suffix}</span>
+      </span>
+    </label>
+  );
+  return (
+    <div className="flex flex-wrap items-end gap-x-4 gap-y-2 border-b border-slate-100 bg-sky-50/60 px-5 py-3 dark:bg-sky-950/20">
+      <div className="w-full text-xs font-semibold text-slate-800">🧮 Quick calculator — how much to add to reach a margin</div>
+      {field("Selling price now", price, setPrice, "", "RM")}
+      {field("Margin now", margin, setMargin, "%")}
+      {field("Margin you want", target, setTarget, "%")}
+      {field("Marketplace fees", feeV, (x) => setFee(x), "% of price")}
+      <div className="ml-auto min-w-[15rem] rounded-xl bg-panel px-4 py-2 ring-1 ring-slate-200">
+        {r ? (
+          <>
+            <div className="text-[11px] text-slate-500">Add to the price</div>
+            <div className="text-2xl font-extrabold tabular-nums text-emerald-700">+RM {r.add.toFixed(2)}</div>
+            <div className="text-[11.5px] text-slate-600">
+              New price <b className="text-slate-900">RM {r.price.toFixed(2)}</b>
+              {nice != null && nice !== r.price && (
+                <>
+                  {" "}· round to <b className="text-slate-900">RM {nice.toFixed(2)}</b>
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="py-2 text-xs text-amber-700">That margin can't be reached — lower the target or the fees.</div>
+        )}
+      </div>
+      {r && (
+        <p className="w-full text-[11px] text-slate-500">
+          Your costs (product, packing, ads) are RM {r.fixed.toFixed(2)} and stay the same; the marketplace takes {feeV}% of whatever price you set, so you need to add a bit more than the margin difference. Put the fees to 0 if your margin already ignores them.
+        </p>
+      )}
     </div>
   );
 }
