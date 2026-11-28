@@ -18,6 +18,7 @@ import { SystemHealthCard } from "./SystemHealth";
 import { toProfilePhoto } from "./Avatar";
 import { PLACES, useWeather, weatherIcon } from "@/lib/office/weather";
 import { useT, LANGS } from "@/lib/i18n";
+import { playSound } from "@/lib/motion";
 import { AppInstallCard } from "./AppInstall";
 
 const MAX_UPLOAD = 5 * 1024 * 1024;
@@ -127,6 +128,15 @@ export function SettingsDialog() {
                 ))}
               </select>
             </div>
+            <Toggle
+              label="🔔 Sounds"
+              hint="A soft ding for each new order and a cha-ching when you hit the monthly target."
+              checked={!!st.sounds}
+              onChange={(v) => {
+                s.updateSettings({ sounds: v });
+                if (v) playSound("ding", true);
+              }}
+            />
             <div>
               <Label>Lighting</Label>
               <div className="grid grid-cols-4 gap-2">

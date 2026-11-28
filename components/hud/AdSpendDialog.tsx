@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useOffice } from "@/lib/store/office-store";
 import { useUI } from "@/lib/store/ui-store";
+import { CountUp } from "@/components/ui/motion";
 import { AD_CHANNELS, monthAds, type AdChannel, type AdEntry } from "@/lib/data/ads";
 
 const klDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date());
@@ -22,6 +23,7 @@ export function AdSpendDialog({ open, onOpenChange, syncedLazada }: { open: bool
   const [channel, setChannel] = useState<AdChannel>("shopee");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [fresh, setFresh] = useState<string | null>(null);
 
   const list = useMemo(() => (entries ?? []).filter((e) => e.date.startsWith(month)).sort((a, b) => b.date.localeCompare(a.date)), [entries, month]);
   const totals = useMemo(() => monthAds(entries, month), [entries, month]);
@@ -34,6 +36,7 @@ export function AdSpendDialog({ open, onOpenChange, syncedLazada }: { open: bool
     if (!(v > 0)) return toast("error", "Enter how much you spent");
     const e: AdEntry = { id: `ad-${Date.now().toString(36)}`, date, channel, amount: v, ...(note.trim() ? { note: note.trim().slice(0, 80) } : {}) };
     update({ adSpend: [...(entries ?? []), e] });
+    setFresh(e.id);
     setAmount("");
     setNote("");
     if (!date.startsWith(month)) setMonth(date.slice(0, 7));
@@ -79,7 +82,9 @@ export function AdSpendDialog({ open, onOpenChange, syncedLazada }: { open: bool
             <input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} className={inp} aria-label="Month" />
             <div className="text-right">
               <div className="text-[11px] text-slate-500">Total this month</div>
-              <div className="text-lg font-bold tabular-nums text-slate-900">{RM(grand)}</div>
+              <div className="text-lg font-bold tabular-nums text-slate-900">
+                <CountUp value={grand} format={RM} ms={600} />
+              </div>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -93,7 +98,7 @@ export function AdSpendDialog({ open, onOpenChange, syncedLazada }: { open: bool
                     {c.id === "lazada" && lazadaSynced ? <span className="text-slate-400"> · synced</span> : null}
                   </span>
                   <span className="h-2 rounded-full bg-slate-100">
-                    <span className="block h-2 rounded-full" style={{ width: `${Math.max(2, (v / (grand || 1)) * 100)}%`, background: c.color }} />
+                    <span className="block h-2 rounded-full transition-[width] duration-500 ease-[cubic-bezier(.2,.8,.2,1)]" style={{ width: `${Math.max(2, (v / (grand || 1)) * 100)}%`, background: c.color }} />
                   </span>
                   <b className="text-right tabular-nums text-slate-900">{RM(v)}</b>
                 </div>
@@ -112,7 +117,7 @@ export function AdSpendDialog({ open, onOpenChange, syncedLazada }: { open: bool
               <p className="p-4 text-center text-xs text-slate-500">Nothing keyed in for this month yet.</p>
             ) : (
               list.map((e) => (
-                <div key={e.id} className="flex items-center gap-3 border-b border-slate-100 px-3 py-2 text-xs last:border-0">
+                <div key={e.id} className={`flex items-center gap-3 border-b border-slate-100 px-3 py-2 text-xs last:border-0 ${e.id === fresh ? "ov-rise bg-emerald-50/60 transition-colors duration-1000" : ""}`}>
                   <span className="w-20 text-slate-500 tabular-nums">{e.date.slice(8)}/{e.date.slice(5, 7)}</span>
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: AD_CHANNELS.find((c) => c.id === e.channel)?.color }} />
                   <span className="min-w-0 flex-1 truncate text-slate-800">

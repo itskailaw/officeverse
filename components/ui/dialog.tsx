@@ -4,6 +4,20 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { growOrigin } from "@/lib/motion";
+
+/** Grow the window out of the button that opened it (the centre otherwise). */
+function setOrigin(el: HTMLElement | null) {
+  if (!el) return;
+  const o = growOrigin();
+  if (!o) {
+    el.style.transformOrigin = "";
+    return;
+  }
+  const left = window.innerWidth / 2 - el.offsetWidth / 2;
+  const top = window.innerHeight / 2 - el.offsetHeight / 2;
+  el.style.transformOrigin = `${Math.round(o.x - left)}px ${Math.round(o.y - top)}px`;
+}
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -20,10 +34,11 @@ export function DialogContent({
 }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { title: React.ReactNode; description?: React.ReactNode; onBack?: () => void; backLabel?: string }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in" />
+      <DialogPrimitive.Overlay className="ov-overlay fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[2px]" />
       <DialogPrimitive.Content
+        ref={setOrigin}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-panel shadow-2xl",
+          "ov-dialog fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-panel shadow-2xl",
           className,
         )}
         {...props}

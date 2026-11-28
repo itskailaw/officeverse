@@ -1,7 +1,9 @@
 "use client";
 
 import { PayoutCheck } from "@/components/hud/PayoutCheck";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { reducedMotion } from "@/lib/motion";
+import { useBusinessMoments } from "@/lib/hooks/useBusinessMoments";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
@@ -64,13 +66,20 @@ function useThemeClass() {
   const theme = useOffice((s) => s.settings.uiTheme);
   const lighting = useOffice((s) => s.settings.lighting);
   const [tick, setTick] = useState(0);
+  const themed = useRef(false);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 60000);
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
     const dark = theme === "dark" || (theme === "auto" && resolveLighting(lighting) !== "day");
-    document.documentElement.classList.toggle("dark", dark);
+    const root = document.documentElement;
+    if (root.classList.contains("dark") === dark) return;
+    // smooth crossfade between light and dark where the browser supports it
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+    if (themed.current && doc.startViewTransition && !reducedMotion()) doc.startViewTransition(() => root.classList.toggle("dark", dark));
+    else root.classList.toggle("dark", dark);
+    themed.current = true;
   }, [theme, lighting, tick]);
 }
 
@@ -108,6 +117,7 @@ export default function OfficeApp() {
 
   useSimBridge();
   useThemeClass();
+  useBusinessMoments();
 
   useEffect(() => {
     setGl(webglAvailable());

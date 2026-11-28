@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowRight, ClipboardList, Download, Loader2, Pencil, RefreshCw } from "lucide-react";
 import { useOffice } from "@/lib/store/office-store";
@@ -14,6 +14,9 @@ import { useT } from "@/lib/i18n";
 import { openMarketing } from "./MarketingStudio";
 import { AdSpendDialog } from "./AdSpendDialog";
 import { AD_CHANNELS, monthAds, platformAdSpend } from "@/lib/data/ads";
+import { CountUp, EmptyState, ExpandSheet, Skeleton, SliderPill, useSlider } from "@/components/ui/motion";
+import { reducedMotion, useFlash } from "@/lib/motion";
+import { KpiDetail, type DetailKind } from "./DashboardDetail";
 
 type Range = "today" | "7" | "30" | "month";
 const SHOPEE = "#eb6834";
@@ -21,9 +24,9 @@ const LAZADA = "#2a78d6";
 const RM = (n: number) => formatMYR(n);
 const klDay = (d = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(d);
 
-function Card({ title, right, children, className }: { title: string; right?: React.ReactNode; children: React.ReactNode; className?: string }) {
+function Card({ title, right, children, className, i = 0 }: { title: string; right?: React.ReactNode; children: React.ReactNode; className?: string; i?: number }) {
   return (
-    <section className={cn("rounded-2xl bg-panel p-4 shadow-sm ring-1 ring-slate-200/80", className)}>
+    <section className={cn("ov-rise rounded-2xl bg-panel p-4 shadow-sm ring-1 ring-slate-200/80", className)} style={{ "--i": i } as React.CSSProperties}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         {right}
@@ -54,25 +57,68 @@ function Spark({ values }: { values: number[] }) {
   const pts = values.map((v, i) => `${((i / (values.length - 1)) * 88 + 1).toFixed(1)},${(25 - ((v - mn) / (mx - mn || 1)) * 22).toFixed(1)}`).join(" ");
   return (
     <svg width="60" height="20" viewBox="0 0 90 28" preserveAspectRatio="none" className="shrink-0 text-navy dark:text-sky-300" aria-hidden>
-      <polyline fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={pts} />
+      <polyline className="ov-draw" pathLength={1} fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={pts} />
     </svg>
   );
 }
 
-function Kpi({ label, value, delta, note, spark, tone, action }: { label: string; value: string; delta?: { pct: number | null; text?: string } | null; note?: string; spark?: number[]; tone?: "red" | "green"; action?: { label: string; onClick: () => void } }) {
+function Kpi({
+  label,
+  value,
+  num,
+  fmt,
+  delta,
+  note,
+  spark,
+  tone,
+  action,
+  onOpen,
+  flash,
+  badge,
+  i = 0,
+}: {
+  label: string;
+  value: string;
+  num?: number;
+  fmt?: (n: number) => string;
+  delta?: { pct: number | null; text?: string } | null;
+  note?: string;
+  spark?: number[];
+  tone?: "red" | "green";
+  action?: { label: string; onClick: () => void };
+  onOpen?: (el: HTMLElement) => void;
+  flash?: boolean;
+  badge?: string | null;
+  i?: number;
+}) {
   const up = (delta?.pct ?? 0) >= 0;
   return (
-    <div className="rounded-2xl bg-panel p-4 shadow-sm ring-1 ring-slate-200/80">
+    <div
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? `${label}: open details` : undefined}
+      onClick={onOpen ? (e) => onOpen(e.currentTarget) : undefined}
+      onKeyDown={onOpen ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen(e.currentTarget)) : undefined}
+      className={cn("ov-rise group/kpi relative rounded-2xl bg-panel p-4 shadow-sm ring-1 ring-slate-200/80", onOpen && "ov-lift cursor-pointer focus-visible:outline-2 focus-visible:outline-sky-400", flash && "ov-pulse")}
+      style={{ "--i": i } as React.CSSProperties}
+    >
       <div className="flex h-5 items-center justify-between gap-2">
         <div className="truncate text-[11px] font-semibold text-slate-500">{label}</div>
         {spark && <Spark values={spark} />}
         {action && (
-          <button type="button" onClick={action.onClick} className="shrink-0 rounded-md px-1.5 text-[11px] font-semibold text-navy hover:bg-slate-100 dark:text-sky-300">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              action.onClick();
+            }}
+            className="shrink-0 rounded-md px-1.5 text-[11px] font-semibold text-navy hover:bg-slate-100 dark:text-sky-300"
+          >
             {action.label}
           </button>
         )}
       </div>
-      <div className="mt-1 whitespace-nowrap text-[26px] font-bold leading-tight tracking-tight text-slate-900 tabular-nums">{value}</div>
+      <div className={cn("mt-1 whitespace-nowrap text-[26px] font-bold leading-tight tracking-tight text-slate-900 tabular-nums", flash && "ov-bump")}>{num != null && fmt ? <CountUp value={num} format={fmt} /> : value}</div>
       <div className="mt-1.5 text-[11.5px] leading-snug">
         {delta && delta.pct !== null && (
           <span className={cn("whitespace-nowrap font-semibold", up ? "text-emerald-600" : "text-red-600")}>
@@ -82,6 +128,12 @@ function Kpi({ label, value, delta, note, spark, tone, action }: { label: string
         {delta?.text && <span className="text-slate-400">{delta.text}</span>}
         {note && <span className={cn("font-semibold", tone === "red" ? "text-red-600" : tone === "green" ? "text-emerald-600" : "text-slate-500")}>{note}</span>}
       </div>
+      {onOpen && <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] font-semibold text-slate-400 opacity-0 transition-opacity group-hover/kpi:opacity-100">details ↗</span>}
+      {badge && (
+        <span key={badge} className="pointer-events-none absolute -top-2.5 right-3 rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-bold text-white" style={{ animation: "ov-toast-up 1.9s ease forwards" }}>
+          {badge}
+        </span>
+      )}
     </div>
   );
 }
@@ -90,13 +142,19 @@ type PackSide = { label: string; sub: string; n: number; urgent: number; split: 
 /** Packing at a glance: orders still to accept / arrange drop-off, and parcels waiting to be handed over. */
 function PackTile({ sides }: { sides: PackSide[] }) {
   return (
-    <div className="col-span-2 grid grid-cols-2 divide-x divide-slate-100 rounded-2xl bg-panel shadow-sm ring-1 ring-slate-200/80">
+    <div className="ov-rise col-span-2 grid grid-cols-2 divide-x divide-slate-100 rounded-2xl bg-panel shadow-sm ring-1 ring-slate-200/80" style={{ "--i": 2 } as React.CSSProperties}>
       {sides.map((x) => (
         <div key={x.label} className="flex min-w-0 flex-col p-4">
           <div className="text-[11px] font-semibold text-slate-500">{x.label}</div>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className={cn("text-[26px] font-bold leading-tight tracking-tight tabular-nums", x.urgent ? "text-red-600" : "text-slate-900")}>{x.n}</span>
-            <span className="truncate text-[11.5px] text-slate-500">{x.sub}</span>
+            <span className={cn("text-[26px] font-bold leading-tight tracking-tight tabular-nums", x.urgent ? "text-red-600" : "text-slate-900")}>
+              <CountUp value={x.n} format={(n) => String(Math.round(n))} />
+            </span>
+            {x.n === 0 ? (
+              <span className="ov-pop rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">All clear ✓</span>
+            ) : (
+              <span className="truncate text-[11.5px] text-slate-500">{x.sub}</span>
+            )}
           </div>
           <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11px] text-slate-500">
             {x.split.map((sp) => (
@@ -116,6 +174,68 @@ function PackTile({ sides }: { sides: PackSide[] }) {
       ))}
     </div>
   );
+}
+
+/** Chart hover card: that day's Shopee, Lazada and total (and the period before when comparing). */
+function ChartTip({ active, payload, label, cmp }: { active?: boolean; payload?: { dataKey?: string | number; value?: number | string | null }[]; label?: string | number; cmp?: boolean }) {
+  if (!active || !payload?.length) return null;
+  const v = (k: string) => Number(payload.find((p) => p.dataKey === k)?.value ?? 0);
+  const total = v("Shopee") + v("Lazada");
+  const prev = payload.find((p) => p.dataKey === "Prev")?.value;
+  return (
+    <div className="ov-pop min-w-[150px] rounded-xl bg-panel px-3 py-2 text-[11.5px] shadow-lg ring-1 ring-slate-200" style={{ animationDuration: "0.2s" }}>
+      <div className="mb-1 font-semibold text-slate-500">{label}</div>
+      <div className="flex justify-between gap-3">
+        <span className="flex items-center gap-1 text-slate-600">
+          <span className="h-2 w-2 rounded-full" style={{ background: SHOPEE }} /> Shopee
+        </span>
+        <b className="tabular-nums text-slate-900">{RM(v("Shopee"))}</b>
+      </div>
+      <div className="flex justify-between gap-3">
+        <span className="flex items-center gap-1 text-slate-600">
+          <span className="h-2 w-2 rounded-full" style={{ background: LAZADA }} /> Lazada
+        </span>
+        <b className="tabular-nums text-slate-900">{RM(v("Lazada"))}</b>
+      </div>
+      <div className="mt-1 flex justify-between gap-3 border-t border-slate-100 pt-1">
+        <span className="text-slate-600">Total</span>
+        <b className="tabular-nums text-slate-900">{RM(total)}</b>
+      </div>
+      {cmp && prev != null && (
+        <div className="flex justify-between gap-3 text-slate-500">
+          <span>Before</span>
+          <span className="tabular-nums">{RM(Number(prev))}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Smoothly moves list rows to their new places when the order changes (FLIP). */
+function useFlip(order: string) {
+  const els = useRef(new Map<string, HTMLElement>());
+  const tops = useRef(new Map<string, number>());
+  useLayoutEffect(() => {
+    const next = new Map<string, number>();
+    els.current.forEach((el, k) => {
+      const top = el.offsetTop;
+      next.set(k, top);
+      const was = tops.current.get(k);
+      if (was != null && was !== top && !reducedMotion()) {
+        el.style.transition = "none";
+        el.style.transform = `translateY(${was - top}px)`;
+        requestAnimationFrame(() => {
+          el.style.transition = "transform .55s cubic-bezier(.3,1.2,.5,1)";
+          el.style.transform = "";
+        });
+      }
+    });
+    tops.current = next;
+  }, [order]);
+  return (k: string) => (el: HTMLElement | null) => {
+    if (el) els.current.set(k, el);
+    else els.current.delete(k);
+  };
 }
 
 /** The redesigned Overview for live marketplace data: header, key numbers, chart, to-dos, money, stock and dates. */
@@ -166,7 +286,8 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
   const spark = days.slice(-14).map((d) => d.revenue);
   const sparkOrders = days.slice(-14).map((d) => d.orders);
   const chartDays = days.slice(range === "30" || range === "month" ? -30 : -14);
-  const chart = chartDays.map((d) => ({ date: d.date.slice(5).replace("-", "/"), Shopee: d.shopee ?? d.revenue, Lazada: d.lazada ?? 0 }));
+  const prevDays = days.length >= chartDays.length * 2 ? days.slice(-chartDays.length * 2, -chartDays.length) : null;
+  const chart = chartDays.map((d, i) => ({ date: d.date.slice(5).replace("-", "/"), Shopee: d.shopee ?? d.revenue, Lazada: d.lazada ?? 0, Prev: prevDays?.[i]?.revenue ?? null }));
   const profit = s.profit?.total ?? null;
   const lz = s.ads.lazada;
   const toShip = s.toPack.processed;
@@ -196,6 +317,29 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
     set({ dialog: "stock" });
   };
   const plats = (["shopee", "lazada"] as const).filter((p) => s.platforms?.[p]?.connected);
+
+  // ── motion: details sheet, live sale pulse, grow-in on open ──
+  const [detail, setDetail] = useState<{ kind: DetailKind; el: HTMLElement } | null>(null);
+  const saleFlash = useFlash(s.today.orders);
+  const prevOrders = useRef(s.today.orders);
+  const [saleBadge, setSaleBadge] = useState<string | null>(null);
+  useEffect(() => {
+    const d = s.today.orders - prevOrders.current;
+    prevOrders.current = s.today.orders;
+    if (d <= 0) return;
+    setSaleBadge(`+${d} order${d > 1 ? "s" : ""}`);
+    const t = setTimeout(() => setSaleBadge(null), 2000);
+    return () => clearTimeout(t);
+  }, [s.today.orders]);
+  const [grown, setGrown] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setGrown(true), 80);
+    return () => clearTimeout(t);
+  }, []);
+  const rangeSlider = useSlider<HTMLDivElement>(range);
+  const coSlider = useSlider<HTMLDivElement>(companyFilter);
+  const [cmp, setCmp] = useState(false);
+  const [bsView, setBsView] = useState<"all" | "shopee" | "lazada">("all");
 
   // ── needs attention ──
   const low = (levels ?? []).filter((l) => l.level === "low" || l.level === "out");
@@ -251,7 +395,8 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
     .filter((x): x is string => !!x)
     .sort()
     .at(-1);
-  const sellers = (s.bestSellers30d ?? []).slice(0, 5);
+  const sellers = ((bsView === "all" ? s.bestSellers30d : s.byPlatform?.[bsView]?.bestSellers30d) ?? []).slice(0, 5);
+  const flip = useFlip(sellers.map((x) => x.name).join("|"));
   const maxUnits = Math.max(1, ...sellers.map((x) => x.units));
   const recentReturns = (s.returns?.recent ?? []).slice(0, 3);
   const runway = (levels ?? []).filter((l) => l.daysLeft !== null || l.level === "out").sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0)).slice(0, 4);
@@ -259,6 +404,22 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
   return (
     <div id="ov-dash" className="space-y-3.5">
       <AdSpendDialog open={adsOpen} onOpenChange={setAdsOpen} syncedLazada={syncedLz} />
+      {detail && (
+        <ExpandSheet from={detail.el} onClose={() => setDetail(null)}>
+          <KpiDetail
+            kind={detail.kind}
+            s={s}
+            range={range}
+            cur={cur}
+            deltaText={prev && pct(cur.revenue, prev.revenue) != null ? `${(pct(cur.revenue, prev.revenue) ?? 0) >= 0 ? "▲" : "▼"} ${Math.abs(pct(cur.revenue, prev.revenue) ?? 0).toFixed(1)}% ${vs}` : null}
+            ads={{
+              total: adsTotal,
+              rows: AD_CHANNELS.map((c) => ({ label: c.label, color: c.color, value: c.id === "lazada" ? adPlat.lazada : (adMonth.byChannel[c.id] ?? 0) })).filter((r) => r.value > 0).sort((a, b) => b.value - a.value),
+            }}
+            onAddAds={() => setAdsOpen(true)}
+          />
+        </ExpandSheet>
+      )}
       {/* header */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="mr-2">
@@ -267,12 +428,14 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
           </div>
           <div className="text-xs text-slate-500">{now.toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kuala_Lumpur" })} · Malaysia time</div>
         </div>
-        <div className="inline-flex rounded-xl bg-slate-100 p-0.5 print:hidden">
+        <div ref={coSlider.ref} className="relative inline-flex rounded-xl bg-slate-100 p-0.5 print:hidden">
+          <SliderPill box={coSlider.box} className="rounded-lg bg-panel shadow-sm" />
           {[{ id: "all", name: "All" }, ...companies.filter((c) => c.active)].map((c) => (
             <button
               key={c.id}
+              data-active={companyFilter === c.id}
               onClick={() => set({ companyFilter: c.id })}
-              className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold", companyFilter === c.id ? "bg-panel text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800")}
+              className={cn("relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors", companyFilter === c.id ? "text-slate-900" : "text-slate-500 hover:text-slate-800")}
             >
               {c.name.replace(" Solution", "").replace(" Localization", "")}
             </button>
@@ -283,7 +446,8 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
             <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.2)]" />
             Live{lastSync ? ` · synced ${timeAgo(lastSync)}` : ""}
           </span>
-          <div className="inline-flex overflow-hidden rounded-xl bg-panel ring-1 ring-slate-200">
+          <div ref={rangeSlider.ref} className="relative inline-flex rounded-xl bg-panel p-0.5 ring-1 ring-slate-200">
+            <SliderPill box={rangeSlider.box} className="rounded-lg bg-navy" />
             {(
               [
                 ["today", "Today"],
@@ -292,7 +456,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
                 ["month", "Month"],
               ] as const
             ).map(([v, l]) => (
-              <button key={v} onClick={() => pick(v)} className={cn("px-3 py-1.5 text-xs font-semibold", range === v ? "bg-navy text-white" : "text-slate-600 hover:bg-slate-50")}>
+              <button key={v} data-active={range === v} onClick={() => pick(v)} className={cn("relative z-10 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors duration-300", range === v ? "text-white" : "text-slate-600 hover:text-slate-900")}>
                 {l}
               </button>
             ))}
@@ -322,8 +486,8 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
 
       {/* key numbers */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-        <Kpi label="Revenue" value={RM(cur.revenue)} delta={prev ? { pct: pct(cur.revenue, prev.revenue), text: vs } : null} spark={spark} />
-        <Kpi label="Orders" value={String(cur.orders)} delta={prev ? { pct: pct(cur.orders, prev.orders), text: vs } : null} note={cur.orders ? `${prev ? " · " : ""}AOV ${RM(cur.revenue / cur.orders)}` : undefined} spark={sparkOrders} />
+        <Kpi i={0} label="Revenue" value={RM(cur.revenue)} num={cur.revenue} fmt={RM} delta={prev ? { pct: pct(cur.revenue, prev.revenue), text: vs } : null} spark={spark} flash={saleFlash} onOpen={(el) => setDetail({ kind: "revenue", el })} />
+        <Kpi i={1} label="Orders" value={String(cur.orders)} num={cur.orders} fmt={(n) => String(Math.round(n))} delta={prev ? { pct: pct(cur.orders, prev.orders), text: vs } : null} note={cur.orders ? `${prev ? " · " : ""}AOV ${RM(cur.revenue / cur.orders)}` : undefined} spark={sparkOrders} flash={saleFlash} badge={saleBadge} onOpen={(el) => setDetail({ kind: "orders", el })} />
         <PackTile
           sides={[
             {
@@ -347,14 +511,22 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
           ]}
         />
         <Kpi
+          i={3}
           label="Net profit (month)"
           value={profit ? RM(profit.estProfit) : "—"}
+          num={profit ? profit.estProfit : undefined}
+          fmt={RM}
+          onOpen={(el) => setDetail({ kind: "profit", el })}
           note={profit ? (profit.margin !== null ? `${profit.margin.toFixed(1)}% margin${!s.profit?.costsEntered ? " · add product costs" : profit.costCoverage < 0.95 ? ` · ${Math.round(profit.costCoverage * 100)}% costed` : ""}` : "after fees & ads") : "needs payout data"}
           tone={profit && profit.estProfit > 0 ? "green" : undefined}
         />
         <Kpi
+          i={4}
           label="Ad spend · month"
           value={RM(adsTotal)}
+          num={adsTotal}
+          fmt={RM}
+          onOpen={(el) => setDetail({ kind: "ads", el })}
           note={adsNote}
           tone={s.ads.shopee && s.ads.shopee.balance < 30 ? "red" : undefined}
           action={{ label: "＋ Add", onClick: () => setAdsOpen(true) }}
@@ -364,9 +536,19 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
       {/* chart + to-dos */}
       <div className="grid gap-3.5 lg:grid-cols-[1.7fr_1fr]">
         <Card
+          i={5}
           title={`Sales · last ${chartDays.length} days`}
           right={
-            <span className="flex gap-3 text-[11px] text-slate-500">
+            <span className="flex items-center gap-3 text-[11px] text-slate-500">
+              <button
+                type="button"
+                disabled={!prevDays}
+                onClick={() => setCmp((v) => !v)}
+                title={prevDays ? "Show the period before as a dotted line" : "Not enough history yet"}
+                className={cn("rounded-full px-2 py-0.5 font-semibold ring-1 transition-colors disabled:opacity-40", cmp ? "bg-slate-800 text-white ring-slate-800 dark:bg-slate-200 dark:text-slate-900" : "text-slate-600 ring-slate-200 hover:bg-slate-50")}
+              >
+                vs before
+              </button>
               <span className="flex items-center gap-1">
                 <span className="h-2 w-2 rounded-sm" style={{ background: SHOPEE }} />
                 Shopee
@@ -394,27 +576,27 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
                 <CartesianGrid vertical={false} stroke="currentColor" className="text-slate-100" />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={24} />
                 <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))} />
-                <Tooltip formatter={(v) => RM(Number(v))} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
-                <Area type="monotone" dataKey="Lazada" stackId="1" stroke={LAZADA} strokeWidth={2} fill="url(#hqL)" />
-                <Area type="monotone" dataKey="Shopee" stackId="1" stroke={SHOPEE} strokeWidth={2} fill="url(#hqS)" />
+                <Tooltip cursor={{ stroke: "#94a3b8", strokeWidth: 1, strokeDasharray: "3 3" }} content={<ChartTip cmp={cmp} />} isAnimationActive animationDuration={180} />
+                <Area type="monotone" dataKey="Lazada" stackId="1" stroke={LAZADA} strokeWidth={2} fill="url(#hqL)" animationDuration={900} animationEasing="ease-out" activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }} />
+                <Area type="monotone" dataKey="Shopee" stackId="1" stroke={SHOPEE} strokeWidth={2} fill="url(#hqS)" animationDuration={900} animationEasing="ease-out" activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }} />
+                {cmp && prevDays && <Area type="monotone" dataKey="Prev" stroke="#94a3b8" strokeWidth={1.6} strokeDasharray="4 4" fill="none" animationDuration={700} dot={false} activeDot={false} />}
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </Card>
-        <Card title="Needs your attention" right={<Muted>{active.length ? `${active.length} item${active.length > 1 ? "s" : ""}` : ""}</Muted>}>
+        <Card i={6} title="Needs your attention" right={<Muted>{active.length ? `${active.length} item${active.length > 1 ? "s" : ""}` : ""}</Muted>}>
           {!active.length ? (
-            <div className="grid h-44 place-items-center text-center text-sm text-slate-500">
-              <div>
-                <div className="text-3xl">✅</div>
-                All clear — nothing waiting.
-              </div>
+            <div className="grid h-44 place-items-center">
+              <EmptyState kind="relax" text="All clear — nothing waiting." sub="Enjoy the quiet moment" />
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {active.map((x) => (
-                <button key={x.text} onClick={x.go} className="flex w-full items-center gap-3 py-2.5 text-left text-[13px] hover:bg-slate-50/60">
+              {active.map((x, i) => (
+                <button key={x.text} onClick={x.go} className="ov-rise flex w-full items-center gap-3 py-2.5 text-left text-[13px] transition-colors hover:bg-slate-50/60" style={{ "--i": i + 4 } as React.CSSProperties}>
                   <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-xl text-base", x.bg)}>{x.icon}</span>
-                  <span className="w-6 text-[15px] font-bold tabular-nums text-slate-900">{x.n}</span>
+                  <span className="w-6 text-[15px] font-bold tabular-nums text-slate-900">
+                    <CountUp value={x.n} format={(n) => String(Math.round(n))} />
+                  </span>
                   <span className="flex-1 text-slate-700">{x.text}</span>
                   <span className="flex items-center gap-0.5 text-xs font-bold text-navy dark:text-sky-300">
                     Open <ArrowRight className="h-3.5 w-3.5" />
@@ -429,6 +611,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
       {/* profit · best sellers · returns */}
       <div className="grid gap-3.5 md:grid-cols-3">
         <Card
+          i={7}
           title="Profit · month to date"
           right={
             <button type="button" onClick={openCosts} className="text-[11px] font-semibold text-navy hover:underline dark:text-sky-300">
@@ -447,14 +630,17 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
                   ["Product cost", -profit.productCost, "bg-orange-400", profit.gross - profit.fees - profit.productCost],
                   ["Ads", -profit.adSpend, "bg-amber-400", profit.estProfit],
                 ] as const
-              ).map(([label, v, color, start]) => {
+              ).map(([label, v, color, start], wi) => {
                 const w = Math.max(0.6, (Math.abs(v) / (profit.gross || 1)) * 100);
                 const left = label === "Sales" ? 0 : (Math.max(0, start) / (profit.gross || 1)) * 100;
                 return (
                   <div key={label} className="grid grid-cols-[110px_1fr_72px] items-center gap-2">
                     <span className="text-slate-600">{label}</span>
                     <div className="relative h-3">
-                      <div className={cn("absolute h-3 rounded", color)} style={{ left: `${left}%`, width: `${Math.min(w, 100 - left)}%` }} />
+                      <div
+                        className={cn("absolute h-3 origin-left rounded transition-transform duration-700 ease-[cubic-bezier(.2,.8,.2,1)]", color)}
+                        style={{ left: `${left}%`, width: `${Math.min(w, 100 - left)}%`, transform: `scaleX(${grown ? 1 : 0})`, transitionDelay: `${wi * 170}ms` }}
+                      />
                     </div>
                     <span className={cn("text-right tabular-nums", v < 0 ? "text-red-600" : "font-semibold text-slate-900")}>{v < 0 ? `−${Math.abs(v).toLocaleString("en-MY", { maximumFractionDigits: 0 })}` : v.toLocaleString("en-MY", { maximumFractionDigits: 0 })}</span>
                   </div>
@@ -463,7 +649,10 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
               <div className="grid grid-cols-[110px_1fr_72px] items-center gap-2 border-t border-slate-100 pt-2">
                 <b className="text-slate-900">Net profit</b>
                 <div className="relative h-3">
-                  <div className="absolute h-3 rounded bg-emerald-500" style={{ width: `${Math.max(0.6, Math.min(100, (Math.max(0, profit.estProfit) / (profit.gross || 1)) * 100))}%` }} />
+                  <div
+                    className="absolute h-3 origin-left rounded bg-emerald-500 transition-transform duration-700 ease-[cubic-bezier(.2,.8,.2,1)]"
+                    style={{ width: `${Math.max(0.6, Math.min(100, (Math.max(0, profit.estProfit) / (profit.gross || 1)) * 100))}%`, transform: `scaleX(${grown ? 1 : 0})`, transitionDelay: "700ms" }}
+                  />
                 </div>
                 <b className={cn("text-right tabular-nums", profit.estProfit >= 0 ? "text-emerald-600" : "text-red-600")}>{profit.estProfit.toLocaleString("en-MY", { maximumFractionDigits: 0 })}</b>
               </div>
@@ -487,13 +676,25 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
             </div>
           )}
         </Card>
-        <Card title="Best sellers · 30 days" right={<Muted>units</Muted>}>
+        <Card
+          i={8}
+          title="Best sellers · 30 days"
+          right={
+            <span className="inline-flex rounded-lg bg-slate-100 p-0.5 text-[10.5px] font-semibold">
+              {(["all", "shopee", "lazada"] as const).map((v) => (
+                <button key={v} type="button" onClick={() => setBsView(v)} className={cn("rounded-md px-1.5 py-0.5 transition-colors", bsView === v ? "bg-panel text-slate-900 shadow-sm" : "text-slate-500")}>
+                  {v === "all" ? "All" : v === "shopee" ? "Shopee" : "Lazada"}
+                </button>
+              ))}
+            </span>
+          }
+        >
           {!sellers.length ? (
             <p className="py-6 text-center text-xs text-slate-500">No sales in the last 30 days yet.</p>
           ) : (
             <div className="space-y-2.5">
               {sellers.map((p) => (
-                <div key={p.name} className="text-[12.5px]">
+                <div key={p.name} ref={flip(p.name)} className="text-[12.5px]">
                   <div className="flex items-baseline gap-2">
                     <span className="min-w-0 flex-1 truncate text-slate-800" title={p.name}>
                       {p.name}
@@ -502,14 +703,14 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
                     <span className="w-20 text-right font-medium tabular-nums text-slate-900">{RM(p.revenue)}</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-navy dark:bg-sky-400" style={{ width: `${(p.units / maxUnits) * 100}%` }} />
+                    <div className="h-full rounded-full bg-navy transition-[width] duration-700 ease-[cubic-bezier(.2,.8,.2,1)] dark:bg-sky-400" style={{ width: grown ? `${(p.units / maxUnits) * 100}%` : "0%" }} />
                   </div>
                 </div>
               ))}
             </div>
           )}
         </Card>
-        <Card title="Returns & cancellations" right={s.returns?.open ? <Chip tone="amber">{s.returns.open} open</Chip> : <Chip tone="green">none open</Chip>}>
+        <Card i={9} title="Returns & cancellations" right={s.returns?.open ? <Chip tone="amber">{s.returns.open} open</Chip> : <Chip tone="green">none open</Chip>}>
           <div className="divide-y divide-slate-100 text-[12.5px]">
             {recentReturns.map((r) => (
               <div key={`${r.platform}${r.id}`} className="flex items-start gap-2 py-2">
@@ -545,6 +746,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
       {/* target · payouts · stock · coming up */}
       <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-[1.1fr_1fr_1fr_1.15fr]">
         <Card
+          i={10}
           title={`${now.toLocaleDateString("en-MY", { month: "long", timeZone: "Asia/Kuala_Lumpur" })} target`}
           right={
             target ? (
@@ -572,14 +774,42 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
             <div className="flex items-center gap-4">
               <svg width="96" height="96" viewBox="0 0 100 100" className="shrink-0" aria-hidden>
                 <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="11" className="text-slate-100" />
-                <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="11" strokeLinecap="round" className="text-navy dark:text-sky-400" strokeDasharray={`${tPct * 238.8} 238.8`} transform="rotate(-90 50 50)" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="38"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="11"
+                  strokeLinecap="round"
+                  className="text-navy dark:text-sky-400"
+                  strokeDasharray={`${(grown ? tPct : 0) * 238.8} 238.8`}
+                  style={{ transition: "stroke-dasharray 1.3s cubic-bezier(.2,.8,.2,1)" }}
+                  transform="rotate(-90 50 50)"
+                />
                 <circle cx="50" cy="50" r="38" fill="none" stroke="#93c5fd" strokeWidth="4" strokeDasharray={`1.6 238.8`} strokeDashoffset={-(Math.min(1, expected / target) * 238.8)} transform="rotate(-90 50 50)" />
+                {[0.25, 0.5, 0.75].map((m) => {
+                  const a = -Math.PI / 2 + m * Math.PI * 2;
+                  const x = 50 + 38 * Math.cos(a);
+                  const y = 50 + 38 * Math.sin(a);
+                  const passed = tPct >= m;
+                  return (
+                    <g key={m}>
+                      {passed && <circle cx={x} cy={y} r="7" fill="#fde68a" style={{ transformOrigin: `${x}px ${y}px`, animation: `ov-shine 0.9s ${0.6 + m * 1.2}s ease-out both` }} />}
+                      <circle cx={x} cy={y} r="3.4" fill={passed ? "#fbbf24" : "#ffffff"} stroke={passed ? "#ffffff" : "#cbd5e1"} strokeWidth="1.4">
+                        <title>{Math.round(m * 100)}% milestone</title>
+                      </circle>
+                    </g>
+                  );
+                })}
                 <text x="50" y="56" textAnchor="middle" fontSize="19" fontWeight="800" fill="currentColor" className="text-slate-900">
-                  {Math.round((monthRev / target) * 100)}%
+                  <CountUp value={Math.round((monthRev / target) * 100)} format={(n) => `${Math.round(n)}%`} ms={1300} />
                 </text>
               </svg>
               <div className="min-w-0 text-[12.5px] leading-relaxed">
-                <div className="text-xl font-bold tabular-nums text-slate-900">{RM(monthRev)}</div>
+                <div className="text-xl font-bold tabular-nums text-slate-900">
+                  <CountUp value={monthRev} format={RM} ms={1300} />
+                </div>
                 <div className="text-slate-500">
                   of {RM(target)}{" "}
                   <button onClick={() => setEditTarget(true)} className="align-middle text-slate-400 hover:text-slate-700" aria-label="Change target">
@@ -597,6 +827,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
           )}
         </Card>
         <Card
+          i={11}
           title="Payouts · month to date"
           right={
             <button type="button" onClick={() => set({ dialog: "payouts" })} className="text-[11px] font-semibold text-navy hover:underline dark:text-sky-300">
@@ -639,9 +870,16 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
             </div>
           )}
         </Card>
-        <Card title="Stock runway" right={<Muted>days left</Muted>}>
+        <Card i={12} title="Stock runway" right={<Muted>days left</Muted>}>
           {levels === null ? (
-            <p className="py-6 text-center text-xs text-slate-500">Loading…</p>
+            <div className="space-y-3 py-2">
+              {[0, 1, 2].map((k) => (
+                <div key={k} className="space-y-1.5">
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-1.5 w-full" />
+                </div>
+              ))}
+            </div>
           ) : !runway.length ? (
             <div className="py-5 text-center text-xs text-slate-500">
               Count your stock once to see how many days it lasts.
@@ -662,7 +900,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-slate-800">{l.name}</div>
                       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                        <div className={cn("h-full rounded-full", bar)} style={{ width: `${Math.min(100, (d / 30) * 100)}%` }} />
+                        <div className={cn("h-full rounded-full transition-[width,background-color] duration-1000 ease-out", bar)} style={{ width: grown ? `${Math.min(100, (d / 30) * 100)}%` : "100%" }} />
                       </div>
                     </div>
                     <b className={cn("w-10 text-right tabular-nums", tone)}>{l.level === "out" ? "out" : `${Math.round(d)} d`}</b>
@@ -674,7 +912,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
                           } catch {}
                           set({ dialog: "stock" });
                         }}
-                        className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", d < 7 ? "bg-navy text-white" : "bg-slate-100 text-slate-700")}
+                        className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", d < 7 ? "ov-glow-red bg-navy text-white" : "bg-slate-100 text-slate-700")}
                       >
                         Reorder
                       </button>
@@ -685,7 +923,7 @@ export function DashboardHQ({ s, quickRefresh }: { s: LiveSummary; quickRefresh:
             </div>
           )}
         </Card>
-        <Card title="Coming up">
+        <Card i={13} title="Coming up">
           <div className="divide-y divide-slate-100 text-[12.5px]">
             {coming.map((c) => (
               <button key={c.title} onClick={c.go} disabled={!c.go} className="flex w-full items-center gap-2 py-2 text-left disabled:cursor-default">

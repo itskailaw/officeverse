@@ -252,6 +252,8 @@ export interface OfficeSettings {
   costRecipes?: import("./costs").CostRecipes;
   /** ad spend keyed in by hand (any channel) */
   adSpend?: import("./ads").AdEntry[];
+  /** soft sounds for new orders / target reached (off by default) */
+  sounds?: boolean;
   /** Farid (Order Processing Executive) arranges drop-off for new paid orders automatically */
   autoArrange?: { enabled: boolean; start: string; end: string };
   /** reviewer track record: deliberate test mistakes caught, and mistakes the CEO reported as missed */
