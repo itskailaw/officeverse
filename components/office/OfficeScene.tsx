@@ -13,6 +13,33 @@ import type { FurnitureItem, LightingMode, Room } from "@/lib/data/types";
 import { CATALOG, sizeOf } from "@/lib/office/catalog";
 import { CEO_DESK_ID, MEETING_TABLE_ID, OFFICE_D, OFFICE_W, ROOMS } from "@/lib/office/layout";
 import { getSim } from "@/lib/office/runtime";
+import { OfficeFx } from "./OfficeFx";
+import { useOfficeFx, reducedMotion } from "@/lib/motion";
+
+/** A number that steps towards its new value about 10 times (each step redraws a screen texture). */
+function useSteppedValue(target: number, steps = 10, ms = 1200) {
+  const [v, setV] = useState(target);
+  const cur = useRef(target);
+  useEffect(() => {
+    const from = cur.current;
+    if (from === target || reducedMotion()) {
+      cur.current = target;
+      setV(target);
+      return;
+    }
+    let i = 0;
+    const t = setInterval(() => {
+      i++;
+      const k = i / steps;
+      const val = i >= steps ? target : Math.round(from + (target - from) * (1 - Math.pow(1 - k, 2)));
+      cur.current = val;
+      setV(val);
+      if (i >= steps) clearInterval(t);
+    }, ms / steps);
+    return () => clearInterval(t);
+  }, [target, steps, ms]);
+  return v;
+}
 import { resolveLighting } from "@/lib/office/lighting";
 import { departmentColor } from "@/lib/data/brand";
 import { useLive } from "@/lib/integrations/client";
@@ -283,6 +310,7 @@ function CameraRig() {
     w.__ovUI = useUI;
     w.__ovWeather = useWeather;
     w.__ovMoments = useMoments;
+    w.__ovFx = useOfficeFx;
     w.__ovProject = (x: number, y: number, z: number) => {
       const v = new THREE.Vector3(x, y, z).project(camera);
       return { x: ((v.x + 1) / 2) * size.width, y: ((1 - v.y) / 2) * size.height };
@@ -399,7 +427,17 @@ function FurnitureLayer({ night, brands }: { night: boolean; brands: Record<stri
   const frames = useMemo(() => [f0, f1, f2], [f0, f1, f2]);
 
   const liveSummary = useLive((x) => x.summary);
-  const perfTex = useMemo(() => perfScreenTexture(settings.demoMode, liveSummary), [settings.demoMode, liveSummary]);
+  // the sales screen counts up to the new revenue in a few steps, and flashes for a big order
+  const tvRev = useSteppedValue(liveSummary?.today.revenue ?? 0);
+  const tvFlashAt = useOfficeFx((x) => x.tvFlashAt);
+  const [tvFlash, setTvFlash] = useState(false);
+  useEffect(() => {
+    if (!tvFlashAt) return;
+    setTvFlash(true);
+    const t = setTimeout(() => setTvFlash(false), 2600);
+    return () => clearTimeout(t);
+  }, [tvFlashAt]);
+  const perfTex = useMemo(() => perfScreenTexture(settings.demoMode, liveSummary, { revenue: tvRev, flash: tvFlash }), [settings.demoMode, liveSummary, tvRev, tvFlash]);
   // the CEO's own monitor: same data, redrawn every 30 s so the clock moves
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -788,6 +826,7 @@ export default function OfficeScene() {
         <Agents />
         <FestiveDecor night={night} />
         <BirthdayDecor />
+        <OfficeFx />
         <InteractionPlane />
         <Labels />
       </Suspense>

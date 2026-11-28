@@ -82,15 +82,22 @@ function ago(iso: string | null) {
 }
 
 /** CEO office performance wall: live Shopee data when connected, else labelled demo data or "unavailable". */
-export function perfScreenTexture(demoMode: boolean, live?: LiveSummary | null) {
+/** `tick`: the revenue figure shown while it counts up; `flash`: big-order highlight. */
+export function perfScreenTexture(demoMode: boolean, live?: LiveSummary | null, opts?: { revenue?: number; flash?: boolean }) {
   return makeScreenTexture((g, w) => {
     header(g, w, "Business Performance", "Water Guardian Solution · MYR · Asia/Kuala_Lumpur");
     if (live) {
       const sources = liveSources(live).toUpperCase();
       pill(g, w - 40, 44, `LIVE · ${sources}`, "#10b981", "#ffffff");
       const urgent = (n?: number) => (n ? `  (${n} urgent)` : "");
+      if (opts?.flash) {
+        g.strokeStyle = "#fbbf24";
+        g.lineWidth = 14;
+        g.strokeRect(7, 7, w - 14, 562);
+        pill(g, w - 40, 96, "★ BIG ORDER", "#fbbf24", "#111827");
+      }
       drawKpis(g, [
-        ["Revenue today", formatMYR(live.today.revenue)],
+        ["Revenue today", formatMYR(opts?.revenue ?? live.today.revenue)],
         ["To process", `${live.toPack.readyToShip}${urgent(live.toPack.urgentToProcess)}`],
         ["To ship", `${live.toPack.processed}${urgent(live.toPack.urgentToShip)}`],
       ]);

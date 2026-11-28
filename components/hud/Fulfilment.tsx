@@ -1,5 +1,6 @@
 "use client";
 
+import { useOfficeFx } from "@/lib/motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, ClipboardCheck, Loader2, Mail, PackageCheck, Printer, RefreshCw, Send, XCircle } from "lucide-react";
 import { useUI } from "@/lib/store/ui-store";
@@ -667,6 +668,7 @@ export function Fulfilment() {
         if (tab) tab.location.href = url;
         else window.location.assign(url);
         useOffice.getState().recordAudit("print_labels", "order", null, `Airway bills: ${orders.map((o) => `${NAME[o.platform]} ${o.id}`).join(", ")}`);
+        useOfficeFx.getState().parcelRun(orders.length);
         return r.headers.get("X-OV-Separate") as Plat | null;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
